@@ -316,10 +316,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
     final asyncSuggestions = ref.watch(offsetSuggestionsProvider(widget.groupId));
 
     return asyncGroup.when(
-      loading: () => Scaffold(
-        appBar: AppBar(backgroundColor: Colors.transparent),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const SplitUpLoadingView(message: 'Loading group details...'),
       error: (err, _) => Scaffold(
         appBar: AppBar(backgroundColor: Colors.transparent),
         body: Center(child: Text('Error: $err', style: TextStyle(color: colors.accentOwe))),
@@ -511,7 +508,12 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
         ),
         const SizedBox(height: 12),
         asyncExpenses.when(
-          loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
+          loading: () => const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: SplitUpLoadingAnimation(size: 36),
+            ),
+          ),
           error: (err, _) => Text('Error loading expenses: $err', style: TextStyle(color: colors.accentOwe)),
           data: (expenses) {
             final groupExpenses = expenses.where((e) => e.ledgerId == group.id).toList();

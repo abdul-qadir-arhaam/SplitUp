@@ -58,7 +58,12 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
         child: SafeArea(
           bottom: false,
           child: asyncTrips.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: SplitUpLoadingAnimation(message: 'Loading trips...'),
+              ),
+            ),
             error: (err, _) => Center(
               child: Text(
                 'Error loading trips: $err',
@@ -68,76 +73,94 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
             data: (allTrips) {
               final trips = allTrips.where((t) => t.isCompleted == _showCompleted).toList();
 
-              return ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                children: [
-                  // Active / Completed Segments
-                  SegmentedControl<bool>(
-                    values: const [false, true],
-                    labels: const ['Active Trips', 'Completed Trips'],
-                    selected: _showCompleted,
-                    onSelected: (val) => setState(() => _showCompleted = val),
-                  ),
-                  const SizedBox(height: 16),
-
-                  if (trips.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceFlat,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: colors.divider),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            _showCompleted ? Icons.task_alt_rounded : Icons.flight_takeoff_rounded,
-                            size: 48,
-                            color: colors.textMuted,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _showCompleted ? 'No completed trips yet' : 'No active trips',
-                            style: SplitUpTypography.title(color: colors.textPrimary),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _showCompleted
-                              ? 'Trips you mark as completed will appear here.'
-                              : 'Create a time-boxed trip ledger with a custom budget.',
-                            textAlign: TextAlign.center,
-                            style: SplitUpTypography.caption(color: colors.textMuted),
-                          ),
-                          if (!_showCompleted) ...[
-                            const SizedBox(height: 16),
-                            PrimaryButton(
-                              label: 'Create Trip',
-                              icon: Icons.add,
-                              onPressed: () => context.push('/trips/create'),
-                            ),
-                          ],
-                        ],
+              return RefreshIndicator(
+                color: colors.accentReceive,
+                backgroundColor: colors.surfaceFlatRaised,
+                onRefresh: () async {
+                  ref.invalidate(tripsNotifierProvider);
+                  await Future.delayed(const Duration(milliseconds: 350));
+                },
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  children: [
+                    // Active / Completed Segments
+                    FadeSlideEntrance(
+                      offset: const Offset(0.0, -0.04),
+                      child: SegmentedControl<bool>(
+                        values: const [false, true],
+                        labels: const ['Active Trips', 'Completed Trips'],
+                        selected: _showCompleted,
+                        onSelected: (val) => setState(() => _showCompleted = val),
                       ),
                     ),
+                    const SizedBox(height: 16),
 
-                  ...trips.map((trip) {
-                    final meter = trip.budgetMeter ??
-                        TripsRepository.computeBudgetMeter(
-                          trip.budgetPaise,
-                          trip.totalSpentPaise,
-                          trip.startDate,
-                          trip.endDate,
-                        );
-                    final pct = meter.spentPercent.toStringAsFixed(1);
-                    final meterColor = _getMeterColor(meter.spentPercent, colors);
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceFlat,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: colors.divider),
+                    if (trips.isEmpty)
+                      FadeSlideEntrance(
+                        delay: const Duration(milliseconds: 60),
+                        child: Container(
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceFlat,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: colors.divider),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                _showCompleted ? Icons.task_alt_rounded : Icons.flight_takeoff_rounded,
+                                size: 48,
+                                color: colors.textMuted,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _showCompleted ? 'No completed trips yet' : 'No active trips',
+                                style: SplitUpTypography.title(color: colors.textPrimary),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _showCompleted
+                                  ? 'Trips you mark as completed will appear here.'
+                                  : 'Create a time-boxed trip ledger with a custom budget.',
+                                textAlign: TextAlign.center,
+                                style: SplitUpTypography.caption(color: colors.textMuted),
+                              ),
+                              if (!_showCompleted) ...[
+                                const SizedBox(height: 16),
+                                PrimaryButton(
+                                  label: 'Create Trip',
+                                  icon: Icons.add,
+                                  onPressed: () => context.push('/trips/create'),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
+
+                    ...trips.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final trip = entry.value;
+                      final meter = trip.budgetMeter ??
+                          TripsRepository.computeBudgetMeter(
+                            trip.budgetPaise,
+                            trip.totalSpentPaise,
+                            trip.startDate,
+                            trip.endDate,
+                          );
+                      final pct = meter.spentPercent.toStringAsFixed(1);
+                      final meterColor = _getMeterColor(meter.spentPercent, colors);
+
+                      return FadeSlideEntrance(
+                        delay: Duration(milliseconds: 60 * idx),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceFlat,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(color: colors.divider),
+                          ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(22),
                         onTap: () => context.push('/trips/${trip.id}'),
@@ -224,12 +247,14 @@ class _TripsScreenState extends ConsumerState<TripsScreen> {
                           ),
                         ),
                       ),
-                    );
-                  }),
-                  const SizedBox(height: 100),
-                ],
-              );
-            },
+                    ),
+                  );
+                }),
+                const SizedBox(height: 100),
+              ],
+            ),
+          );
+        },
           ),
         ),
       ),

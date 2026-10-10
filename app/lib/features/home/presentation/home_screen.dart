@@ -40,69 +40,82 @@ class HomeScreen extends ConsumerWidget {
       body: AppBackground(
         child: SafeArea(
           bottom: false,
-          child: CustomScrollView(
-            slivers: [
-              // Top Bar with Notifications Bell
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+          child: RefreshIndicator(
+            color: colors.accentReceive,
+            backgroundColor: colors.surfaceFlatRaised,
+            onRefresh: () async {
+              ref.invalidate(friendsNotifierProvider);
+              await Future.delayed(const Duration(milliseconds: 350));
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              slivers: [
+                // Top Bar with Notifications Bell
+                SliverToBoxAdapter(
+                  child: FadeSlideEntrance(
+                    offset: const Offset(0.0, -0.04),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'SplitUp',
-                            style: SplitUpTypography.headline(color: colors.textPrimary),
-                          ),
-                          Text(
-                            'Hey, ${MockDataRepository.currentUser.name}',
-                            style: SplitUpTypography.label(color: colors.textSecondary),
-                          ),
-                        ],
-                      ),
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.notifications_outlined, color: colors.textPrimary, size: 26),
-                            onPressed: () => context.push('/notifications'),
-                          ),
-                          if (unreadCount > 0)
-                            Positioned(
-                              right: 8,
-                              top: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: colors.accentReceive,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  unreadCount > 9 ? '9+' : '$unreadCount',
-                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'SplitUp',
+                                style: SplitUpTypography.headline(color: colors.textPrimary),
                               ),
-                            ),
+                              Text(
+                                'Hey, ${MockDataRepository.currentUser.name}',
+                                style: SplitUpTypography.label(color: colors.textSecondary),
+                              ),
+                            ],
+                          ),
+                          Stack(
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.notifications_outlined, color: colors.textPrimary, size: 26),
+                                onPressed: () => context.push('/notifications'),
+                              ),
+                              if (unreadCount > 0)
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: colors.accentReceive,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      unreadCount > 9 ? '9+' : '$unreadCount',
+                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
 
-              // Hero Balance Card
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  child: GlassCard(
-                    strong: true,
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'TOTAL NET BALANCE',
+                // Hero Balance Card
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: FadeSlideEntrance(
+                      delay: const Duration(milliseconds: 80),
+                      child: GlassCard(
+                        strong: true,
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'TOTAL NET BALANCE',
                           style: SplitUpTypography.caption(color: colors.textMuted).copyWith(
                             letterSpacing: 1.1,
                             fontWeight: FontWeight.w700,
@@ -174,43 +187,54 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+            ),
 
               // Friends Ledger Header with Add Friend Action
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Friends',
-                            style: SplitUpTypography.title(color: colors.textPrimary),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '(${friends.length})',
-                            style: SplitUpTypography.label(color: colors.textMuted),
-                          ),
-                        ],
-                      ),
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          foregroundColor: colors.accentReceive,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: FadeSlideEntrance(
+                  delay: const Duration(milliseconds: 120),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Friends',
+                              style: SplitUpTypography.title(color: colors.textPrimary),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '(${friends.length})',
+                              style: SplitUpTypography.label(color: colors.textMuted),
+                            ),
+                          ],
                         ),
-                        onPressed: () => AddFriendSheet.show(context),
-                        icon: const Icon(Icons.person_add_rounded, size: 18),
-                        label: const Text('Add Friend'),
-                      ),
-                    ],
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: colors.accentReceive,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          ),
+                          onPressed: () => AddFriendSheet.show(context),
+                          icon: const Icon(Icons.person_add_rounded, size: 18),
+                          label: const Text('Add Friend'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
 
               // Friends List or Empty State
-              if (friends.isEmpty)
+              if (asyncFriends.isLoading && friends.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: SplitUpSkeletonList(count: 4),
+                  ),
+                )
+              else if (friends.isEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(32),
@@ -237,13 +261,15 @@ class HomeScreen extends ConsumerWidget {
                         final item = friends[index];
                         final isOwe = item.netPaise < 0;
 
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: colors.surfaceFlat,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: colors.divider),
-                          ),
+                        return FadeSlideEntrance(
+                          delay: Duration(milliseconds: 140 + (index < 6 ? index * 35 : 210)),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceFlat,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: colors.divider),
+                            ),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(18),
                             onTap: () => context.push('/friend/${item.id}'),
@@ -320,8 +346,9 @@ class HomeScreen extends ConsumerWidget {
                               ),
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      );
+                    },
                       childCount: friends.length,
                     ),
                   ),
@@ -334,6 +361,7 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       ),
+    ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: colors.accentReceive,
         foregroundColor: Colors.white,

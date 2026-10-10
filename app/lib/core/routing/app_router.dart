@@ -22,6 +22,64 @@ import '../theme/colors.dart';
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
 
+Page<dynamic> _buildPageWithTransition({
+  required GoRouterState state,
+  required Widget child,
+  bool slideUp = false,
+  bool isTab = false,
+}) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: Duration(milliseconds: isTab ? 260 : 340),
+    reverseTransitionDuration: Duration(milliseconds: isTab ? 220 : 280),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final curve = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      );
+
+      if (isTab) {
+        return FadeTransition(
+          opacity: Tween<double>(begin: 0.0, end: 1.0).animate(curve),
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.0, 0.04),
+              end: Offset.zero,
+            ).animate(curve),
+            child: child,
+          ),
+        );
+      }
+
+      if (slideUp) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.0, 0.22),
+            end: Offset.zero,
+          ).animate(curve),
+          child: FadeTransition(
+            opacity: Tween<double>(begin: 0.0, end: 1.0).animate(curve),
+            child: child,
+          ),
+        );
+      }
+
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.16, 0.0),
+          end: Offset.zero,
+        ).animate(curve),
+        child: FadeTransition(
+          opacity: Tween<double>(begin: 0.0, end: 1.0).animate(curve),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
 GoRouter createAppRouter({
   required ThemeMode currentThemeMode,
   required ValueChanged<ThemeMode> onThemeModeChanged,
@@ -33,20 +91,31 @@ GoRouter createAppRouter({
       // Auth routes (outside shell)
       GoRoute(
         path: '/welcome',
-        builder: (context, state) => const WelcomeScreen(),
+        pageBuilder: (context, state) => _buildPageWithTransition(
+          state: state,
+          child: const WelcomeScreen(),
+          slideUp: true,
+        ),
       ),
       GoRoute(
         path: '/phone-otp',
-        builder: (context, state) => const PhoneOtpScreen(),
+        pageBuilder: (context, state) => _buildPageWithTransition(
+          state: state,
+          child: const PhoneOtpScreen(),
+          slideUp: true,
+        ),
       ),
       GoRoute(
         path: '/welcome-back',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra as Map<String, dynamic>?;
-          return MergeExplainerScreen(
-            expenseCount: extra?['expenseCount'] as int? ?? 3,
-            totalPaise: extra?['totalPaise'] as int? ?? 185000,
-            inviterName: extra?['inviterName'] as String? ?? 'Your friends',
+          return _buildPageWithTransition(
+            state: state,
+            child: MergeExplainerScreen(
+              expenseCount: extra?['expenseCount'] as int? ?? 3,
+              totalPaise: extra?['totalPaise'] as int? ?? 185000,
+              inviterName: extra?['inviterName'] as String? ?? 'Your friends',
+            ),
           );
         },
       ),
@@ -60,21 +129,37 @@ GoRouter createAppRouter({
         routes: [
           GoRoute(
             path: '/home',
-            builder: (context, state) => const HomeScreen(),
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              state: state,
+              child: const HomeScreen(),
+              isTab: true,
+            ),
           ),
           GoRoute(
             path: '/groups',
-            builder: (context, state) => const GroupsScreen(),
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              state: state,
+              child: const GroupsScreen(),
+              isTab: true,
+            ),
           ),
           GoRoute(
             path: '/trips',
-            builder: (context, state) => const TripsScreen(),
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              state: state,
+              child: const TripsScreen(),
+              isTab: true,
+            ),
           ),
           GoRoute(
             path: '/profile',
-            builder: (context, state) => ProfileScreen(
-              currentThemeMode: currentThemeMode,
-              onThemeModeChanged: onThemeModeChanged,
+            pageBuilder: (context, state) => _buildPageWithTransition(
+              state: state,
+              child: ProfileScreen(
+                currentThemeMode: currentThemeMode,
+                onThemeModeChanged: onThemeModeChanged,
+              ),
+              isTab: true,
             ),
           ),
         ],
@@ -84,15 +169,18 @@ GoRouter createAppRouter({
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/friend/:id',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return FriendDetailScreen(friendId: id);
+          return _buildPageWithTransition(
+            state: state,
+            child: FriendDetailScreen(friendId: id),
+          );
         },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/add-expense',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final friendId = state.uri.queryParameters['friendId'];
           final initialLedgerId = state.uri.queryParameters['ledgerId'];
           final friendIdsParam = state.uri.queryParameters['friendIds'];
@@ -100,61 +188,88 @@ GoRouter createAppRouter({
               ? friendIdsParam.split(',')
               : null;
           final extra = state.extra as Map<String, dynamic>?;
-          return AddExpenseScreen(
-            friendId: friendId ?? extra?['friendId'],
-            initialLedgerId: initialLedgerId ?? extra?['initialLedgerId'],
-            friendIds: friendIds ?? (extra?['friendIds'] as List<String>?),
-            initialMembers: extra?['initialMembers'] as List<Map<String, dynamic>>?,
-            existingExpense: extra?['existingExpense'] as ExpenseModel?,
+          return _buildPageWithTransition(
+            state: state,
+            child: AddExpenseScreen(
+              friendId: friendId ?? extra?['friendId'],
+              initialLedgerId: initialLedgerId ?? extra?['initialLedgerId'],
+              friendIds: friendIds ?? (extra?['friendIds'] as List<String>?),
+              initialMembers: extra?['initialMembers'] as List<Map<String, dynamic>>?,
+              existingExpense: extra?['existingExpense'] as ExpenseModel?,
+            ),
+            slideUp: true,
           );
         },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/groups/create',
-        builder: (context, state) => const CreateGroupScreen(),
+        pageBuilder: (context, state) => _buildPageWithTransition(
+          state: state,
+          child: const CreateGroupScreen(),
+          slideUp: true,
+        ),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/groups/:id',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return GroupDetailScreen(groupId: id);
+          return _buildPageWithTransition(
+            state: state,
+            child: GroupDetailScreen(groupId: id),
+          );
         },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/groups/:id/graph',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return GroupSettleGraphScreen(groupId: id);
+          return _buildPageWithTransition(
+            state: state,
+            child: GroupSettleGraphScreen(groupId: id),
+          );
         },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/trips/create',
-        builder: (context, state) => const CreateTripScreen(),
+        pageBuilder: (context, state) => _buildPageWithTransition(
+          state: state,
+          child: const CreateTripScreen(),
+          slideUp: true,
+        ),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/trips/:id',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return TripDetailScreen(tripId: id);
+          return _buildPageWithTransition(
+            state: state,
+            child: TripDetailScreen(tripId: id),
+          );
         },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/trips/:id/graph',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return TripSettleGraphScreen(tripId: id);
+          return _buildPageWithTransition(
+            state: state,
+            child: TripSettleGraphScreen(tripId: id),
+          );
         },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/notifications',
-        builder: (context, state) => const NotificationsScreen(),
+        pageBuilder: (context, state) => _buildPageWithTransition(
+          state: state,
+          child: const NotificationsScreen(),
+        ),
       ),
     ],
   );
@@ -197,7 +312,27 @@ class ScaffoldWithBottomNavBar extends StatelessWidget {
     final selectedIndex = _calculateSelectedIndex(context);
 
     return Scaffold(
-      body: child,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 260),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (tabChild, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.0, 0.035),
+                end: Offset.zero,
+              ).animate(animation),
+              child: tabChild,
+            ),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey(selectedIndex),
+          child: child,
+        ),
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: colors.surfaceFlat.withValues(alpha: 0.95),
@@ -278,24 +413,40 @@ class _NavBarItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      child: Padding(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? activeColor.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: isSelected ? activeColor : inactiveColor,
-              size: 22,
+            AnimatedScale(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutBack,
+              scale: isSelected ? 1.12 : 1.0,
+              child: Icon(
+                isSelected ? activeIcon : icon,
+                color: isSelected ? activeColor : inactiveColor,
+                size: 22,
+              ),
             ),
             const SizedBox(height: 3),
-            Text(
-              label,
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
               style: TextStyle(
                 color: isSelected ? activeColor : inactiveColor,
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                letterSpacing: 0.2,
               ),
+              child: Text(label),
             ),
           ],
         ),

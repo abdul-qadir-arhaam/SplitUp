@@ -254,10 +254,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
     final dashboardData = ref.watch(tripDashboardProvider(widget.tripId));
 
     return asyncTrip.when(
-      loading: () => Scaffold(
-        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-        body: const Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const SplitUpLoadingView(message: 'Loading trip details...'),
       error: (e, _) => Scaffold(
         appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
         body: Center(child: Text('Error: $e')),

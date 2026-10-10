@@ -136,7 +136,12 @@ class _SelectFriendsSheetState extends ConsumerState<SelectFriendsSheet> {
           // Friends List
           Expanded(
             child: asyncFriends.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: SplitUpLoadingAnimation(size: 36),
+                ),
+              ),
               error: (err, _) => Center(
                 child: Text('Error loading friends: $err', style: TextStyle(color: colors.accentOwe)),
               ),

@@ -52,7 +52,12 @@ class NotificationsScreen extends ConsumerWidget {
       body: AppBackground(
         child: SafeArea(
           child: asyncNotifs.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: SplitUpLoadingAnimation(message: 'Loading notifications...'),
+              ),
+            ),
             error: (e, _) => Center(child: Text('Error: $e')),
             data: (items) {
               if (items.isEmpty) {

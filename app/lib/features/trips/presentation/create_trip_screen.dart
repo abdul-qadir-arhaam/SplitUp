@@ -429,7 +429,12 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     }).toList(),
                   );
                 },
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: SplitUpLoadingAnimation(size: 32),
+                  ),
+                ),
                 error: (e, _) => Text('Error loading friends: $e', style: SplitUpTypography.caption(color: colors.accentOwe)),
               ),
 
