@@ -40,6 +40,7 @@ class FriendModel {
     String? contactName,
     int? netPaise,
     bool? isAppUser,
+    List<String>? commonGroups,
   }) {
     return FriendModel(
       id: id,
@@ -51,6 +52,7 @@ class FriendModel {
       contactName: contactName ?? this.contactName,
       individualLedgerId: individualLedgerId,
       netPaise: netPaise ?? this.netPaise,
+      commonGroups: commonGroups ?? this.commonGroups,
     );
   }
 
@@ -65,6 +67,10 @@ class FriendModel {
       contactName: json['contactName'] as String?,
       individualLedgerId: (json['individualLedgerId'] ?? '') as String,
       netPaise: (json['netPaise'] as num?)?.toInt() ?? 0,
+      commonGroups: (json['commonGroups'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
     );
   }
 }

@@ -193,11 +193,11 @@ Some steps cannot be done by the agent: creating accounts, console settings, sec
 10. **(M)** Tests for acceptance scenarios 3, 4 and 8, plus: removal blocked with unsettled balances, simplification never includes non-members, duplicate-name prompt in groups.
 
 **Exit criteria**
-- [ ] A 5-member group with 12 expenses shows at most 4 simplified payments, and the Actual toggle shows pairwise debts.
-- [ ] Graph is readable with 6 and with 10 nodes on a phone, and every node has an avatar.
-- [ ] Offset of Rs 60 against a Rs 100 group debt works: Rs 60 offset, Rs 40 settled normally; reject changes neither ledger; both entries confirm together or not at all.
-- [ ] Non-admins cannot rename, add or remove members (tested).
-- [ ] An absent ("Not there") member is never charged.
+- [x] A 5-member group with 12 expenses shows at most 4 simplified payments, and the Actual toggle shows pairwise debts.
+- [x] Graph is readable with 6 and with 10 nodes on a phone, and every node has an avatar.
+- [x] Offset of Rs 60 against a Rs 100 group debt works: Rs 60 offset, Rs 40 settled normally; reject changes neither ledger; both entries confirm together or not at all.
+- [x] Non-admins cannot rename, add or remove members (tested).
+- [x] An absent ("Not there") member is never charged.
 
 ---
 

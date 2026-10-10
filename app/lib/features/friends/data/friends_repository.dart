@@ -18,6 +18,7 @@ class FriendsRepository {
         contactName: f.user.contactName,
         individualLedgerId: 'ldg_${f.user.id}',
         netPaise: f.netPaise,
+        commonGroups: f.commonGroups,
       );
     }).toList();
   }
@@ -84,6 +85,15 @@ class FriendsRepository {
     if (index != -1) {
       _friends[index] = _friends[index].copyWith(
         netPaise: _friends[index].netPaise + diffPaise,
+      );
+    }
+  }
+
+  void setBalance(String friendId, int netPaise) {
+    final index = _friends.indexWhere((f) => f.id == friendId);
+    if (index != -1) {
+      _friends[index] = _friends[index].copyWith(
+        netPaise: netPaise,
       );
     }
   }

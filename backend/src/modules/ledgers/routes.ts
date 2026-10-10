@@ -31,10 +31,41 @@ inMemoryLedgers.set('ledger_test_1', {
   settlements: [],
 });
 
+const categorySchema = z
+  .string()
+  .transform((c) => c.toLowerCase())
+  .pipe(
+    z.enum([
+      'food',
+      'food_and_drinks',
+      'travel',
+      'stay',
+      'fuel',
+      'tickets',
+      'shopping',
+      'groceries',
+      'general',
+      'other',
+    ])
+  );
+
+const participantSchema = z
+  .object({
+    userId: z.string(),
+    included: z.boolean(),
+    splitValue: z.number().int().optional(),
+    owedPaise: z.number().int().optional(),
+  })
+  .transform((p) => ({
+    userId: p.userId,
+    included: p.included,
+    splitValue: p.splitValue !== undefined ? p.splitValue : p.owedPaise,
+  }));
+
 const createExpenseSchema = z.object({
   title: z.string().min(1).max(120),
   totalPaise: z.number().int().positive(),
-  category: z.enum(['food', 'travel', 'stay', 'fuel', 'tickets', 'shopping', 'groceries', 'other']).default('other'),
+  category: categorySchema.default('other'),
   splitType: z.enum(['EQUAL', 'EXACT', 'PERCENT', 'SHARES']),
   payers: z.array(
     z.object({
@@ -42,20 +73,14 @@ const createExpenseSchema = z.object({
       paidPaise: z.number().int().positive(),
     })
   ).nonempty(),
-  participants: z.array(
-    z.object({
-      userId: z.string(),
-      included: z.boolean(),
-      splitValue: z.number().int().optional(),
-    })
-  ).nonempty(),
+  participants: z.array(participantSchema).nonempty(),
   expenseDate: z.string().default(() => new Date().toISOString().split('T')[0]),
   note: z.string().max(500).optional(),
 });
 
 const updateExpenseSchema = z.object({
   title: z.string().min(1).max(120).optional(),
-  category: z.enum(['food', 'travel', 'stay', 'fuel', 'tickets', 'shopping', 'groceries', 'other']).optional(),
+  category: categorySchema.optional(),
   totalPaise: z.number().int().positive().optional(),
   splitType: z.enum(['EQUAL', 'EXACT', 'PERCENT', 'SHARES']).optional(),
   payers: z.array(
@@ -64,13 +89,7 @@ const updateExpenseSchema = z.object({
       paidPaise: z.number().int().positive(),
     })
   ).nonempty().optional(),
-  participants: z.array(
-    z.object({
-      userId: z.string(),
-      included: z.boolean(),
-      splitValue: z.number().int().optional(),
-    })
-  ).nonempty().optional(),
+  participants: z.array(participantSchema).nonempty().optional(),
   expenseDate: z.string().optional(),
   note: z.string().max(500).optional(),
 });

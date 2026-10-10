@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../friends/data/friends_repository.dart';
+import '../data/groups_repository.dart';
 
-class CreateGroupScreen extends StatefulWidget {
+class CreateGroupScreen extends ConsumerStatefulWidget {
   const CreateGroupScreen({super.key});
 
   @override
-  State<CreateGroupScreen> createState() => _CreateGroupScreenState();
+  ConsumerState<CreateGroupScreen> createState() => _CreateGroupScreenState();
 }
 
-class _CreateGroupScreenState extends State<CreateGroupScreen> {
+class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final _nameController = TextEditingController();
-  final Set<String> _selectedFriendIds = {
-    MockDataRepository.userRahul.id,
-    MockDataRepository.userPriya.id,
-  };
+  final Set<String> _selectedFriendIds = {};
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -25,10 +25,45 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     super.dispose();
   }
 
+  Future<void> _handleCreateGroup() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a group name')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(groupsNotifierProvider.notifier).createGroup(
+            name: name,
+            memberUserIds: _selectedFriendIds.toList(),
+          );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Group "$name" created successfully!')),
+        );
+        context.pop();
+      }
+    } catch (err) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create group: $err')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final friends = MockDataRepository.friends;
+    final asyncFriends = ref.watch(friendsNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -94,14 +129,14 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                 ),
                 child: Row(
                   children: [
-                    Avatar(name: MockDataRepository.currentUser.name, size: 40),
+                    const Avatar(name: 'Arhaam', size: 40),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${MockDataRepository.currentUser.name} (You)',
+                            'Arhaam (You)',
                             style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
                           ),
                           Text(
@@ -117,71 +152,76 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               ),
 
               // Friends list with checkmarks
-              ...friends.map((f) {
-                final isSelected = _selectedFriendIds.contains(f.user.id);
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceFlat,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: colors.divider),
+              asyncFriends.when(
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: CircularProgressIndicator(),
                   ),
-                  child: InkWell(
-                    onTap: () {
-                      setState(() {
-                        if (isSelected) {
-                          _selectedFriendIds.remove(f.user.id);
-                        } else {
-                          _selectedFriendIds.add(f.user.id);
-                        }
-                      });
-                    },
-                    child: Row(
-                      children: [
-                        Avatar(name: f.user.displayName, size: 40, isPlaceholder: f.user.isPlaceholder),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                ),
+                error: (err, _) => Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text('Error loading friends: $err', style: TextStyle(color: colors.accentOwe)),
+                ),
+                data: (friends) {
+                  return Column(
+                    children: friends.map((f) {
+                      final isSelected = _selectedFriendIds.contains(f.id);
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceFlat,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: colors.divider),
+                        ),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              if (isSelected) {
+                                _selectedFriendIds.remove(f.id);
+                              } else {
+                                _selectedFriendIds.add(f.id);
+                              }
+                            });
+                          },
+                          child: Row(
                             children: [
-                              Text(
-                                f.user.displayName,
-                                style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
+                              Avatar(name: f.resolvedName, size: 40, isPlaceholder: !f.isAppUser),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      f.resolvedName,
+                                      style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
+                                    ),
+                                    Text(
+                                      f.phoneE164,
+                                      style: SplitUpTypography.caption(color: colors.textMuted),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              Text(
-                                f.user.phone,
-                                style: SplitUpTypography.caption(color: colors.textMuted),
+                              Icon(
+                                isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                                color: isSelected ? colors.accentReceive : colors.textMuted,
+                                size: 22,
                               ),
                             ],
                           ),
                         ),
-                        Icon(
-                          isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                          color: isSelected ? colors.accentReceive : colors.textMuted,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
 
               const SizedBox(height: 24),
               PrimaryButton(
-                label: 'Create Group',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: colors.surfaceFlatRaised,
-                      content: Text(
-                        'Group created successfully!',
-                        style: SplitUpTypography.body(color: colors.textPrimary),
-                      ),
-                    ),
-                  );
-                  context.pop();
-                },
+                label: _isSubmitting ? 'Creating...' : 'Create Group',
+                onPressed: _isSubmitting ? () {} : _handleCreateGroup,
               ),
               const SizedBox(height: 32),
             ],

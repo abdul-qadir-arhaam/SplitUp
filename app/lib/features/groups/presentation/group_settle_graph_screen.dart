@@ -1,46 +1,43 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../data/groups_repository.dart';
+import '../domain/group_model.dart';
+import '../../settlements/presentation/settle_sheet.dart';
 
-class GroupSettleGraphScreen extends StatefulWidget {
+class GroupSettleGraphScreen extends ConsumerStatefulWidget {
   final String groupId;
 
   const GroupSettleGraphScreen({super.key, required this.groupId});
 
   @override
-  State<GroupSettleGraphScreen> createState() => _GroupSettleGraphScreenState();
+  ConsumerState<GroupSettleGraphScreen> createState() => _GroupSettleGraphScreenState();
 }
 
-class _GroupSettleGraphScreenState extends State<GroupSettleGraphScreen> {
+class _GroupSettleGraphScreenState extends ConsumerState<GroupSettleGraphScreen> {
   bool _simplifiedMode = true;
+  String? _highlightedUserId;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final graph = ref.watch(
+      groupGraphProvider((groupId: widget.groupId, simplified: _simplifiedMode)),
+    );
 
-    // Mock graph nodes
-    final nodes = [
-      {'name': 'Arhaam (You)', 'net': -120000, 'x': 0.5, 'y': 0.8},
-      {'name': 'Rahul', 'net': 240000, 'x': 0.2, 'y': 0.25},
-      {'name': 'Priya', 'net': 150000, 'x': 0.8, 'y': 0.25},
-      {'name': 'Amit', 'net': -270000, 'x': 0.5, 'y': 0.1},
-    ];
-
-    // Mock payment links
-    final links = _simplifiedMode
-        ? [
-            {'from': 'Arhaam (You)', 'to': 'Rahul', 'amount': 120000},
-            {'from': 'Amit', 'to': 'Rahul', 'amount': 120000},
-            {'from': 'Amit', 'to': 'Priya', 'amount': 150000},
-          ]
-        : [
-            {'from': 'Arhaam (You)', 'to': 'Rahul', 'amount': 80000},
-            {'from': 'Arhaam (You)', 'to': 'Priya', 'amount': 40000},
-            {'from': 'Amit', 'to': 'Rahul', 'amount': 160000},
-            {'from': 'Amit', 'to': 'Priya', 'amount': 110000},
-          ];
+    // Compute circular positions for nodes
+    final nodeCount = graph.nodes.length;
+    final nodePositions = <String, Offset>{};
+    for (int i = 0; i < nodeCount; i++) {
+      final angle = (2 * math.pi * i) / nodeCount - (math.pi / 2);
+      final x = 0.5 + 0.36 * math.cos(angle);
+      final y = 0.5 + 0.36 * math.sin(angle);
+      nodePositions[graph.nodes[i].userId] = Offset(x, y);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -66,7 +63,10 @@ class _GroupSettleGraphScreenState extends State<GroupSettleGraphScreen> {
                   values: const [true, false],
                   labels: const ['Simplified Plan (Min. Steps)', 'Actual Debts (Pairwise)'],
                   selected: _simplifiedMode,
-                  onSelected: (val) => setState(() => _simplifiedMode = val),
+                  onSelected: (val) => setState(() {
+                    _simplifiedMode = val;
+                    _highlightedUserId = null;
+                  }),
                 ),
               ),
 
@@ -77,13 +77,35 @@ class _GroupSettleGraphScreenState extends State<GroupSettleGraphScreen> {
                   padding: const EdgeInsets.all(16),
                   child: GlassCard(
                     padding: EdgeInsets.zero,
-                    child: CustomPaint(
-                      painter: _GraphPainter(
-                        colors: colors,
-                        nodes: nodes,
-                        links: links,
-                      ),
-                      child: Container(),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return GestureDetector(
+                          onTapUp: (details) {
+                            // Find closest node
+                            for (final node in graph.nodes) {
+                              final pos = nodePositions[node.userId]!;
+                              final center = Offset(pos.dx * constraints.maxWidth, pos.dy * constraints.maxHeight);
+                              if ((details.localPosition - center).distance < 30) {
+                                setState(() {
+                                  _highlightedUserId =
+                                      _highlightedUserId == node.userId ? null : node.userId;
+                                });
+                                break;
+                              }
+                            }
+                          },
+                          child: CustomPaint(
+                            size: Size(constraints.maxWidth, constraints.maxHeight),
+                            painter: _GraphPainter(
+                              colors: colors,
+                              nodes: graph.nodes,
+                              links: graph.links,
+                              positions: nodePositions,
+                              highlightedUserId: _highlightedUserId,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -96,11 +118,11 @@ class _GroupSettleGraphScreenState extends State<GroupSettleGraphScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Payment List (${links.length} transactions)',
+                      'Payment List (${graph.links.length} transactions)',
                       style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
                     ),
                     Text(
-                      _simplifiedMode ? 'Optimized' : 'Pairwise',
+                      _simplifiedMode ? 'Min. Steps' : 'Pairwise',
                       style: SplitUpTypography.caption(color: colors.accentBrass),
                     ),
                   ],
@@ -111,42 +133,83 @@ class _GroupSettleGraphScreenState extends State<GroupSettleGraphScreen> {
                 flex: 4,
                 child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  itemCount: links.length,
+                  itemCount: graph.links.length,
                   itemBuilder: (context, index) {
-                    final l = links[index];
+                    final l = graph.links[index];
+                    final fromNode = graph.nodes.firstWhere(
+                      (n) => n.userId == l.fromUserId,
+                      orElse: () => GraphNode(userId: l.fromUserId, name: l.fromUserId, netPaise: 0),
+                    );
+                    final toNode = graph.nodes.firstWhere(
+                      (n) => n.userId == l.toUserId,
+                      orElse: () => GraphNode(userId: l.toUserId, name: l.toUserId, netPaise: 0),
+                    );
+
+                    final isUserPayer = l.fromUserId == 'usr_arhaam';
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: colors.surfaceFlat,
+                        color: isUserPayer
+                            ? colors.accentOwe.withValues(alpha: 0.12)
+                            : colors.surfaceFlat,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: colors.divider),
+                        border: Border.all(
+                          color: isUserPayer
+                              ? colors.accentOwe.withValues(alpha: 0.4)
+                              : colors.divider,
+                        ),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.arrow_forward_rounded, color: colors.accentReceive, size: 18),
+                          Icon(
+                            l.isPending ? Icons.pending_actions_rounded : Icons.arrow_forward_rounded,
+                            color: l.isPending ? colors.accentBrass : colors.accentReceive,
+                            size: 18,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: RichText(
                               text: TextSpan(
                                 children: [
                                   TextSpan(
-                                    text: l['from'] as String,
+                                    text: fromNode.name,
                                     style: SplitUpTypography.label(color: colors.textPrimary).copyWith(fontWeight: FontWeight.w700),
                                   ),
                                   TextSpan(
-                                    text: ' pays ',
+                                    text: l.isPending ? ' pending to ' : ' pays ',
                                     style: SplitUpTypography.label(color: colors.textMuted),
                                   ),
                                   TextSpan(
-                                    text: l['to'] as String,
+                                    text: toNode.name,
                                     style: SplitUpTypography.label(color: colors.textPrimary).copyWith(fontWeight: FontWeight.w700),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          MoneyText(l['amount'] as int, variant: MoneyVariant.body, customColor: colors.accentReceive),
+                          MoneyText(l.amountPaise, variant: MoneyVariant.body, customColor: colors.accentReceive),
+                          if (isUserPayer && !l.isPending) ...[
+                            const SizedBox(width: 8),
+                            SettleButton(
+                              amountPaise: l.amountPaise,
+                              compact: true,
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  backgroundColor: Colors.transparent,
+                                  builder: (ctx) => SettleSheet(
+                                    friendId: toNode.userId,
+                                    friendName: toNode.name,
+                                    ledgerId: widget.groupId,
+                                    amountPaise: l.amountPaise,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
                         ],
                       ),
                     );
@@ -163,20 +226,34 @@ class _GroupSettleGraphScreenState extends State<GroupSettleGraphScreen> {
 
 class _GraphPainter extends CustomPainter {
   final SplitUpColors colors;
-  final List<Map<String, dynamic>> nodes;
-  final List<Map<String, dynamic>> links;
+  final List<GraphNode> nodes;
+  final List<GraphLink> links;
+  final Map<String, Offset> positions;
+  final String? highlightedUserId;
 
   _GraphPainter({
     required this.colors,
     required this.nodes,
     required this.links,
+    required this.positions,
+    this.highlightedUserId,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final linkPaint = Paint()
       ..color = colors.accentReceive.withValues(alpha: 0.7)
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke;
+
+    final pendingPaint = Paint()
+      ..color = colors.accentBrass.withValues(alpha: 0.7)
       ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final dimPaint = Paint()
+      ..color = colors.divider.withValues(alpha: 0.2)
+      ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
     final nodePaintReceive = Paint()..color = colors.accentReceive;
@@ -184,27 +261,44 @@ class _GraphPainter extends CustomPainter {
 
     // Draw links
     for (final link in links) {
-      final fromNode = nodes.firstWhere((n) => n['name'] == link['from']);
-      final toNode = nodes.firstWhere((n) => n['name'] == link['to']);
+      final pos1 = positions[link.fromUserId];
+      final pos2 = positions[link.toUserId];
+      if (pos1 == null || pos2 == null) continue;
 
-      final p1 = Offset((fromNode['x'] as double) * size.width, (fromNode['y'] as double) * size.height);
-      final p2 = Offset((toNode['x'] as double) * size.width, (toNode['y'] as double) * size.height);
+      final p1 = Offset(pos1.dx * size.width, pos1.dy * size.height);
+      final p2 = Offset(pos2.dx * size.width, pos2.dy * size.height);
 
-      canvas.drawLine(p1, p2, linkPaint);
+      final isHighlighted = highlightedUserId == null ||
+          highlightedUserId == link.fromUserId ||
+          highlightedUserId == link.toUserId;
 
-      // Arrow head at midpoint
+      final paint = !isHighlighted
+          ? dimPaint
+          : (link.isPending ? pendingPaint : linkPaint);
+
+      canvas.drawLine(p1, p2, paint);
+
+      // Arrow head / midpoint marker
       final mid = Offset((p1.dx + p2.dx) / 2, (p1.dy + p2.dy) / 2);
-      canvas.drawCircle(mid, 3.5, Paint()..color = colors.accentBrass);
+      canvas.drawCircle(mid, 4.0, Paint()..color = link.isPending ? colors.accentBrass : colors.accentReceive);
     }
 
     // Draw nodes
     for (final node in nodes) {
-      final center = Offset((node['x'] as double) * size.width, (node['y'] as double) * size.height);
-      final net = node['net'] as int;
+      final pos = positions[node.userId];
+      if (pos == null) continue;
+
+      final center = Offset(pos.dx * size.width, pos.dy * size.height);
+      final isSelected = highlightedUserId == node.userId;
+      final net = node.netPaise;
       final p = net >= 0 ? nodePaintReceive : nodePaintOwe;
 
-      // Outer glow / border
-      canvas.drawCircle(center, 22, Paint()..color = colors.glassBorder);
+      // Outer glow
+      canvas.drawCircle(
+        center,
+        isSelected ? 26 : 22,
+        Paint()..color = isSelected ? colors.accentBrass.withValues(alpha: 0.5) : colors.glassBorder,
+      );
       // Inner circle
       canvas.drawCircle(center, 18, Paint()..color = colors.surfaceFlatRaised);
       canvas.drawCircle(center, 14, p);
@@ -212,12 +306,16 @@ class _GraphPainter extends CustomPainter {
       // Label
       final tp = TextPainter(
         text: TextSpan(
-          text: node['name'] as String,
-          style: TextStyle(color: colors.textPrimary, fontSize: 11, fontWeight: FontWeight.bold),
+          text: node.name,
+          style: TextStyle(
+            color: isSelected ? colors.accentBrass : colors.textPrimary,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy + 24));
+      tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy + 22));
     }
   }
 

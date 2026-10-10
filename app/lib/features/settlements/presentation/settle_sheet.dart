@@ -8,9 +8,20 @@ import '../../friends/domain/friend_model.dart';
 import '../data/settlements_repository.dart';
 
 class SettleSheet extends ConsumerStatefulWidget {
-  final FriendModel friend;
+  final FriendModel? friend;
+  final String? friendId;
+  final String? friendName;
+  final String? ledgerId;
+  final int? amountPaise;
 
-  const SettleSheet({super.key, required this.friend});
+  const SettleSheet({
+    super.key,
+    this.friend,
+    this.friendId,
+    this.friendName,
+    this.ledgerId,
+    this.amountPaise,
+  });
 
   static Future<void> show(BuildContext context, FriendModel friend) {
     return showModalBottomSheet(
@@ -29,10 +40,16 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
   late final TextEditingController _amountController;
   String _selectedMethod = 'UPI';
 
+  String get targetUserId => widget.friend?.id ?? widget.friendId ?? '';
+  String get targetName => widget.friend?.resolvedName ?? widget.friendName ?? 'Member';
+  String get targetLedgerId => widget.ledgerId ?? widget.friend?.individualLedgerId ?? '';
+  int get maxDebtPaise => widget.amountPaise ?? widget.friend?.netPaise.abs() ?? 0;
+  bool get isPlaceholder => widget.friend != null ? !widget.friend!.isAppUser : false;
+
   @override
   void initState() {
     super.initState();
-    final defaultDebtRupees = (widget.friend.netPaise.abs() / 100).toStringAsFixed(0);
+    final defaultDebtRupees = (maxDebtPaise / 100).toStringAsFixed(0);
     _amountController = TextEditingController(text: defaultDebtRupees);
   }
 
@@ -45,7 +62,6 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final int maxDebtPaise = widget.friend.netPaise.abs();
     final int enteredPaise = MoneyUtils.parseToPaise(_amountController.text) ?? 0;
     final bool isOverpaying = enteredPaise > maxDebtPaise;
     final bool isValid = enteredPaise > 0 && !isOverpaying;
@@ -77,7 +93,7 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
               const SizedBox(height: 16),
 
               Text(
-                'Settle with ${widget.friend.resolvedName}',
+                'Settle with $targetName',
                 style: SplitUpTypography.headline(color: colors.textPrimary),
                 textAlign: TextAlign.center,
               ),
@@ -122,7 +138,7 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
               const SizedBox(height: 16),
 
               // Placeholder note if applicable
-              if (!widget.friend.isAppUser) ...[
+              if (isPlaceholder) ...[
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -136,7 +152,7 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Self-confirmed (unverified): Since ${widget.friend.resolvedName} is not yet on SplitUp, this settlement will be immediately recorded on their behalf.',
+                          'Self-confirmed (unverified): Since $targetName is not yet on SplitUp, this settlement will be immediately recorded on their behalf.',
                           style: SplitUpTypography.caption(color: colors.textPrimary),
                         ),
                       ),
@@ -152,20 +168,20 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
                 onPressed: isValid
                     ? () async {
                         await ref.read(settlementsNotifierProvider.notifier).createSettlement(
-                              ledgerId: widget.friend.individualLedgerId,
-                              toUserId: widget.friend.id,
+                              ledgerId: targetLedgerId,
+                              toUserId: targetUserId,
                               amountPaise: enteredPaise,
                               method: _selectedMethod,
-                              isPlaceholderReceiver: !widget.friend.isAppUser,
+                              isPlaceholderReceiver: isPlaceholder,
                             );
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               backgroundColor: colors.surfaceFlatRaised,
                               content: Text(
-                                !widget.friend.isAppUser
-                                    ? 'Settlement self-confirmed (unverified) with ${widget.friend.resolvedName}.'
-                                    : 'Settlement request sent to ${widget.friend.resolvedName}!',
+                                isPlaceholder
+                                    ? 'Settlement self-confirmed (unverified) with $targetName.'
+                                    : 'Settlement request sent to $targetName!',
                                 style: SplitUpTypography.body(color: colors.textPrimary),
                               ),
                             ),

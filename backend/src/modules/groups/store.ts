@@ -413,7 +413,9 @@ export function getGroupDashboard(groupId: string, callerUserId: string) {
   return {
     totalSpentPaise: details.totalSpentPaise,
     categories,
+    categoryBreakdown: categories,
     memberBars,
+    memberMetrics: memberBars,
     spendingOverTime,
   };
 }

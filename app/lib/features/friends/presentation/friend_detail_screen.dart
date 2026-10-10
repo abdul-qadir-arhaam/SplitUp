@@ -186,6 +186,35 @@ class FriendDetailScreen extends ConsumerWidget {
                       friend.phoneE164,
                       style: SplitUpTypography.label(color: colors.textMuted),
                     ),
+                    if (friend.commonGroups.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            'Also in:',
+                            style: SplitUpTypography.caption(color: colors.textMuted),
+                          ),
+                          ...friend.commonGroups.map(
+                            (grp) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: colors.accentBrass.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: colors.accentBrass.withValues(alpha: 0.3)),
+                              ),
+                              child: Text(
+                                grp,
+                                style: SplitUpTypography.caption(color: colors.accentBrass),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (!friend.isAppUser) ...[
                       const SizedBox(height: 12),
                       OutlinedButton.icon(

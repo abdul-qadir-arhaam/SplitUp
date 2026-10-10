@@ -5,6 +5,7 @@ import { inMemoryLedgers } from '../ledgers/routes.js';
 import { calculateNetBalances } from '../balances/index.js';
 import { notificationsStore } from '../notifications/store.js';
 import { ValidationError, NotFoundError, ConflictError, UnsettledBalanceError } from '../../lib/errors.js';
+import { getCommonGroupsForUsers } from '../groups/store.js';
 
 export interface Friendship {
   ownerUserId: string;
@@ -86,6 +87,7 @@ export function listFriends(ownerUserId: string) {
         contactName: f.contactName,
         individualLedgerId: f.individualLedgerId,
         netPaise, // positive: friend owes me; negative: I owe friend
+        commonGroups: getCommonGroupsForUsers(ownerUserId, friendUser.id),
       });
     }
   }

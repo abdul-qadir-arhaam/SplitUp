@@ -165,3 +165,19 @@ groupsRouter.get('/groups/:id/graph', (req, res, next) => {
     next(err);
   }
 });
+
+// GET /v1/groups/:id/offset-suggestions
+groupsRouter.get('/groups/:id/offset-suggestions', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id || 'usr_arhaam';
+    const { getOffsetSuggestions } = await import('../offsets/store.js');
+    const suggestions = getOffsetSuggestions(req.params.id, callerId);
+
+    res.json({
+      data: suggestions,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
