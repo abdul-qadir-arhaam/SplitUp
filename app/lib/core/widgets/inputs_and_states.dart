@@ -223,6 +223,8 @@ class SegmentedControl<T> extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: SplitUpTypography.label(
                     color: isSelected ? colors.textPrimary : colors.textMuted,
                   ).copyWith(

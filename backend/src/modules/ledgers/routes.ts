@@ -176,6 +176,12 @@ ledgersRouter.post('/ledgers/:id/expenses', (req, res, next) => {
       },
     });
 
+    if (ledger.type === 'TRIP') {
+      import('../trips/store.js').then((m) => {
+        m.checkTripBudgetThresholds(ledgerId);
+      });
+    }
+
     res.status(201).json({
       data: expenseRecord,
     });

@@ -9,7 +9,9 @@ export type NotificationType =
   | 'SETTLEMENT_REQUESTED'
   | 'SETTLEMENT_CONFIRMED'
   | 'SETTLEMENT_REJECTED'
-  | 'SETTLEMENT_OUTDATED';
+  | 'SETTLEMENT_OUTDATED'
+  | 'TRIP_BUDGET_WARNING'
+  | 'TRIP_BUDGET_EXCEEDED';
 
 export type NotificationActionState = 'OPEN' | 'DONE' | 'EXPIRED';
 

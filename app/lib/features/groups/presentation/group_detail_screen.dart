@@ -13,7 +13,9 @@ import '../../settlements/presentation/settle_sheet.dart';
 import '../../offsets/data/offsets_repository.dart';
 import '../../offsets/domain/offset_model.dart';
 import '../../friends/data/friends_repository.dart';
+import '../../friends/domain/friend_model.dart';
 import '../../expenses/presentation/add_expense_screen.dart';
+import '../../notifications/data/notifications_repository.dart';
 
 class GroupDetailScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -89,44 +91,33 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
     );
   }
 
-  void _showAddMemberDialog(GroupModel group) {
+  Future<MemberDisplayInfo?> _showAddMemberDialog(GroupModel group) async {
     final friendsAsync = ref.read(friendsNotifierProvider);
+    final currentGroup = await ref.read(groupsRepositoryProvider).getGroupById(group.id);
     final availableFriends = friendsAsync.maybeWhen(
-      data: (list) => list.where((f) => !group.memberIds.contains(f.id)).toList(),
+      data: (list) => list.where((f) => !currentGroup.memberIds.contains(f.id)).toList(),
       orElse: () => [],
     );
 
     if (availableFriends.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All your friends are already in this group!')),
-      );
-      return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All your friends are already in this group!')),
+        );
+      }
+      return null;
     }
 
-    showDialog(
+    if (!mounted) return null;
+
+    final selectedFriend = await showDialog<FriendModel>(
       context: context,
       builder: (ctx) => SimpleDialog(
         backgroundColor: context.colors.surfaceFlatRaised,
         title: Text('Add Member to Group', style: SplitUpTypography.title(color: context.colors.textPrimary)),
         children: availableFriends.map((f) {
           return SimpleDialogOption(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await ref.read(groupsNotifierProvider.notifier).addMember(group.id, f.id);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Added ${f.resolvedName} to group')),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to add member: $e')),
-                  );
-                }
-              }
-            },
+            onPressed: () => Navigator.pop(ctx, f),
             child: Row(
               children: [
                 Avatar(name: f.resolvedName, size: 36),
@@ -143,6 +134,103 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
           );
         }).toList(),
       ),
+    );
+
+    if (selectedFriend != null) {
+      try {
+        await ref.read(groupsNotifierProvider.notifier).addMember(group.id, selectedFriend.id);
+        ref.invalidate(groupDetailProvider(widget.groupId));
+        ref.invalidate(groupDashboardProvider(widget.groupId));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Added ${selectedFriend.resolvedName} to group')),
+          );
+        }
+        return MemberDisplayInfo(
+          userId: selectedFriend.id,
+          name: selectedFriend.resolvedName,
+          phoneE164: selectedFriend.phoneE164,
+          photoUrl: selectedFriend.photoUrl,
+          role: 'MEMBER',
+          netPaise: 0,
+          isAppUser: selectedFriend.isAppUser,
+          isMe: false,
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to add member: $e')),
+          );
+        }
+      }
+    }
+    return null;
+  }
+
+  void _showMembersSheet(GroupModel group) {
+    final repo = ref.read(groupsRepositoryProvider);
+    final members = group.members.map((m) {
+      final debtDesc = repo.checkPendingDebts(m.userId, groupId: group.id);
+      return MemberDisplayInfo(
+        userId: m.userId,
+        name: m.name,
+        phoneE164: m.phoneE164,
+        photoUrl: m.photoUrl,
+        role: m.role,
+        netPaise: m.netPaise,
+        isAppUser: m.isAppUser,
+        isMe: m.userId == 'usr_arhaam',
+        debtDescription: debtDesc,
+      );
+    }).toList();
+
+    MembersSheet.show(
+      context: context,
+      title: 'Group Members',
+      entityName: group.name,
+      members: members,
+      onAddMember: group.isAdmin ? () => _showAddMemberDialog(group) : null,
+      onRemoveMember: group.isAdmin
+          ? (member) async {
+              await ref
+                  .read(groupsNotifierProvider.notifier)
+                  .removeMember(group.id, member.userId);
+              ref.invalidate(groupDetailProvider(widget.groupId));
+              ref.invalidate(groupDashboardProvider(widget.groupId));
+            }
+          : null,
+      onRemindToSettle: (member) async {
+        final debtDesc = member.debtDescription ??
+            (member.netPaise < 0 ? 'owes ${formatPaise(member.netPaise.abs())}' : 'unsettled balance');
+        final notif = NotificationModel(
+          id: 'notif_remind_${DateTime.now().millisecondsSinceEpoch}',
+          type: 'SETTLEMENT_REQUESTED',
+          title: 'Settlement Required: ${group.name}',
+          body: '${member.name}, you need to settle some payment in ${group.name} with your friends ($debtDesc) before removal. Please settle your dues.',
+          isRead: false,
+          createdAt: DateTime.now(),
+          payload: {
+            'groupId': group.id,
+            'groupName': group.name,
+            'userId': member.userId,
+            'userName': member.name,
+            'netPaise': member.netPaise,
+            'debtDescription': member.debtDescription,
+          },
+        );
+        await ref.read(notificationsNotifierProvider.notifier).addNotification(notif);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: context.colors.accentReceive,
+              content: Text(
+                'Settlement notification sent to ${member.name} to settle payment with friends.',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          );
+        }
+      },
     );
   }
 
@@ -260,7 +348,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
                 color: colors.surfaceFlatRaised,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 onSelected: (val) {
-                  if (val == 'rename') {
+                  if (val == 'view_members') {
+                    _showMembersSheet(group);
+                  } else if (val == 'rename') {
                     _showRenameDialog(group);
                   } else if (val == 'add_member') {
                     _showAddMemberDialog(group);
@@ -271,6 +361,16 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
                   }
                 },
                 itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                    value: 'view_members',
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_alt_outlined, size: 18, color: colors.textPrimary),
+                        const SizedBox(width: 10),
+                        Text('View Members', style: TextStyle(color: colors.textPrimary)),
+                      ],
+                    ),
+                  ),
                   if (group.isAdmin) ...[
                     PopupMenuItem(
                       value: 'rename',
@@ -349,7 +449,17 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (ctx) => AddExpenseScreen(initialLedgerId: group.id),
+                  builder: (ctx) => AddExpenseScreen(
+                    initialLedgerId: group.id,
+                    initialMembers: group.members.map((m) {
+                      final isMe = m.userId == 'usr_arhaam';
+                      return {
+                        'id': m.userId,
+                        'name': isMe ? 'You' : m.name,
+                        'isMe': isMe,
+                      };
+                    }).toList(),
+                  ),
                 ),
               );
             },

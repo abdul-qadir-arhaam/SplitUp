@@ -7,17 +7,25 @@ import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../../friends/data/friends_repository.dart';
 import '../../friends/domain/friend_model.dart';
+import '../../groups/data/groups_repository.dart';
+import '../../groups/domain/group_model.dart';
+import '../../trips/data/trips_repository.dart';
+import '../../trips/domain/trip_model.dart';
 import '../data/expenses_repository.dart';
 import '../domain/expense_model.dart';
 
 class AddExpenseScreen extends ConsumerStatefulWidget {
   final String? initialLedgerId;
   final String? friendId;
+  final List<String>? friendIds;
+  final List<Map<String, dynamic>>? initialMembers;
 
   const AddExpenseScreen({
     super.key,
     this.initialLedgerId,
     this.friendId,
+    this.friendIds,
+    this.initialMembers,
   });
 
   @override
@@ -52,8 +60,34 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   Widget build(BuildContext context) {
     final colors = context.colors;
     final asyncFriends = ref.watch(friendsNotifierProvider);
+    final asyncGroups = ref.watch(groupsNotifierProvider);
+    final asyncTrips = ref.watch(tripsNotifierProvider);
 
-    // Resolve members
+    // 1. Check if ledger matches a group
+    GroupModel? matchedGroup;
+    if (widget.initialLedgerId != null) {
+      matchedGroup = asyncGroups.maybeWhen(
+        data: (groups) {
+          final matches = groups.where((g) => g.id == widget.initialLedgerId);
+          return matches.isEmpty ? null : matches.first;
+        },
+        orElse: () => null,
+      );
+    }
+
+    // 2. Check if ledger matches a trip
+    TripModel? matchedTrip;
+    if (widget.initialLedgerId != null && matchedGroup == null) {
+      matchedTrip = asyncTrips.maybeWhen(
+        data: (trips) {
+          final matches = trips.where((t) => t.id == widget.initialLedgerId);
+          return matches.isEmpty ? null : matches.first;
+        },
+        orElse: () => null,
+      );
+    }
+
+    // 3. Resolve single friend
     FriendModel? targetFriend;
     if (widget.friendId != null) {
       targetFriend = asyncFriends.maybeWhen(
@@ -65,15 +99,87 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
       );
     }
 
-    final List<Map<String, dynamic>> members = [
-      {'id': 'usr_arhaam', 'name': 'You', 'isMe': true},
-      if (targetFriend != null)
-        {'id': targetFriend.id, 'name': targetFriend.resolvedName, 'isMe': false}
-      else ...[
-        {'id': 'usr_rahul', 'name': 'Rahul', 'isMe': false},
-        {'id': 'usr_priya', 'name': 'Priya', 'isMe': false},
-      ],
-    ];
+    // 4. Resolve multi-selected friends
+    final List<FriendModel> selectedFriends = [];
+    if (widget.friendIds != null && widget.friendIds!.isNotEmpty) {
+      asyncFriends.whenData((friends) {
+        for (final id in widget.friendIds!) {
+          final found = friends.where((f) => f.id == id);
+          if (found.isNotEmpty) selectedFriends.add(found.first);
+        }
+      });
+    }
+
+    // 5. Construct member list based on context
+    List<Map<String, dynamic>> members = [];
+    String screenTitle = 'Add Expense';
+
+    if (widget.initialMembers != null && widget.initialMembers!.isNotEmpty) {
+      members = List<Map<String, dynamic>>.from(widget.initialMembers!);
+      if (matchedGroup != null) {
+        screenTitle = 'Add Expense • ${matchedGroup.name}';
+      } else if (matchedTrip != null) {
+        screenTitle = 'Add Expense • ${matchedTrip.name}';
+      }
+    } else if (matchedGroup != null) {
+      screenTitle = 'Add Expense • ${matchedGroup.name}';
+      members = matchedGroup.members.map((m) {
+        final isMe = m.userId == 'usr_arhaam';
+        return {
+          'id': m.userId,
+          'name': isMe ? 'You' : m.name,
+          'isMe': isMe,
+        };
+      }).toList();
+    } else if (matchedTrip != null) {
+      screenTitle = 'Add Expense • ${matchedTrip.name}';
+      members = matchedTrip.members.map((m) {
+        final isMe = m.userId == 'usr_arhaam';
+        return {
+          'id': m.userId,
+          'name': isMe ? 'You' : m.name,
+          'isMe': isMe,
+        };
+      }).toList();
+    } else if (selectedFriends.isNotEmpty) {
+      screenTitle = 'Add Expense with ${selectedFriends.length} ${selectedFriends.length == 1 ? 'friend' : 'friends'}';
+      members = [
+        {'id': 'usr_arhaam', 'name': 'You', 'isMe': true},
+        ...selectedFriends.map((f) => {
+              'id': f.id,
+              'name': f.resolvedName,
+              'isMe': false,
+            }),
+      ];
+    } else if (targetFriend != null) {
+      screenTitle = 'Add Expense with ${targetFriend.resolvedName}';
+      members = [
+        {'id': 'usr_arhaam', 'name': 'You', 'isMe': true},
+        {'id': targetFriend.id, 'name': targetFriend.resolvedName, 'isMe': false},
+      ];
+    } else {
+      final allFriends = asyncFriends.maybeWhen(
+        data: (list) => list,
+        orElse: () => <FriendModel>[],
+      );
+      members = [
+        {'id': 'usr_arhaam', 'name': 'You', 'isMe': true},
+        ...allFriends.take(3).map((f) => {
+              'id': f.id,
+              'name': f.resolvedName,
+              'isMe': false,
+            }),
+      ];
+    }
+
+    // Ensure payer is a valid member
+    if (!members.any((m) => m['id'] == _payerUserId)) {
+      if (members.any((m) => m['id'] == 'usr_arhaam')) {
+        _payerUserId = 'usr_arhaam';
+      } else if (members.isNotEmpty) {
+        _payerUserId = members.first['id'] as String;
+      }
+    }
 
     final int totalPaise = MoneyUtils.parseToPaise(_amountController.text) ?? 0;
     final includedMembers = members.where((m) => !_excludedUserIds.contains(m['id'])).toList();
@@ -88,7 +194,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          targetFriend != null ? 'Add Expense with ${targetFriend.resolvedName}' : 'Add Expense',
+          screenTitle,
           style: SplitUpTypography.title(color: colors.textPrimary),
         ),
       ),
@@ -203,9 +309,11 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Split Between (${includedMembers.length})',
-                    style: SplitUpTypography.title(color: colors.textPrimary),
+                  Expanded(
+                    child: Text(
+                      'Split Between (${includedMembers.length})',
+                      style: SplitUpTypography.title(color: colors.textPrimary),
+                    ),
                   ),
                   Text(
                     'Per person: ${formatPaise(sharePaise)}',
@@ -274,7 +382,11 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 onPressed: totalPaise > 0
                     ? () async {
                         final title = _titleController.text.trim().isEmpty ? 'Expense' : _titleController.text.trim();
-                        final ledgerId = widget.initialLedgerId ?? targetFriend?.individualLedgerId ?? 'ldg_default';
+                        final ledgerId = widget.initialLedgerId ??
+                            targetFriend?.individualLedgerId ??
+                            (selectedFriends.length == 1
+                                ? selectedFriends.first.individualLedgerId
+                                : 'ldg_shared_${DateTime.now().millisecondsSinceEpoch}');
 
                         final payers = [ExpensePayer(userId: _payerUserId, paidPaise: totalPaise)];
                         final splits = members.map((m) {
@@ -295,8 +407,22 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               splitType: _splitType,
                               payers: payers,
                               splits: splits,
-                              friendId: targetFriend?.id,
+                              friendId: targetFriend?.id ?? (selectedFriends.length == 1 ? selectedFriends.first.id : null),
                             );
+
+                        if (matchedGroup != null) {
+                          ref.invalidate(groupDetailProvider(matchedGroup.id));
+                          ref.invalidate(groupDashboardProvider(matchedGroup.id));
+                          ref.invalidate(groupsNotifierProvider);
+                        }
+                        if (matchedTrip != null) {
+                          ref.invalidate(tripDetailProvider(matchedTrip.id));
+                          ref.invalidate(tripDashboardProvider(matchedTrip.id));
+                          ref.invalidate(tripsNotifierProvider);
+                        }
+                        if (selectedFriends.isNotEmpty || targetFriend != null) {
+                          ref.invalidate(friendsNotifierProvider);
+                        }
 
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

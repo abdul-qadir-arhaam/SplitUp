@@ -93,9 +93,16 @@ GoRouter createAppRouter({
         builder: (context, state) {
           final friendId = state.uri.queryParameters['friendId'];
           final initialLedgerId = state.uri.queryParameters['ledgerId'];
+          final friendIdsParam = state.uri.queryParameters['friendIds'];
+          final friendIds = friendIdsParam != null && friendIdsParam.isNotEmpty
+              ? friendIdsParam.split(',')
+              : null;
+          final extra = state.extra as Map<String, dynamic>?;
           return AddExpenseScreen(
-            friendId: friendId,
-            initialLedgerId: initialLedgerId,
+            friendId: friendId ?? extra?['friendId'],
+            initialLedgerId: initialLedgerId ?? extra?['initialLedgerId'],
+            friendIds: friendIds ?? (extra?['friendIds'] as List<String>?),
+            initialMembers: extra?['initialMembers'] as List<Map<String, dynamic>>?,
           );
         },
       ),

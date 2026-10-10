@@ -14,6 +14,7 @@ import { devicesRouter } from './modules/devices/routes.js';
 import { settlementsRouter } from './modules/settlements/routes.js';
 import { groupsRouter } from './modules/groups/routes.js';
 import { offsetsRouter } from './modules/offsets/routes.js';
+import { tripsRouter } from './modules/trips/routes.js';
 
 export const app = express();
 
@@ -42,6 +43,7 @@ app.use(
   friendsRouter,
   groupsRouter,
   offsetsRouter,
+  tripsRouter,
   ledgersRouter,
   settlementsRouter,
   notificationsRouter,

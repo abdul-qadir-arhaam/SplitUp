@@ -1,18 +1,50 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/money/paise.dart';
 import '../domain/group_model.dart';
 import '../../../core/mock/mock_data.dart';
 
 class GroupsRepository {
+  static const _storageKey = 'splitup_groups_data_v2';
   List<GroupModel> _groups = [];
+  bool _isLoaded = false;
 
   GroupsRepository() {
+    _initDefaultGroups();
+  }
+
+  void _initDefaultGroups() {
     // Initialize from rich mock data
     _groups = MockDataRepository.groups.map((g) {
       final members = g.members.map((u) {
         final isCreator = u.id == MockDataRepository.currentUser.id;
-        final net = u.id == MockDataRepository.currentUser.id
-            ? g.myNetPaise
-            : (u.id == MockDataRepository.userRahul.id ? -g.myNetPaise : 0);
+        int net = 0;
+        if (g.id == 'grp_friday') {
+          if (u.id == 'usr_arhaam') {
+            net = -120000; // Arhaam owes ₹1,200
+          } else if (u.id == 'usr_rahul') {
+            net = 240000; // Rahul is owed ₹2,400
+          } else if (u.id == 'usr_priya') {
+            net = 150000; // Priya is owed ₹1,500 (Amit owes Priya)
+          } else if (u.id == 'usr_amit') {
+            net = -270000; // Amit owes Priya ₹1,500 and Rahul ₹1,200
+          } else if (u.id == 'usr_sneha') {
+            net = 0; // Sneha settled
+          }
+        } else if (g.id == 'grp_flat402') {
+          if (u.id == 'usr_arhaam') {
+            net = 245000; // Arhaam is owed ₹2,450
+          } else if (u.id == 'usr_priya') {
+            net = -122500;
+          } else if (u.id == 'usr_amit') {
+            net = -122500;
+          }
+        } else {
+          net = u.id == MockDataRepository.currentUser.id
+              ? g.myNetPaise
+              : (u.id == MockDataRepository.userRahul.id ? -g.myNetPaise : 0);
+        }
 
         return GroupMember(
           userId: u.id,
@@ -41,11 +73,34 @@ class GroupsRepository {
     }).toList();
   }
 
+  Future<void> _ensureLoaded() async {
+    if (_isLoaded) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_storageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(raw);
+        _groups = decoded.map((g) => GroupModel.fromJson(g as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    _isLoaded = true;
+  }
+
+  Future<void> _saveToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = jsonEncode(_groups.map((g) => g.toJson()).toList());
+      await prefs.setString(_storageKey, raw);
+    } catch (_) {}
+  }
+
   Future<List<GroupModel>> fetchGroups() async {
+    await _ensureLoaded();
     return List.unmodifiable(_groups);
   }
 
   Future<GroupModel> getGroupById(String groupId) async {
+    await _ensureLoaded();
     return _groups.firstWhere(
       (g) => g.id == groupId,
       orElse: () => _groups.isNotEmpty
@@ -116,6 +171,7 @@ class GroupsRepository {
     );
 
     _groups.insert(0, newGroup);
+    await _saveToStorage();
     return newGroup;
   }
 
@@ -125,6 +181,7 @@ class GroupsRepository {
     String? photoUrl,
     String actorUserId = 'usr_arhaam',
   }) async {
+    await _ensureLoaded();
     await Future.delayed(const Duration(milliseconds: 150));
     final index = _groups.indexWhere((g) => g.id == groupId);
     if (index == -1) throw Exception('Group not found');
@@ -147,6 +204,7 @@ class GroupsRepository {
       lastActivity: 'Updated recently',
       createdAt: group.createdAt,
     );
+    await _saveToStorage();
   }
 
   Future<void> addMember(
@@ -154,6 +212,7 @@ class GroupsRepository {
     String newUserId, {
     String actorUserId = 'usr_arhaam',
   }) async {
+    await _ensureLoaded();
     await Future.delayed(const Duration(milliseconds: 150));
     final index = _groups.indexWhere((g) => g.id == groupId);
     if (index == -1) throw Exception('Group not found');
@@ -202,6 +261,57 @@ class GroupsRepository {
       lastActivity: 'Added $memberName',
       createdAt: group.createdAt,
     );
+    await _saveToStorage();
+  }
+
+  /// Checks whether a member has any pending debts they need to pay to anyone.
+  /// Checks current group graph, other groups, and friendships.
+  /// Returns a descriptive message if debts exist, or null if clear.
+  String? checkPendingDebts(String userId, {String? groupId}) {
+    // 1. Check in current group
+    if (groupId != null) {
+      final grpIndex = _groups.indexWhere((g) => g.id == groupId);
+      if (grpIndex != -1) {
+        final grp = _groups[grpIndex];
+        final member = grp.members.where((m) => m.userId == userId);
+        if (member.isNotEmpty) {
+          final m = member.first;
+          if (m.netPaise < 0) {
+            final graph = getGraph(groupId);
+            final debts = graph.links.where((l) => l.fromUserId == userId && l.amountPaise > 0).toList();
+            if (debts.isNotEmpty) {
+              final breakdown = debts.map((d) {
+                final toName = graph.nodes.firstWhere(
+                  (n) => n.userId == d.toUserId,
+                  orElse: () => GraphNode(userId: d.toUserId, name: 'friend', netPaise: 0),
+                ).name;
+                return 'owes $toName ${formatPaise(d.amountPaise)}';
+              }).join(' and ');
+              return '$breakdown in ${grp.name}';
+            }
+            return 'owes ${formatPaise(m.netPaise.abs())} in ${grp.name}';
+          } else if (m.netPaise > 0) {
+            return 'is owed ${formatPaise(m.netPaise)} in ${grp.name}';
+          }
+        }
+      }
+    }
+
+    // 2. Check across all groups
+    for (final grp in _groups) {
+      if (grp.id == groupId) continue;
+      final member = grp.members.where((m) => m.userId == userId);
+      if (member.isNotEmpty) {
+        final m = member.first;
+        if (m.netPaise < 0) {
+          return 'owes ${formatPaise(m.netPaise.abs())} in ${grp.name}';
+        } else if (m.netPaise > 0) {
+          return 'is owed ${formatPaise(m.netPaise)} in ${grp.name}';
+        }
+      }
+    }
+
+    return null;
   }
 
   Future<void> removeMember(
@@ -209,6 +319,7 @@ class GroupsRepository {
     String targetUserId, {
     String actorUserId = 'usr_arhaam',
   }) async {
+    await _ensureLoaded();
     await Future.delayed(const Duration(milliseconds: 150));
     final index = _groups.indexWhere((g) => g.id == groupId);
     if (index == -1) throw Exception('Group not found');
@@ -225,8 +336,9 @@ class GroupsRepository {
       orElse: () => throw Exception('User is not a member of this group'),
     );
 
-    if (targetMember.netPaise != 0) {
-      throw Exception('UNSETTLED_BALANCE: Cannot remove member with unsettled balance');
+    final pendingDebt = checkPendingDebts(targetUserId, groupId: groupId);
+    if (pendingDebt != null || targetMember.netPaise != 0) {
+      throw Exception('UNSETTLED_BALANCE: Cannot remove member: ${pendingDebt ?? "unsettled balance"}');
     }
 
     final updatedMembers = group.members.where((m) => m.userId != targetUserId).toList();
@@ -245,9 +357,11 @@ class GroupsRepository {
       lastActivity: 'Member left',
       createdAt: group.createdAt,
     );
+    await _saveToStorage();
   }
 
   Future<void> deleteGroup(String groupId, {String actorUserId = 'usr_arhaam'}) async {
+    await _ensureLoaded();
     await Future.delayed(const Duration(milliseconds: 200));
     final index = _groups.indexWhere((g) => g.id == groupId);
     if (index == -1) throw Exception('Group not found');
@@ -263,6 +377,7 @@ class GroupsRepository {
     }
 
     _groups.removeAt(index);
+    await _saveToStorage();
   }
 
   GroupDashboardData getDashboard(String groupId) {
@@ -391,6 +506,8 @@ class GroupsNotifier extends AsyncNotifier<List<GroupModel>> {
           );
       return ref.read(groupsRepositoryProvider).fetchGroups();
     });
+    ref.invalidate(groupDetailProvider(groupId));
+    ref.invalidate(groupDashboardProvider(groupId));
   }
 
   Future<void> addMember(String groupId, String newUserId) async {
@@ -399,6 +516,8 @@ class GroupsNotifier extends AsyncNotifier<List<GroupModel>> {
       await ref.read(groupsRepositoryProvider).addMember(groupId, newUserId);
       return ref.read(groupsRepositoryProvider).fetchGroups();
     });
+    ref.invalidate(groupDetailProvider(groupId));
+    ref.invalidate(groupDashboardProvider(groupId));
   }
 
   Future<void> removeMember(String groupId, String targetUserId) async {
@@ -407,6 +526,8 @@ class GroupsNotifier extends AsyncNotifier<List<GroupModel>> {
       await ref.read(groupsRepositoryProvider).removeMember(groupId, targetUserId);
       return ref.read(groupsRepositoryProvider).fetchGroups();
     });
+    ref.invalidate(groupDetailProvider(groupId));
+    ref.invalidate(groupDashboardProvider(groupId));
   }
 
   Future<void> deleteGroup(String groupId) async {
@@ -415,6 +536,8 @@ class GroupsNotifier extends AsyncNotifier<List<GroupModel>> {
       await ref.read(groupsRepositoryProvider).deleteGroup(groupId);
       return ref.read(groupsRepositoryProvider).fetchGroups();
     });
+    ref.invalidate(groupDetailProvider(groupId));
+    ref.invalidate(groupDashboardProvider(groupId));
   }
 }
 

@@ -100,12 +100,29 @@ class ExpensesRepository {
       ),
     );
 
-    // If for a 1-to-1 friend, adjust net balance
-    if (friendId != null) {
+    // If for direct friends (not group or trip ledger), adjust net balance
+    if (!ledgerId.startsWith('grp_') && !ledgerId.startsWith('trip_')) {
       final myPaid = payers.where((p) => p.userId == 'usr_arhaam').fold(0, (sum, p) => sum + p.paidPaise);
       final myShare = splits.where((s) => s.userId == 'usr_arhaam' && s.included).fold(0, (sum, s) => sum + s.owedPaise);
-      final myNetImpact = myPaid - myShare; // positive if Arhaam is owed money, negative if owes
-      _ref.read(friendsRepositoryProvider).adjustBalance(friendId, myNetImpact);
+
+      if (friendId != null) {
+        final myNetImpact = myPaid - myShare;
+        _ref.read(friendsRepositoryProvider).adjustBalance(friendId, myNetImpact);
+      } else {
+        // Multi-friend expense:
+        for (final s in splits) {
+          if (s.userId != 'usr_arhaam' && s.included) {
+            if (payers.any((p) => p.userId == 'usr_arhaam')) {
+              _ref.read(friendsRepositoryProvider).adjustBalance(s.userId, s.owedPaise);
+            }
+          }
+        }
+        for (final p in payers) {
+          if (p.userId != 'usr_arhaam') {
+            _ref.read(friendsRepositoryProvider).adjustBalance(p.userId, -myShare);
+          }
+        }
+      }
       _ref.invalidate(friendsNotifierProvider);
     }
 

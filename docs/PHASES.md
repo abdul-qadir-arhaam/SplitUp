@@ -219,10 +219,10 @@ Some steps cannot be done by the agent: creating accounts, console settings, sec
 9. **(S)** Tests for acceptance scenarios 9 and 12, plus: copied group members unaffected by later group edits.
 
 **Exit criteria**
-- [ ] A Rs 50,000 budget with Rs 38,400 spent shows the amber (60 to 80) state and correct per-day figure.
-- [ ] Crossing 100 percent shows the over-budget state and sends one notification.
-- [ ] No trip amount appears in any individual or group balance; no offset option exists inside trips.
-- [ ] Marking a trip completed moves it to Completed and settlements still work.
+- [x] A Rs 50,000 budget with Rs 38,400 spent shows the amber (60 to 80) state and correct per-day figure.
+- [x] Crossing 100 percent shows the over-budget state and sends one notification.
+- [x] No trip amount appears in any individual or group balance; no offset option exists inside trips.
+- [x] Marking a trip completed moves it to Completed and settlements still work.
 
 ---
 

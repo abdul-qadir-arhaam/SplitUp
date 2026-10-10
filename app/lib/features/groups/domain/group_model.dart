@@ -30,6 +30,16 @@ class GroupMember {
       isAppUser: json['isAppUser'] as bool? ?? true,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'userId': userId,
+        'name': name,
+        'phoneE164': phoneE164,
+        'photoUrl': photoUrl,
+        'role': role,
+        'netPaise': netPaise,
+        'isAppUser': isAppUser,
+      };
 }
 
 class GroupModel {
@@ -84,6 +94,20 @@ class GroupModel {
       createdAt: json['createdAt'] as String? ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'photoUrl': photoUrl,
+        'creatorUserId': creatorUserId,
+        'isAdmin': isAdmin,
+        'memberIds': memberIds,
+        'members': members.map((m) => m.toJson()).toList(),
+        'myNetPaise': myNetPaise,
+        'totalSpentPaise': totalSpentPaise,
+        'lastActivity': lastActivity,
+        'createdAt': createdAt,
+      };
 }
 
 class CategoryBreakdownItem {

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app/app.dart';
 
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +8,10 @@ import 'package:google_fonts/google_fonts.dart';
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
   });
 
   testWidgets('SplitUpApp loads home and navigation shell properly', (WidgetTester tester) async {

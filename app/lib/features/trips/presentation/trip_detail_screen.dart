@@ -1,256 +1,854 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../../core/money/paise.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../data/trips_repository.dart';
+import '../domain/trip_model.dart';
+import '../../notifications/data/notifications_repository.dart';
+import '../../expenses/presentation/add_expense_screen.dart';
+import '../../expenses/data/expenses_repository.dart';
+import '../../expenses/domain/expense_model.dart';
 
-class TripDetailScreen extends StatelessWidget {
+class TripDetailScreen extends ConsumerStatefulWidget {
   final String tripId;
 
   const TripDetailScreen({super.key, required this.tripId});
 
   @override
-  Widget build(BuildContext context) {
-    final colors = context.colors;
-    final trip = MockDataRepository.trips.firstWhere(
-      (t) => t.id == tripId,
-      orElse: () => MockDataRepository.trips.first,
-    );
+  ConsumerState<TripDetailScreen> createState() => _TripDetailScreenState();
+}
 
-    final expenses = MockDataRepository.expenses;
-    final pct = (trip.budgetProgress * 100).toStringAsFixed(1);
-    final remainingPaise = trip.budgetPaise - trip.spentPaise;
+class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final _budgetController = TextEditingController();
 
-    Color meterColor;
-    String statusMessage;
-    if (trip.budgetProgress < 0.6) {
-      meterColor = colors.accentReceive;
-      statusMessage = 'Well within budget! Spending is healthy.';
-    } else if (trip.budgetProgress < 0.8) {
-      meterColor = colors.statusWarn;
-      statusMessage = 'Caution: You have spent 76.8% of the trip budget.';
-    } else if (trip.budgetProgress < 1.0) {
-      meterColor = colors.statusWarn;
-      statusMessage = 'Approaching budget limit! Keep an eye on expenses.';
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _budgetController.dispose();
+    super.dispose();
+  }
+
+  Color _getMeterColor(double spentPercent, SplitUpColors colors) {
+    if (spentPercent < 60) {
+      return colors.accentReceive; // Green
+    } else if (spentPercent < 80) {
+      return colors.statusWarn; // Amber
+    } else if (spentPercent <= 100) {
+      return const Color(0xFFF97316); // Orange warning
     } else {
-      meterColor = colors.accentOwe;
-      statusMessage = 'Budget exceeded!';
+      return colors.accentOwe; // Red over-budget
     }
+  }
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          trip.name,
-          style: SplitUpTypography.title(color: colors.textPrimary),
+  void _showEditBudgetDialog(TripModel trip) {
+    _budgetController.text = (trip.budgetPaise ~/ 100).toString();
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: ctx.colors.surfaceFlat,
+          title: Text(
+            'Update Trip Budget',
+            style: SplitUpTypography.title(color: ctx.colors.textPrimary),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Only the trip creator can adjust the budget.',
+                style: SplitUpTypography.caption(color: ctx.colors.textMuted),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _budgetController,
+                keyboardType: TextInputType.number,
+                style: SplitUpTypography.titleAmount(color: ctx.colors.textPrimary),
+                decoration: InputDecoration(
+                  prefixText: '₹ ',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: SplitUpTypography.label(color: ctx.colors.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: ctx.colors.accentReceive),
+              onPressed: () async {
+                final rupees = int.tryParse(_budgetController.text.trim()) ?? 0;
+                if (rupees > 0) {
+                  Navigator.of(ctx).pop();
+                  await ref
+                      .read(tripsNotifierProvider.notifier)
+                      .updateTripBudget(widget.tripId, rupees * 100);
+                  ref.invalidate(tripDetailProvider(widget.tripId));
+                  ref.invalidate(tripDashboardProvider(widget.tripId));
+                }
+              },
+              child: const Text('Update', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRenameDialog(TripModel trip) {
+    final nameController = TextEditingController(text: trip.name);
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: ctx.colors.surfaceFlat,
+          title: Text('Rename Trip', style: SplitUpTypography.title(color: ctx.colors.textPrimary)),
+          content: TextField(
+            controller: nameController,
+            style: SplitUpTypography.body(color: ctx.colors.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Trip name',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: SplitUpTypography.label(color: ctx.colors.textMuted)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: ctx.colors.accentReceive),
+              onPressed: () async {
+                final newName = nameController.text.trim();
+                if (newName.isNotEmpty) {
+                  Navigator.of(ctx).pop();
+                  await ref
+                      .read(tripsNotifierProvider.notifier)
+                      .updateTrip(widget.tripId, name: newName);
+                  ref.invalidate(tripDetailProvider(widget.tripId));
+                  ref.invalidate(tripDashboardProvider(widget.tripId));
+                }
+              },
+              child: const Text('Save', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _completeTrip(TripModel trip) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.colors.surfaceFlat,
+        title: Text('Mark Trip as Completed?', style: SplitUpTypography.title(color: ctx.colors.textPrimary)),
+        content: Text(
+          'Completed trips move to the Completed tab. You and trip members can still add settlements and view all records.',
+          style: SplitUpTypography.body(color: ctx.colors.textSecondary),
         ),
         actions: [
-          IconButton(
-            icon: Icon(Icons.share_outlined, color: colors.textPrimary),
-            onPressed: () {},
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: SplitUpTypography.label(color: ctx.colors.textMuted)),
           ),
-          IconButton(
-            icon: Icon(Icons.more_vert_rounded, color: colors.textPrimary),
-            onPressed: () {},
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: ctx.colors.accentReceive),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Complete Trip', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
-      body: AppBackground(
-        child: SafeArea(
-          bottom: false,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            children: [
-              // Trip Dates & Members Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today_rounded, size: 14, color: colors.accentBrass),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Oct 12 – Oct 16, 2026',
-                        style: SplitUpTypography.label(color: colors.textSecondary),
-                      ),
-                    ],
+    );
+
+    if (confirm == true) {
+      await ref.read(tripsNotifierProvider.notifier).completeTrip(widget.tripId);
+      ref.invalidate(tripDetailProvider(widget.tripId));
+      ref.invalidate(tripDashboardProvider(widget.tripId));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Trip marked as completed.')),
+        );
+      }
+    }
+  }
+
+  void _showMembersSheet(TripModel trip) {
+    final members = trip.members.map((m) {
+      return MemberDisplayInfo(
+        userId: m.userId,
+        name: m.name,
+        phoneE164: m.phoneE164,
+        photoUrl: m.photoUrl,
+        role: m.role,
+        netPaise: m.netPaise,
+        isAppUser: m.isAppUser,
+        isMe: m.userId == 'usr_arhaam',
+      );
+    }).toList();
+
+    MembersSheet.show(
+      context: context,
+      title: 'Trip Members',
+      entityName: trip.name,
+      members: members,
+      onRemoveMember: trip.isAdmin
+          ? (member) async {
+              await ref
+                  .read(tripsNotifierProvider.notifier)
+                  .removeMember(trip.id, member.userId);
+              ref.invalidate(tripDetailProvider(widget.tripId));
+              ref.invalidate(tripDashboardProvider(widget.tripId));
+            }
+          : null,
+      onRemindToSettle: (member) async {
+        final notif = NotificationModel(
+          id: 'notif_remind_${DateTime.now().millisecondsSinceEpoch}',
+          type: 'SETTLEMENT_REQUESTED',
+          title: 'Settlement Reminder: ${trip.name}',
+          body: '${member.name}, please settle your pending balance of ${formatPaise(member.netPaise.abs())} in ${trip.name}.',
+          isRead: false,
+          createdAt: DateTime.now(),
+          payload: {
+            'tripId': trip.id,
+            'tripName': trip.name,
+            'userId': member.userId,
+            'userName': member.name,
+            'netPaise': member.netPaise,
+          },
+        );
+        await ref.read(notificationsNotifierProvider.notifier).addNotification(notif);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: context.colors.accentReceive,
+              content: Text(
+                'Settlement reminder notification sent to ${member.name} (${formatPaise(member.netPaise.abs())})',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final asyncTrip = ref.watch(tripDetailProvider(widget.tripId));
+    final dashboardData = ref.watch(tripDashboardProvider(widget.tripId));
+
+    return asyncTrip.when(
+      loading: () => Scaffold(
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+        body: Center(child: Text('Error: $e')),
+      ),
+      data: (trip) {
+        final meter = trip.budgetMeter ??
+            TripsRepository.computeBudgetMeter(
+              trip.budgetPaise,
+              trip.totalSpentPaise,
+              trip.startDate,
+              trip.endDate,
+            );
+        final pct = meter.spentPercent.toStringAsFixed(1);
+        final meterColor = _getMeterColor(meter.spentPercent, colors);
+
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
+              onPressed: () => context.pop(),
+            ),
+            title: Text(
+              trip.name,
+              style: SplitUpTypography.title(color: colors.textPrimary),
+            ),
+            actions: [
+              if (trip.isAdmin)
+                IconButton(
+                  icon: Icon(Icons.edit_outlined, color: colors.textPrimary),
+                  tooltip: 'Rename Trip',
+                  onPressed: () => _showRenameDialog(trip),
+                ),
+              PopupMenuButton<String>(
+                icon: Icon(Icons.more_vert_rounded, color: colors.textPrimary),
+                color: colors.surfaceFlatRaised,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                onSelected: (val) {
+                  if (val == 'view_members') {
+                    _showMembersSheet(trip);
+                  } else if (val == 'budget') {
+                    _showEditBudgetDialog(trip);
+                  } else if (val == 'complete') {
+                    _completeTrip(trip);
+                  }
+                },
+                itemBuilder: (ctx) => [
+                  PopupMenuItem(
+                    value: 'view_members',
+                    child: Row(
+                      children: [
+                        Icon(Icons.people_alt_outlined, size: 18, color: colors.textPrimary),
+                        const SizedBox(width: 10),
+                        Text('View Members', style: TextStyle(color: colors.textPrimary)),
+                      ],
+                    ),
                   ),
-                  StatusChip(status: trip.isCompleted ? 'COMPLETED' : 'ACTIVE'),
+                  if (trip.isAdmin) ...[
+                    PopupMenuItem(
+                      value: 'budget',
+                      child: Row(
+                        children: [
+                          Icon(Icons.tune_rounded, size: 18, color: colors.textPrimary),
+                          const SizedBox(width: 10),
+                          Text('Adjust Budget', style: TextStyle(color: colors.textPrimary)),
+                        ],
+                      ),
+                    ),
+                    if (!trip.isCompleted)
+                      PopupMenuItem(
+                        value: 'complete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle_outline, size: 18, color: colors.textPrimary),
+                            const SizedBox(width: 10),
+                            Text('Mark Completed', style: TextStyle(color: colors.textPrimary)),
+                          ],
+                        ),
+                      ),
+                  ],
                 ],
               ),
-              const SizedBox(height: 16),
+            ],
+            bottom: TabBar(
+              controller: _tabController,
+              indicatorColor: colors.accentReceive,
+              labelColor: colors.accentReceive,
+              unselectedLabelColor: colors.textMuted,
+              labelStyle: SplitUpTypography.label(color: colors.accentReceive),
+              tabs: const [
+                Tab(text: 'Dashboard'),
+                Tab(text: 'Expenses'),
+                Tab(text: 'Settle'),
+              ],
+            ),
+          ),
+          body: AppBackground(
+            child: SafeArea(
+              bottom: false,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Tab 1: Dashboard
+                  _buildDashboardTab(trip, meter, meterColor, pct, colors, dashboardData),
 
-              // Budget Gauge Hero Card
-              GlassCard(
-                strong: true,
-                padding: const EdgeInsets.all(22),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'TRIP BUDGET GAUGE',
-                          style: SplitUpTypography.caption(color: colors.textMuted).copyWith(
-                            letterSpacing: 1.1,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: meterColor.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '$pct%',
-                            style: SplitUpTypography.caption(color: meterColor).copyWith(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        MoneyText(trip.spentPaise, variant: MoneyVariant.title, colored: false),
-                        Text(
-                          ' / ${formatPaise(trip.budgetPaise)}',
-                          style: SplitUpTypography.title(color: colors.textMuted).copyWith(fontSize: 18),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
+                  // Tab 2: Expenses
+                  _buildExpensesTab(trip, colors, dashboardData),
 
-                    // Progress bar
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: trip.budgetProgress.clamp(0.0, 1.0),
-                        backgroundColor: colors.surfaceFlatRaised,
-                        color: meterColor,
-                        minHeight: 10,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Status Message and Remaining
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            statusMessage,
-                            style: SplitUpTypography.caption(color: meterColor),
-                          ),
-                        ),
-                        Text(
-                          'Remaining: ${formatPaise(remainingPaise)}',
-                          style: SplitUpTypography.label(color: colors.textPrimary),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  // Tab 3: Settle & Graph (Isolated without offsets)
+                  _buildSettleTab(trip, colors),
+                ],
               ),
-              const SizedBox(height: 24),
+            ),
+          ),
+          floatingActionButton: FloatingActionButton(
+            backgroundColor: colors.accentReceive,
+            foregroundColor: Colors.white,
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (ctx) => AddExpenseScreen(
+                    initialLedgerId: trip.id,
+                    initialMembers: trip.members.map((m) {
+                      final isMe = m.userId == 'usr_arhaam';
+                      return {
+                        'id': m.userId,
+                        'name': isMe ? 'You' : m.name,
+                        'isMe': isMe,
+                      };
+                    }).toList(),
+                  ),
+                ),
+              );
+            },
+            child: const Icon(Icons.add_rounded, size: 28),
+          ),
+        );
+      },
+    );
+  }
 
-              // Trip Expenses
+  Widget _buildDashboardTab(
+    TripModel trip,
+    TripBudgetMeter meter,
+    Color meterColor,
+    String pct,
+    SplitUpColors colors,
+    TripDashboardData dashboard,
+  ) {
+    final double progressClamped = (meter.spentPercent / 100).clamp(0.0, 1.0);
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      children: [
+        // Trip Dates & Status
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.calendar_today_rounded, size: 14, color: colors.accentBrass),
+                const SizedBox(width: 6),
+                Text(
+                  trip.startDate != null && trip.endDate != null
+                      ? '${trip.startDate} – ${trip.endDate}'
+                      : 'Time-boxed Trip Ledger',
+                  style: SplitUpTypography.label(color: colors.textSecondary),
+                ),
+              ],
+            ),
+            StatusChip(status: trip.isCompleted ? 'COMPLETED' : 'ACTIVE'),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Budget Gauge Hero Card
+        GlassCard(
+          strong: true,
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Trip Expenses (${expenses.length})',
-                    style: SplitUpTypography.title(color: colors.textPrimary),
+                    'TRIP BUDGET GAUGE',
+                    style: SplitUpTypography.caption(color: colors.textMuted).copyWith(
+                      letterSpacing: 1.1,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  TextButton.icon(
-                    onPressed: () => context.push('/add-expense'),
-                    icon: Icon(Icons.add, size: 16, color: colors.accentReceive),
-                    label: Text(
-                      'Add',
-                      style: SplitUpTypography.label(color: colors.accentReceive),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: meterColor.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$pct%',
+                      style: SplitUpTypography.caption(color: meterColor).copyWith(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  MoneyText(meter.totalSpentPaise, variant: MoneyVariant.title, colored: false),
+                  Text(
+                    ' / ${formatPaise(meter.budgetPaise)}',
+                    style: SplitUpTypography.title(color: colors.textMuted).copyWith(fontSize: 18),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
 
-              ...expenses.map((exp) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(16),
+              // Progress Bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progressClamped,
+                  backgroundColor: colors.surfaceFlatRaised,
+                  color: meterColor,
+                  minHeight: 12,
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Status message & Remaining
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      meter.statusMessage,
+                      style: SplitUpTypography.body(color: meterColor).copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(
+                    meter.remainingPaise >= 0
+                        ? 'Left: ${formatPaise(meter.remainingPaise)}'
+                        : 'Over: ${formatPaise(-meter.remainingPaise)}',
+                    style: SplitUpTypography.label(color: colors.textPrimary),
+                  ),
+                ],
+              ),
+
+              // Remaining per day (when dates exist)
+              if (meter.remainingPerDayPaise != null && meter.daysRemaining != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: colors.surfaceFlat,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: colors.divider),
+                    color: colors.surfaceFlatRaised,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceFlatRaised,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          exp.category == 'food'
-                              ? Icons.restaurant_rounded
-                              : (exp.category == 'travel' ? Icons.directions_car_rounded : Icons.receipt_long_rounded),
-                          size: 20,
-                          color: colors.accentBrass,
-                        ),
+                      Icon(Icons.trending_up_rounded, size: 16, color: colors.accentBrass),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Remaining per day: ',
+                        style: SplitUpTypography.caption(color: colors.textMuted),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(exp.title, style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
-                            const SizedBox(height: 2),
-                            Text('Paid by ${exp.paidBy.displayName}', style: SplitUpTypography.caption(color: colors.textMuted)),
-                          ],
-                        ),
+                      Text(
+                        '${formatPaise(meter.remainingPerDayPaise!)} / day',
+                        style: SplitUpTypography.caption(color: colors.textPrimary).copyWith(fontWeight: FontWeight.w700),
                       ),
-                      MoneyText(exp.totalPaise, variant: MoneyVariant.body, colored: false),
+                      const Spacer(),
+                      Text(
+                        '${meter.daysRemaining} days left',
+                        style: SplitUpTypography.caption(color: colors.accentBrass),
+                      ),
                     ],
                   ),
-                );
-              }),
-
-              const SizedBox(height: 20),
-              SecondaryButton(
-                label: trip.isCompleted ? 'Reopen Trip' : 'Mark Trip as Completed',
-                icon: Icons.check_circle_outline,
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: colors.surfaceFlatRaised,
-                      content: Text(
-                        'Trip marked as completed.',
-                        style: SplitUpTypography.body(color: colors.textPrimary),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 80),
+                ),
+              ],
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: colors.accentReceive,
-        foregroundColor: Colors.white,
-        onPressed: () => context.push('/add-expense'),
-        child: const Icon(Icons.add_rounded, size: 28),
-      ),
+        const SizedBox(height: 20),
+
+        // Budget Slider (Creator only)
+        if (trip.isAdmin) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.surfaceFlat,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.divider),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Adjust Budget (Creator Only)', style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
+                    TextButton(
+                      onPressed: () => _showEditBudgetDialog(trip),
+                      child: Text('Edit Amount', style: SplitUpTypography.label(color: colors.accentReceive)),
+                    ),
+                  ],
+                ),
+                Slider(
+                  value: (trip.budgetPaise ~/ 100).toDouble().clamp(10000.0, 150000.0),
+                  min: 10000.0,
+                  max: 150000.0,
+                  divisions: 28,
+                  label: '₹ ${(trip.budgetPaise ~/ 100)}',
+                  activeColor: colors.accentReceive,
+                  inactiveColor: colors.surfaceFlatRaised,
+                  onChanged: (val) {
+                    ref.read(tripsNotifierProvider.notifier).updateTripBudget(trip.id, val.toInt() * 100);
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // Daily Spending Bars
+        Text('Daily Spending', style: SplitUpTypography.title(color: colors.textPrimary)),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colors.surfaceFlat,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.divider),
+          ),
+          child: Column(
+            children: dashboard.dailySpending.map((day) {
+              final double barWidthRatio = (day.totalPaise / 2000000).clamp(0.05, 1.0);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 100,
+                      child: Text(
+                        day.dayLabel,
+                        style: SplitUpTypography.caption(color: colors.textMuted),
+                      ),
+                    ),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: barWidthRatio,
+                          backgroundColor: colors.surfaceFlatRaised,
+                          color: colors.accentReceive,
+                          minHeight: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      formatPaise(day.totalPaise),
+                      style: SplitUpTypography.label(color: colors.textPrimary),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // Category Breakdown
+        Text('Category Breakdown', style: SplitUpTypography.title(color: colors.textPrimary)),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: colors.surfaceFlat,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: colors.divider),
+          ),
+          child: Column(
+            children: dashboard.categoryBreakdown.map((cat) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      cat.category == 'food'
+                          ? Icons.restaurant_rounded
+                          : (cat.category == 'stay'
+                              ? Icons.hotel_rounded
+                              : (cat.category == 'travel' ? Icons.directions_car_rounded : Icons.receipt_long_rounded)),
+                      size: 20,
+                      color: colors.accentBrass,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        cat.category.toUpperCase(),
+                        style: SplitUpTypography.label(color: colors.textPrimary),
+                      ),
+                    ),
+                    Text(
+                      '${cat.percentage}% · ${formatPaise(cat.totalPaise)}',
+                      style: SplitUpTypography.caption(color: colors.textSecondary),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        if (trip.isAdmin && !trip.isCompleted) ...[
+          SecondaryButton(
+            label: 'Mark Trip as Completed',
+            icon: Icons.check_circle_outline,
+            onPressed: () => _completeTrip(trip),
+          ),
+          const SizedBox(height: 80),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildExpensesTab(TripModel trip, SplitUpColors colors, TripDashboardData dashboard) {
+    final asyncExpenses = ref.watch(expensesNotifierProvider);
+    final dynamicTripExpenses = asyncExpenses.maybeWhen(
+      data: (list) => list.where((e) => e.ledgerId == trip.id).toList(),
+      orElse: () => <ExpenseModel>[],
+    );
+    final existingIds = dynamicTripExpenses.map((e) => e.id).toSet();
+    final allExpenses = [
+      ...dynamicTripExpenses,
+      ...dashboard.expenses.where((e) => !existingIds.contains(e.id)),
+    ];
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Trip Expenses (${allExpenses.length})', style: SplitUpTypography.title(color: colors.textPrimary)),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (ctx) => AddExpenseScreen(
+                      initialLedgerId: trip.id,
+                      initialMembers: trip.members.map((m) {
+                        final isMe = m.userId == 'usr_arhaam';
+                        return {
+                          'id': m.userId,
+                          'name': isMe ? 'You' : m.name,
+                          'isMe': isMe,
+                        };
+                      }).toList(),
+                    ),
+                  ),
+                );
+              },
+              icon: Icon(Icons.add, size: 16, color: colors.accentReceive),
+              label: Text('Add', style: SplitUpTypography.label(color: colors.accentReceive)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        ...allExpenses.map((exp) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.surfaceFlat,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.divider),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceFlatRaised,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    exp.category == 'food'
+                        ? Icons.restaurant_rounded
+                        : (exp.category == 'travel' ? Icons.directions_car_rounded : Icons.receipt_long_rounded),
+                    size: 20,
+                    color: colors.accentBrass,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(exp.title, style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
+                      const SizedBox(height: 2),
+                      Text('Paid by ${exp.payers.first.userId}', style: SplitUpTypography.caption(color: colors.textMuted)),
+                    ],
+                  ),
+                ),
+                MoneyText(exp.totalPaise, variant: MoneyVariant.body, colored: false),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 80),
+      ],
+    );
+  }
+
+  Widget _buildSettleTab(TripModel trip, SplitUpColors colors) {
+    final graph = ref.watch(tripGraphProvider(trip.id));
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      children: [
+        // Isolation Notice Banner
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: colors.accentBrass.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colors.accentBrass.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.lock_clock_rounded, size: 20, color: colors.accentBrass),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Trip Ledgers are fully isolated. No offsets or cross-group balances apply.',
+                  style: SplitUpTypography.caption(color: colors.textPrimary),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        Text('Trip Settlement Graph', style: SplitUpTypography.title(color: colors.textPrimary)),
+        const SizedBox(height: 10),
+
+        // Transfers List
+        ...graph.links.map((link) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.surfaceFlat,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.divider),
+            ),
+            child: Row(
+              children: [
+                Avatar(name: link.fromUserId, size: 36),
+                const SizedBox(width: 10),
+                Icon(Icons.arrow_forward_rounded, size: 16, color: colors.textMuted),
+                const SizedBox(width: 10),
+                Avatar(name: link.toUserId, size: 36),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '${link.fromUserId} pays ${link.toUserId}',
+                    style: SplitUpTypography.body(color: colors.textPrimary),
+                  ),
+                ),
+                MoneyText(link.amountPaise, variant: MoneyVariant.body, colored: false),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 16),
+
+        PrimaryButton(
+          label: 'Settle Debt Directly',
+          icon: Icons.payments_outlined,
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Settlement request recorded in Trip ledger.')),
+            );
+          },
+        ),
+        const SizedBox(height: 80),
+      ],
     );
   }
 }

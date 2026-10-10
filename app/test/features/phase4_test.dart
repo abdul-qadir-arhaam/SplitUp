@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/features/groups/data/groups_repository.dart';
 import 'package:app/features/groups/presentation/groups_screen.dart';
@@ -10,12 +11,15 @@ import 'package:app/features/groups/presentation/group_detail_screen.dart';
 import 'package:app/features/groups/presentation/group_settle_graph_screen.dart';
 import 'package:app/features/offsets/data/offsets_repository.dart';
 import 'package:app/features/friends/data/friends_repository.dart';
-import 'package:app/features/friends/domain/friend_model.dart';
 import 'package:app/features/friends/presentation/friend_detail_screen.dart';
 
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
   });
 
   group('Phase 4: Groups Repository & Admin Rules', () {

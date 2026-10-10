@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../friends/data/friends_repository.dart';
 import '../../friends/domain/friend_model.dart';
 import '../../friends/presentation/add_friend_sheet.dart';
+import '../../friends/presentation/select_friends_sheet.dart';
+import '../../expenses/presentation/add_expense_screen.dart';
 import '../../notifications/data/notifications_repository.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -336,7 +338,26 @@ class HomeScreen extends ConsumerWidget {
         backgroundColor: colors.accentReceive,
         foregroundColor: Colors.white,
         elevation: 4,
-        onPressed: () => context.push('/add-expense'),
+        onPressed: () async {
+          final selectedFriends = await SelectFriendsSheet.show(context);
+          if (selectedFriends != null && selectedFriends.isNotEmpty && context.mounted) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (ctx) => AddExpenseScreen(
+                  friendIds: selectedFriends.map((f) => f.id).toList(),
+                  initialMembers: [
+                    {'id': 'usr_arhaam', 'name': 'You', 'isMe': true},
+                    ...selectedFriends.map((f) => {
+                          'id': f.id,
+                          'name': f.resolvedName,
+                          'isMe': false,
+                        }),
+                  ],
+                ),
+              ),
+            );
+          }
+        },
         icon: const Icon(Icons.add_rounded, size: 24),
         label: Text(
           'Add Expense',
