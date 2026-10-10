@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<meta content="mobile_blank" name="shell-type"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "secondary": "#e4c278",
+            "secondary-fixed-dim": "#e4c278",
+            "on-tertiary": "#621000",
+            "on-tertiary-container": "#5a0e00",
+            "on-primary": "#003826",
+            "tertiary": "#ffb4a3",
+            "on-secondary": "#3f2e00",
+            "background": "#0b1512",
+            "on-error": "#690005",
+            "on-surface": "#dae5e0",
+            "on-secondary-fixed-variant": "#5a4302",
+            "error": "#ffb4ab",
+            "surface-bright": "#313b38",
+            "on-primary-fixed-variant": "#005139",
+            "on-primary-fixed": "#002115",
+            "surface-tint": "#63dcac",
+            "surface-variant": "#2d3733",
+            "on-primary-container": "#003322",
+            "tertiary-container": "#e96e50",
+            "surface": "#0b1512",
+            "inverse-on-surface": "#28332f",
+            "outline-variant": "#3d4a43",
+            "surface-container": "#18221e",
+            "inverse-primary": "#006c4d",
+            "inverse-surface": "#dae5e0",
+            "primary": "#63dcac",
+            "secondary-fixed": "#ffdf9b",
+            "on-error-container": "#ffdad6",
+            "surface-dim": "#0b1512",
+            "secondary-container": "#5d4604",
+            "primary-fixed": "#81f9c7",
+            "surface-container-highest": "#2d3733",
+            "on-secondary-container": "#d5b46b",
+            "error-container": "#93000a",
+            "surface-container-lowest": "#06100d",
+            "surface-container-low": "#141e1a",
+            "on-tertiary-fixed": "#3d0700",
+            "on-background": "#dae5e0",
+            "on-tertiary-fixed-variant": "#84240d",
+            "primary-fixed-dim": "#63dcac",
+            "on-surface-variant": "#bccac1",
+            "tertiary-fixed-dim": "#ffb4a3",
+            "surface-container-high": "#222c29",
+            "tertiary-fixed": "#ffdad2",
+            "outline": "#87948c",
+            "on-secondary-fixed": "#251a00",
+            "primary-container": "#1fa67a"
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          fontFamily: {
+            "body-sm": ["Manrope", "sans-serif"],
+            "mono-plex": ["IBM Plex Mono", "monospace"],
+            "label-numeric-md": ["JetBrains Mono", "monospace"],
+            "headline-md": ["Manrope", "sans-serif"],
+            "label-numeric-sm": ["JetBrains Mono", "monospace"],
+            "label-numeric-lg": ["JetBrains Mono", "monospace"],
+            "body-md": ["Manrope", "sans-serif"],
+            "body-lg": ["Manrope", "sans-serif"],
+            "headline-lg": ["Manrope", "sans-serif"],
+            "display-lg-mobile": ["IBM Plex Mono", "monospace"],
+            "display-lg": ["IBM Plex Mono", "monospace"],
+            "headline-sm": ["Manrope", "sans-serif"],
+            "label-caps": ["Manrope", "sans-serif"]
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      background-color: #0b1512;
+      color: #dae5e0;
+      overscroll-behavior-y: none;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased overflow-hidden flex justify-center items-center min-h-screen">
+<!-- Mobile Device Shell Viewport (390px x 844px) -->
+<div class="relative w-full max-w-[390px] h-screen max-h-[844px] bg-[#0b1512] overflow-hidden flex flex-col justify-end shadow-2xl">
+<!-- Background App Screen (Simulated Blurred Ledger Screen) -->
+<div class="absolute inset-0 px-4 pt-8 pb-20 select-none filter blur-sm opacity-35 pointer-events-none">
+<div class="flex items-center justify-between pb-4 border-b border-white/10">
+<div class="flex items-center gap-3">
+<div class="w-11 h-11 rounded-full bg-surface-container-high flex items-center justify-center font-bold text-secondary text-lg">R</div>
+<div>
+<h3 class="font-headline-sm text-base font-bold text-on-surface">Goa Trip 2025</h3>
+<p class="text-xs text-on-surface-variant font-body-sm">5 Members · ₹18,400 Total</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-[11px] uppercase tracking-wider text-on-surface-variant">Your Share</p>
+<p class="text-base font-mono font-bold text-primary">+₹1,450.00</p>
+</div>
+</div>
+<!-- List mock items -->
+<div class="mt-4 space-y-3">
+<div class="p-3 rounded-xl bg-surface-container flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">restaurant</span>
+</div>
+<div>
+<p class="text-sm font-semibold">Artjuna Breakfast</p>
+<p class="text-[11px] text-on-surface-variant">Paid by Rahul</p>
+</div>
+</div>
+<span class="font-mono text-sm text-primary">+₹420</span>
+</div>
+<div class="p-3 rounded-xl bg-surface-container flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-lg">directions_car</span>
+</div>
+<div>
+<p class="text-sm font-semibold">Scooter Rental</p>
+<p class="text-[11px] text-on-surface-variant">Paid by Kabir</p>
+</div>
+</div>
+<span class="font-mono text-sm text-tertiary">-₹600</span>
+</div>
+<div class="p-3 rounded-xl bg-surface-container flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-lg">hotel</span>
+</div>
+<div>
+<p class="text-sm font-semibold">Villa Advance</p>
+<p class="text-[11px] text-on-surface-variant">Paid by Aarav</p>
+</div>
+</div>
+<span class="font-mono text-sm text-primary">+₹2,500</span>
+</div>
+</div>
+</div>
+<!-- Scrim Backdrop Overlay -->
+<div class="absolute inset-0 bg-[#06100d]/75 backdrop-blur-[6px] pointer-events-none z-10"></div>
+<!-- 1. ADD EXPENSE MODAL BOTTOM SHEET (~85% Screen Height) -->
+<div class="relative z-20 w-full max-h-[85vh] bg-[#0E1A16]/95 backdrop-blur-2xl rounded-t-[28px] border-t border-x border-white/15 shadow-2xl flex flex-col overflow-hidden">
+<!-- SHEET HEADER -->
+<div class="pt-3 pb-2 px-4 flex-shrink-0 flex flex-col items-center border-b border-white/5">
+<!-- Grab handle pill -->
+<div class="w-12 h-1.5 rounded-full bg-white/20 mb-3"></div>
+<div class="w-full flex items-center justify-between">
+<!-- Close button -->
+<button aria-label="Close" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-on-surface flex items-center justify-center transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+<!-- Title -->
+<h2 class="font-headline-sm font-bold text-[18px] text-on-surface tracking-tight">Add Expense</h2>
+<!-- Currency badge -->
+<button class="h-8 px-2.5 rounded-full bg-white/10 hover:bg-white/15 border border-white/10 text-on-surface flex items-center gap-1 transition-colors" type="button">
+<span class="font-mono text-[12px] font-semibold text-secondary">INR (₹)</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_drop_down</span>
+</button>
+</div>
+</div>
+<!-- SCROLLABLE SHEET CONTENT BODY -->
+<div class="flex-1 overflow-y-auto px-4 py-3 space-y-4 no-scrollbar">
+<!-- 2. AMOUNT DISPLAY & COMPACT NUMERIC KEYPAD -->
+<div class="flex flex-col items-center justify-center p-3.5 rounded-2xl bg-white/[0.03] border border-white/10">
+<span class="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant mb-1">Total Bill Amount</span>
+<!-- Large Amount Display -->
+<div class="flex items-baseline justify-center gap-1.5 my-1">
+<span class="text-2xl font-mono text-secondary font-bold align-top">₹</span>
+<span class="text-[36px] leading-tight font-mono-plex font-bold tracking-tight text-white tabular-nums" id="amount-display">1,200</span>
+<span class="w-[2px] h-7 bg-primary animate-pulse ml-0.5 rounded-full self-center"></span>
+</div>
+<!-- Compact Custom 4-row Numeric Keypad -->
+<div class="w-full max-w-[290px] mt-2">
+<div class="grid grid-cols-3 gap-1.5">
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">1</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">2</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">3</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">4</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">5</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">6</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">7</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">8</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">9</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">.</button>
+<button class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-lg font-mono text-on-surface hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">0</button>
+<button aria-label="Backspace" class="key-btn h-10 rounded-xl bg-white/5 border border-white/10 text-on-surface-variant hover:bg-white/10 active:bg-emerald-500/20 active:border-primary/40 transition-colors flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[20px]">backspace</span>
+</button>
+</div>
+</div>
+</div>
+<!-- 3. EXPENSE DESCRIPTION & CATEGORY ROW -->
+<div class="space-y-2">
+<!-- Frosted Input with Placeholder -->
+<div class="relative flex items-center">
+<span class="absolute left-3.5 material-symbols-outlined text-primary text-[20px]">edit_note</span>
+<input class="w-full h-11 bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 text-on-surface placeholder:text-on-surface-variant/50 text-sm font-body-md focus:outline-none focus:border-primary/60 focus:bg-white/10 transition-colors" placeholder="Dinner at Burma Burma" type="text" value="Dinner at Burma Burma"/>
+</div>
+<!-- Category Chips Horizontal Scroll -->
+<div class="flex items-center gap-1.5 overflow-x-auto py-1 no-scrollbar">
+<!-- Food (Active: emerald background/border) -->
+<button class="flex-shrink-0 h-7 px-3 rounded-full bg-[#1FA67A] text-[#0A1411] border border-primary flex items-center gap-1.5 font-semibold text-xs shadow-sm" type="button">
+<span class="material-symbols-outlined text-[15px]" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+<span>Food</span>
+</button>
+<!-- Travel -->
+<button class="flex-shrink-0 h-7 px-3 rounded-full bg-white/5 border border-white/10 text-on-surface-variant hover:text-on-surface hover:bg-white/10 flex items-center gap-1.5 text-xs transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">flight</span>
+<span>Travel</span>
+</button>
+<!-- Stay -->
+<button class="flex-shrink-0 h-7 px-3 rounded-full bg-white/5 border border-white/10 text-on-surface-variant hover:text-on-surface hover:bg-white/10 flex items-center gap-1.5 text-xs transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">bed</span>
+<span>Stay</span>
+</button>
+<!-- Fuel -->
+<button class="flex-shrink-0 h-7 px-3 rounded-full bg-white/5 border border-white/10 text-on-surface-variant hover:text-on-surface hover:bg-white/10 flex items-center gap-1.5 text-xs transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">local_gas_station</span>
+<span>Fuel</span>
+</button>
+<!-- Tickets -->
+<button class="flex-shrink-0 h-7 px-3 rounded-full bg-white/5 border border-white/10 text-on-surface-variant hover:text-on-surface hover:bg-white/10 flex items-center gap-1.5 text-xs transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">confirmation_number</span>
+<span>Tickets</span>
+</button>
+<!-- Shopping -->
+<button class="flex-shrink-0 h-7 px-3 rounded-full bg-white/5 border border-white/10 text-on-surface-variant hover:text-on-surface hover:bg-white/10 flex items-center gap-1.5 text-xs transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">shopping_bag</span>
+<span>Shopping</span>
+</button>
+<!-- Other -->
+<button class="flex-shrink-0 h-7 px-3 rounded-full bg-white/5 border border-white/10 text-on-surface-variant hover:text-on-surface hover:bg-white/10 flex items-center gap-1.5 text-xs transition-colors" type="button">
+<span class="material-symbols-outlined text-[15px]">auto_awesome</span>
+<span>Other</span>
+</button>
+</div>
+</div>
+<!-- 4. PAID BY (Multiple Payers support) -->
+<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2">
+<div class="flex items-center justify-between">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Paid By</span>
+<button class="text-xs text-primary font-medium flex items-center gap-1 hover:underline" type="button">
+<span>Multiple payers</span>
+<span class="material-symbols-outlined text-[13px]">tune</span>
+</button>
+</div>
+<!-- Active Payer Pill -->
+<div class="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+<div class="flex items-center gap-2.5">
+<img class="w-7 h-7 rounded-full object-cover ring-1 ring-primary/60" data-alt="Close up profile photo of Kabir smiling with natural warm lighting, emerald jacket, soft evening background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8rZbtEyvqSmKUl25-DBCkz7G09gRqy2y7X8kcvTBzVLQ6-piaBPfLFfnTFfB-iMTjFZCtt88sli0Zk1YY16uhGe-lhqjli-Wq3JxTmTrGdFOS95wXEpsNjAZ8ColsMd-7VPx4nlYMY_381Vbb3Wvz8psdM9aBSPuVEc5C4ezJX4f73wexHelG3muK4ckHspboXGNnwHI7g3YnODX7Nb1vUAqO1d8k6O23gg3f-FoWXmhz1JAxCyxIkQ"/>
+<div class="leading-tight">
+<span class="text-xs font-semibold text-white block">You (Kabir)</span>
+<span class="text-[11px] font-mono text-secondary">Kabir (₹1,200) · 100%</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[18px] text-primary">check_circle</span>
+</div>
+</div>
+<!-- 5. SPLIT METHOD (Segmented Control) -->
+<div class="space-y-1.5">
+<div class="flex items-center justify-between px-1">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Split Method</span>
+<span class="text-[11px] text-on-surface-variant">Equal split</span>
+</div>
+<div class="grid grid-cols-4 p-1 rounded-xl bg-white/5 border border-white/10 gap-1">
+<button class="h-7 rounded-lg bg-[#1FA67A] text-[#0A1411] font-bold text-xs shadow-sm flex items-center justify-center transition-all" type="button">
+              Equal
+            </button>
+<button class="h-7 rounded-lg text-on-surface-variant hover:text-white font-medium text-xs flex items-center justify-center transition-all" type="button">
+              Exact
+            </button>
+<button class="h-7 rounded-lg text-on-surface-variant hover:text-white font-medium text-xs flex items-center justify-center transition-all" type="button">
+              Percent
+            </button>
+<button class="h-7 rounded-lg text-on-surface-variant hover:text-white font-medium text-xs flex items-center justify-center transition-all" type="button">
+              Shares
+            </button>
+</div>
+</div>
+<!-- 6. MEMBERS LIST & "NOT THERE" EXCLUSION -->
+<div class="p-3 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1">
+<div class="flex items-center justify-between pb-1.5 mb-1 border-b border-white/10">
+<span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Split Between (4 of 5)</span>
+<span class="text-[11px] font-mono text-primary font-medium">₹300.00 / person</span>
+</div>
+<!-- Kabir (You) -->
+<div class="flex items-center justify-between py-2 border-b border-white/5">
+<div class="flex items-center gap-2.5">
+<div class="w-4 h-4 rounded-md bg-primary text-[#0A1411] flex items-center justify-center">
+<span class="material-symbols-outlined text-[13px] font-bold">check</span>
+</div>
+<img class="w-7 h-7 rounded-full object-cover" data-alt="Close up profile photo of Kabir smiling with natural warm lighting, emerald jacket, soft evening background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0UJ7pTVpHLW2HadyLWI2sags4bNpyLDt5lR0xLQ_soxFLQScZxGg6DrjYLj0O2dfzd2cTjgXTMdvIH9grN3uK9MI7EX6hwwLmpTQRC3EbZiZb4ophANH9ggBozmkJhWjtmf9PkkyBefpihaf99N8iwE93KIkwsI1pU4QBYjUzyGV2Bs0_FJ0JpXERBA4zyA-6OwVb4OmbIfTeeSiQra9Qgwzw5TQxVOQdlHLR-1uM4ytG_QGgStRiCg"/>
+<div>
+<p class="text-xs font-semibold text-white leading-none">Kabir <span class="text-on-surface-variant font-normal">(You)</span></p>
+<span class="text-[10px] text-primary">Active</span>
+</div>
+</div>
+<span class="font-mono text-xs font-semibold text-primary">₹300.00</span>
+</div>
+<!-- Rahul -->
+<div class="flex items-center justify-between py-2 border-b border-white/5">
+<div class="flex items-center gap-2.5">
+<div class="w-4 h-4 rounded-md bg-primary text-[#0A1411] flex items-center justify-center">
+<span class="material-symbols-outlined text-[13px] font-bold">check</span>
+</div>
+<img class="w-7 h-7 rounded-full object-cover" data-alt="Portrait photo of a young man with glasses in casual attire against urban architecture, soft contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4YqRNmtFOsuDQQ02o4zFESeHzJH-G4luc-1r2WFd_R5Tb_dHbovh-eUsU_JsBhCOhK4jUJ37QWuP6w8Tz9a7rKNNDpKJh3hJD7MIUfwHpdvaGuW8UOC7bB0qy1OIvCHSEtNe7NIPnx1HTZT3CBCeN_TaFzZWmssE7zmxPh9bS81aJrcNw1IVwt-0YL7aRZJBkV1GHh8MtO_mNyMxGqqBQvAbHjsvw5ajF8t--JUB6HG0Dq9_aahIUjA"/>
+<div>
+<p class="text-xs font-semibold text-white leading-none">Rahul <span class="text-on-surface-variant font-normal">(College)</span></p>
+<span class="text-[10px] text-primary">Active</span>
+</div>
+</div>
+<span class="font-mono text-xs font-semibold text-primary">₹300.00</span>
+</div>
+<!-- Aarav Patel -->
+<div class="flex items-center justify-between py-2 border-b border-white/5">
+<div class="flex items-center gap-2.5">
+<div class="w-4 h-4 rounded-md bg-primary text-[#0A1411] flex items-center justify-center">
+<span class="material-symbols-outlined text-[13px] font-bold">check</span>
+</div>
+<img class="w-7 h-7 rounded-full object-cover" data-alt="Casual headshot of an Indian young adult smiling in an outdoor park setting with muted green foliage." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5gwHNhLZslHxBuoh0Vi5UZg8qS_EBtMhgDpWwbSxf_Zz47YADu4qxRCx14tVdKiqmWOrDNegTyiLG1Ybzu-CzHpq8OtapFkHd9ao9xn5Va67xj3lT2AXF0C3EMio8cb0OPsdaayyXcY6meJUm5wXYaDHiwLq9rcBdd3pTSaRPPekr5SIb3i5kN0KWGIwyqpKV5dfjQEXu6hN0stmrdaGFQZlK5g6tDDgDkL7T3dkqKtbgIeiuy9W2Mw"/>
+<div>
+<p class="text-xs font-semibold text-white leading-none">Aarav Patel</p>
+<span class="text-[10px] text-primary">Active</span>
+</div>
+</div>
+<span class="font-mono text-xs font-semibold text-primary">₹300.00</span>
+</div>
+<!-- Diya Sharma -->
+<div class="flex items-center justify-between py-2 border-b border-white/5">
+<div class="flex items-center gap-2.5">
+<div class="w-4 h-4 rounded-md bg-primary text-[#0A1411] flex items-center justify-center">
+<span class="material-symbols-outlined text-[13px] font-bold">check</span>
+</div>
+<div class="w-7 h-7 rounded-full bg-secondary/20 text-secondary font-bold text-xs flex items-center justify-center">
+                D
+              </div>
+<div>
+<p class="text-xs font-semibold text-white leading-none">Diya Sharma</p>
+<span class="text-[10px] text-primary">Active</span>
+</div>
+</div>
+<span class="font-mono text-xs font-semibold text-primary">₹300.00</span>
+</div>
+<!-- Sneha Kulkarni: Greyed out / Excluded "Not there" -->
+<div class="flex items-center justify-between py-2 opacity-40">
+<div class="flex items-center gap-2.5">
+<div class="w-4 h-4 rounded-md border border-white/30 flex items-center justify-center"></div>
+<div class="w-7 h-7 rounded-full bg-white/10 text-on-surface-variant font-bold text-xs flex items-center justify-center">
+                S
+              </div>
+<div>
+<p class="text-xs font-medium text-on-surface line-through leading-none">Sneha Kulkarni</p>
+<span class="text-[10px] text-tertiary">(Not there - ₹0)</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-mono text-xs text-on-surface-variant">₹0.00</span>
+<!-- "Not there" toggle badge -->
+<span class="px-2 py-0.5 rounded-full bg-tertiary-container/80 text-on-tertiary text-[10px] font-semibold tracking-wide uppercase">Not there</span>
+</div>
+</div>
+</div>
+</div>
+<!-- 7. LIVE SPLIT SUMMARY & SAVE ACTION (Sticky Bottom Bar) -->
+<div class="flex-shrink-0 bg-[#0A1411] border-t border-white/15 px-4 pt-3 pb-4 space-y-2.5">
+<!-- Live dynamic monospace split summary -->
+<div class="flex items-center justify-between px-1">
+<div class="flex items-center gap-1.5 text-on-surface-variant text-xs">
+<span class="material-symbols-outlined text-[15px] text-primary">group</span>
+<span>4 people split evenly</span>
+</div>
+<span class="font-mono text-xs font-semibold text-primary">₹300 per person · 4 people</span>
+</div>
+<!-- Solid Emerald Pill Primary Action Button -->
+<button class="w-full py-3.5 rounded-full font-bold text-sm bg-[#1FA67A] text-[#0A1411] hover:bg-[#25b889] active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2" type="button">
+<span class="material-symbols-outlined text-[19px]">check</span>
+<span>Save Expense</span>
+</button>
+</div>
+</div>
+</div>
+<script>
+    // Keypad interactive feedback logic
+    const amountDisplay = document.getElementById('amount-display');
+    const buttons = document.querySelectorAll('.key-btn');
+    let currentVal = "1200";
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const char = btn.innerText.trim();
+        if (!char) {
+          // Backspace
+          currentVal = currentVal.length > 1 ? currentVal.slice(0, -1) : "0";
+        } else if (char === '.') {
+          if (!currentVal.includes('.')) currentVal += '.';
+        } else {
+          if (currentVal === "0") currentVal = char;
+          else if (currentVal.length < 8) currentVal += char;
+        }
+        
+        // Display formatted number
+        if (amountDisplay) {
+          const parts = currentVal.split('.');
+          const intPart = parseInt(parts[0], 10);
+          const formatted = isNaN(intPart) ? "0" : intPart.toLocaleString('en-IN');
+          amountDisplay.textContent = parts.length > 1 ? `${formatted}.${parts[1]}` : formatted;
+        }
+      });
+    });
+  </script>
+</body></html>

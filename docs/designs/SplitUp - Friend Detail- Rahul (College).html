@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#0b1512;}body{overscroll-behavior-y:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'surface-container-highest': '#2d3733', 'secondary': '#e4c278', 'on-tertiary-container': '#5a0e00', 'surface-container-lowest': '#06100d', 'on-primary-container': '#003322', 'primary': '#63dcac', 'background': '#0b1512', 'secondary-fixed': '#ffdf9b', 'surface-container-low': '#141e1a', 'on-tertiary-fixed': '#3d0700', 'secondary-fixed-dim': '#e4c278', 'on-secondary-fixed': '#251a00', 'on-primary-fixed-variant': '#005139', 'surface-tint': '#63dcac', 'on-surface-variant': '#bccac1', 'on-tertiary-fixed-variant': '#84240d', 'on-background': '#dae5e0', 'surface': '#0b1512', 'primary-fixed-dim': '#63dcac', 'on-secondary': '#3f2e00', 'tertiary-fixed': '#ffdad2', 'secondary-container': '#5d4604', 'error': '#ffb4ab', 'on-tertiary': '#621000', 'on-primary-fixed': '#002115', 'surface-dim': '#0b1512', 'tertiary': '#ffb4a3', 'tertiary-fixed-dim': '#ffb4a3', 'on-surface': '#dae5e0', 'on-secondary-container': '#d5b46b', 'on-error': '#690005', 'tertiary-container': '#e96e50', 'surface-container': '#18221e', 'outline-variant': '#3d4a43', 'error-container': '#93000a', 'surface-variant': '#2d3733', 'on-error-container': '#ffdad6', 'on-secondary-fixed-variant': '#5a4302', 'primary-fixed': '#81f9c7', 'inverse-surface': '#dae5e0', 'surface-bright': '#313b38', 'inverse-primary': '#006c4d', 'surface-container-high': '#222c29', 'inverse-on-surface': '#28332f', 'outline': '#87948c', 'on-primary': '#003826', 'primary-container': '#1fa67a' }, borderRadius: { 'DEFAULT': '0.25rem', 'lg': '0.5rem', 'xl': '0.75rem', 'full': '9999px' }, spacing: { 'space-xs': '0.25rem', 'margin': '1.25rem', 'gutter': '1rem', 'space-sm': '0.5rem', 'space-md': '1rem', 'space-xl': '2rem', 'space-lg': '1.5rem' }, fontFamily: { 'display-lg-mobile': ['JetBrains Mono'], 'body-md': ['Manrope'], 'label-caps': ['Manrope'], 'body-sm': ['Manrope'], 'label-numeric-sm': ['JetBrains Mono'], 'display-lg': ['JetBrains Mono'], 'body-lg': ['Manrope'], 'label-numeric-md': ['JetBrains Mono'], 'headline-md': ['Manrope'], 'headline-sm': ['Manrope'], 'label-numeric-lg': ['JetBrains Mono'], 'headline-lg': ['Manrope'] }, fontSize: { 'display-lg-mobile': ['32px', { lineHeight: '40px', letterSpacing: '-0.02em', fontWeight: '600' }], 'body-md': ['14px', { lineHeight: '20px', fontWeight: '400' }], 'label-caps': ['10px', { lineHeight: '12px', letterSpacing: '0.08em', fontWeight: '700' }], 'body-sm': ['12px', { lineHeight: '16px', fontWeight: '400' }], 'label-numeric-sm': ['11px', { lineHeight: '14px', letterSpacing: '0.02em', fontWeight: '400' }], 'display-lg': ['40px', { lineHeight: '48px', letterSpacing: '-0.03em', fontWeight: '600' }], 'body-lg': ['16px', { lineHeight: '24px', fontWeight: '400' }], 'label-numeric-md': ['14px', { lineHeight: '20px', letterSpacing: '0em', fontWeight: '500' }], 'headline-md': ['22px', { lineHeight: '28px', letterSpacing: '-0.01em', fontWeight: '600' }], 'headline-sm': ['18px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }], 'label-numeric-lg': ['18px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '500' }], 'headline-lg': ['28px', { lineHeight: '36px', letterSpacing: '-0.02em', fontWeight: '700' }] } } } }</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface antialiased min-h-screen relative flex flex-col selection:bg-primary-container selection:text-on-primary-container"><div class="pointer-events-none fixed inset-0 z-0 overflow-hidden"><div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#0D382E] opacity-25 blur-[120px]"></div><div class="absolute top-1/4 -right-24 w-80 h-80 rounded-full bg-[#3B3117] opacity-15 blur-[100px]"></div></div><header class="fixed top-0 w-full z-50 bg-surface/75 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-margin flex items-center justify-between relative"><button aria-label="Go back" class="w-11 h-11 -ml-space-xs flex items-center justify-center rounded-full text-on-surface hover:text-primary transition-colors focus:outline-none" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[22px]">arrow_back_ios_new</span></button><div class="absolute inset-x-16 text-center pointer-events-none"><h1 class="font-headline-sm text-headline-sm text-on-surface truncate">Friend Detail</h1></div><div class="flex items-center gap-space-xs"><button aria-label="More options" class="w-11 h-11 -mr-space-xs flex items-center justify-center rounded-full text-on-surface hover:text-primary transition-colors focus:outline-none" type="button"><span class="material-symbols-outlined text-[24px]">more_horiz</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-14 pb-safe bg-surface z-10"><div class="flex flex-col w-full relative pb-28">
+<!-- Dynamic Ambient Backing Glows -->
+<div class="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 w-80 h-80 rounded-full bg-primary-container/20 blur-[90px] -z-10"></div>
+<div class="pointer-events-none absolute top-64 -right-16 w-60 h-60 rounded-full bg-secondary-container/25 blur-[100px] -z-10"></div>
+<!-- Profile & Identity Section -->
+<section class="px-margin pt-4 pb-2 flex flex-col items-center text-center">
+<!-- Avatar with Dual Layer Specular Glow -->
+<div class="relative group cursor-pointer mb-3">
+<div class="w-20 h-20 rounded-full p-[2px] bg-gradient-to-tr from-primary/60 via-secondary/40 to-primary/10 shadow-lg shadow-surface-container-lowest/80 flex items-center justify-center">
+<img class="w-full h-full rounded-full object-cover" data-alt="A clean portrait photo of a cheerful Indian young man in his mid-twenties with stylish round spectacles and warm cinematic natural lighting, cropped against an organic muted forest green backdrop." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKCDOOQx9ntZ3dOLDB0kym8u4ZV-tiRWQSZsybfWdAmfnBRJnE1IBgdJlJi_4cZKB9XE3ZH7dn3_BYaKIu4OcyIwpzQvPA21b2fP1fnt6NcDRWJW0ATPMNcgQH4LoVW7CFYj2B4e5pXM_oBaOTFawn8DJkAQTU-CA1T7i7huoHMKlIX2EsN4CyPOYMQ-7C768FZ52VjPV-e9RiEuNxMhyCTJa5HM0xhHjTqW6-yco2-sMJgN9F21EE3A"/>
+</div>
+<!-- Subtle Active UPI Beacon Badge -->
+<div class="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-surface-container-high border-2 border-surface flex items-center justify-center shadow-sm" title="UPI Verified">
+<span class="material-symbols-outlined text-primary text-[14px]">verified</span>
+</div>
+</div>
+<!-- Contact & Nickname Metadata -->
+<div class="flex items-center justify-center gap-1.5">
+<h2 class="font-headline-md text-headline-md text-on-surface tracking-tight">Rahul (College)</h2>
+<button aria-label="Edit nickname" class="w-7 h-7 flex items-center justify-center rounded-full text-outline hover:text-primary transition-colors focus:outline-none" type="button">
+<span class="material-symbols-outlined text-[16px]">edit</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mt-0.5">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Profile: Rahul Kumble</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+<span class="font-label-caps text-label-caps uppercase text-secondary tracking-wider font-semibold">UPI Linked</span>
+</div>
+</section>
+<!-- Net Balance Glass Summary Panel -->
+<section class="px-margin mt-3">
+<div class="relative overflow-hidden rounded-[20px] bg-surface-container/75 backdrop-blur-2xl p-5 shadow-xl shadow-surface-container-lowest/60">
+<!-- Top Subtle Light Edge Glow -->
+<div class="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
+<div class="flex items-start justify-between">
+<div>
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">Overall Standing</span>
+<div class="mt-1 flex items-baseline gap-1">
+<span class="font-display-lg-mobile text-display-lg-mobile font-semibold text-primary tracking-tight">+₹1,240</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5 flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+            Rahul owes you in total
+          </p>
+</div>
+<!-- Metric Icon Pill -->
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[22px]">south_west</span>
+</div>
+</div>
+<!-- Financial Ledger Accounting Trace Lines -->
+<div class="mt-4 pt-3.5 border-t border-outline-variant/30 flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase">Active Tab</span>
+<span class="font-label-numeric-sm text-label-numeric-sm text-on-surface">3 Pending Splits</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-caps text-label-caps text-outline uppercase">Last Settled</span>
+<span class="font-label-numeric-sm text-label-numeric-sm text-on-surface">02 Mar 2025</span>
+</div>
+</div>
+<!-- Conditional Action State (Since Rahul owes you, "Settle" is hidden; contextual nudge shown) -->
+<div class="mt-4 flex gap-2">
+<button class="flex-1 h-11 rounded-full bg-surface-container-highest/70 hover:bg-surface-container-highest text-on-surface font-headline-sm text-[13px] font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98]" type="button">
+<span class="material-symbols-outlined text-secondary text-[18px]">send</span>
+<span>Send UPI Reminder</span>
+</button>
+<button aria-label="Quick WhatsApp Nudge" class="w-11 h-11 rounded-full bg-surface-container-highest/70 hover:bg-surface-container-highest text-primary flex items-center justify-center transition-all active:scale-[0.98]" type="button">
+<span class="material-symbols-outlined text-[18px]">chat</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Shared Circles Section -->
+<section class="px-margin mt-4">
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+<span class="font-label-caps text-label-caps uppercase text-outline tracking-wider whitespace-nowrap pl-0.5">Also in:</span>
+<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high/60 backdrop-blur-md shadow-sm">
+<span class="material-symbols-outlined text-secondary text-[14px]">groups</span>
+<span class="font-body-sm text-body-sm text-on-surface font-medium whitespace-nowrap">Friday Gang</span>
+<span class="w-1.5 h-1.5 rounded-full bg-secondary ml-0.5"></span>
+</div>
+<div class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high/60 backdrop-blur-md shadow-sm">
+<span class="material-symbols-outlined text-primary text-[14px]">flight_takeoff</span>
+<span class="font-body-sm text-body-sm text-on-surface font-medium whitespace-nowrap">Goa Trip</span>
+<span class="w-1.5 h-1.5 rounded-full bg-primary ml-0.5"></span>
+</div>
+<div class="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-surface-container-low/40 text-outline hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[14px]">add</span>
+<span class="font-body-sm text-body-sm">Add Group</span>
+</div>
+</div>
+</section>
+<!-- Expense Timeline & Ledger Pattern -->
+<section class="px-margin mt-6 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Shared Activity</h3>
+<button class="font-body-sm text-body-sm text-primary hover:underline flex items-center gap-0.5" type="button">
+<span>View all</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+<!-- Date Group: Yesterday -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-2">
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-outline font-semibold">Yesterday · 14 Mar</span>
+<div class="flex-1 h-[1px] bg-outline-variant/30"></div>
+</div>
+<!-- Ledger Row 1: Third Wave Coffee -->
+<div class="flex items-center justify-between p-3.5 rounded-xl bg-surface-container-low/80 hover:bg-surface-container-high/50 transition-colors">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-secondary text-[20px]">local_cafe</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">Third Wave Coffee Roasters</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Paid by you</span>
+</div>
+</div>
+<div class="flex flex-col items-end flex-shrink-0 ml-2">
+<span class="font-label-numeric-md text-label-numeric-md font-medium text-primary">+₹420</span>
+<span class="font-label-caps text-[9px] uppercase tracking-wide text-primary/80">you get back</span>
+</div>
+</div>
+<!-- Ledger Row 2: Uber XL -->
+<div class="flex items-center justify-between p-3.5 rounded-xl bg-surface-container-low/80 hover:bg-surface-container-high/50 transition-colors">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-tertiary text-[20px]">directions_car</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">Uber XL to Indiranagar</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Paid by Rahul (₹560 total)</span>
+</div>
+</div>
+<div class="flex flex-col items-end flex-shrink-0 ml-2">
+<span class="font-label-numeric-md text-label-numeric-md font-medium text-tertiary">-₹280</span>
+<span class="font-label-caps text-[9px] uppercase tracking-wide text-tertiary/80">your share</span>
+</div>
+</div>
+</div>
+<!-- Date Group: Previous Week -->
+<div class="flex flex-col gap-2 mt-2">
+<div class="flex items-center gap-2">
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-outline font-semibold">Sunday · 09 Mar</span>
+<div class="flex-1 h-[1px] bg-outline-variant/30"></div>
+</div>
+<!-- Ledger Row 3: Goa Villa Groceries -->
+<div class="flex items-center justify-between p-3.5 rounded-xl bg-surface-container-low/80 hover:bg-surface-container-high/50 transition-colors">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-primary text-[20px]">shopping_basket</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">Goa Villa Groceries &amp; Snacks</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Paid by you · Goa Trip</span>
+</div>
+</div>
+<div class="flex flex-col items-end flex-shrink-0 ml-2">
+<span class="font-label-numeric-md text-label-numeric-md font-medium text-primary">+₹1,100</span>
+<span class="font-label-caps text-[9px] uppercase tracking-wide text-primary/80">you get back</span>
+</div>
+</div>
+<!-- Ledger Row 4: Late Night Swiggy -->
+<div class="flex items-center justify-between p-3.5 rounded-xl bg-surface-container-low/80 hover:bg-surface-container-high/50 transition-colors">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-xl bg-surface-container-highest flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-secondary text-[20px]">local_pizza</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md font-semibold text-on-surface truncate">Swiggy Late Night Pizza</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Settled on 02 Mar</span>
+</div>
+</div>
+<div class="flex flex-col items-end flex-shrink-0 ml-2">
+<span class="font-label-numeric-md text-label-numeric-md font-medium text-outline">₹0</span>
+<span class="font-label-caps text-[9px] uppercase tracking-wide text-outline">settled up</span>
+</div>
+</div>
+</div>
+<!-- Micro-interaction / Insight Tip -->
+<div class="mt-3 p-3.5 rounded-2xl bg-surface-container/40 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container/30 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-secondary text-[16px]">bolt</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-tight">
+        Next group settlement scheduled for Sunday with <span class="text-on-surface font-semibold">Friday Gang</span>.
+      </p>
+</div>
+</section>
+<!-- Sticky Floating Action Pill Above Safe Area -->
+<aside class="fixed bottom-6 inset-x-margin z-40 max-w-[440px] mx-auto pointer-events-none">
+<div class="pointer-events-auto flex items-center justify-center">
+<button class="w-full max-w-xs h-13 py-3 px-6 rounded-full bg-primary-container text-on-primary-container font-headline-sm text-[15px] font-bold shadow-2xl shadow-primary-container/40 flex items-center justify-center gap-2 transition-transform active:scale-95" type="button">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span>Add expense with Rahul</span>
+</button>
+</div>
+</aside>
+</div></main></body></html>

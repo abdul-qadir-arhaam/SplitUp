@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#0b1512;color:#dae5e0;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "secondary-fixed": "#ffdf9b", "on-secondary-fixed-variant": "#5a4302", "tertiary-fixed-dim": "#ffb4a3", "surface-variant": "#2d3733", "tertiary": "#ffb4a3", "surface": "#0b1512", "on-secondary": "#3f2e00", "on-background": "#dae5e0", "inverse-surface": "#dae5e0", "on-primary": "#003826", "on-tertiary-fixed-variant": "#84240d", "secondary-container": "#5d4604", "surface-dim": "#0b1512", "on-secondary-fixed": "#251a00", "on-secondary-container": "#d5b46b", "primary": "#63dcac", "primary-container": "#1fa67a", "on-tertiary-fixed": "#3d0700", "tertiary-fixed": "#ffdad2", "surface-container-high": "#222c29", "inverse-primary": "#006c4d", "on-tertiary": "#621000", "surface-container-highest": "#2d3733", "background": "#0b1512", "surface-container-lowest": "#06100d", "primary-fixed-dim": "#63dcac", "tertiary-container": "#e96e50", "on-error-container": "#ffdad6", "on-primary-fixed": "#002115", "primary-fixed": "#81f9c7", "surface-bright": "#313b38", "on-error": "#690005", "on-surface": "#dae5e0", "on-tertiary-container": "#5a0e00", "secondary": "#e4c278", "on-primary-container": "#003322", "surface-container-low": "#141e1a", "error-container": "#93000a", "inverse-on-surface": "#28332f", "error": "#ffb4ab", "on-primary-fixed-variant": "#005139", "outline": "#87948c", "outline-variant": "#3d4a43", "secondary-fixed-dim": "#e4c278", "on-surface-variant": "#bccac1", "surface-container": "#18221e", "surface-tint": "#63dcac" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "space-lg": "1.5rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "margin": "1.25rem", "gutter": "1rem", "space-xl": "2rem", "space-md": "1rem" }, fontFamily: { "body-sm": ["Manrope"], "label-numeric-md": ["JetBrains Mono"], "label-caps": ["Manrope"], "headline-md": ["Manrope"], "label-numeric-sm": ["JetBrains Mono"], "body-lg": ["Manrope"], "headline-lg": ["Manrope"], "display-lg": ["JetBrains Mono"], "body-md": ["Manrope"], "display-lg-mobile": ["JetBrains Mono"], "headline-sm": ["Manrope"], "label-numeric-lg": ["JetBrains Mono"] }, fontSize: { "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "label-numeric-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "500" }], "label-caps": ["10px", { "lineHeight": "12px", "letterSpacing": "0.08em", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "label-numeric-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "400" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.03em", "fontWeight": "600" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "headline-sm": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "label-numeric-lg": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "500" }] } } } }</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style></head><body class="bg-surface font-body-md text-on-surface relative min-h-screen overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container"><div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden"><div class="absolute -top-32 -left-24 w-96 h-96 rounded-full bg-primary-container/20 blur-[100px]"></div><div class="absolute top-1/3 -right-32 w-80 h-80 rounded-full bg-secondary-container/25 blur-[120px]"></div><div class="absolute -bottom-24 left-1/4 w-96 h-96 rounded-full bg-inverse-primary/20 blur-[110px]"></div></div><header class="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.25)]"><div class="h-16 px-margin flex items-center justify-between"><div class="flex items-center gap-space-sm"><img alt="SplitUp Brand Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiG4Vtqjb25JoSXMGQ9xAf43GZgmyW6KGUiR_Jtu1_iPHCpkvhdbWUY6h4zz1i2bMP1WOcBBpUTdoNp0b3xZBxVSPETmGOaDObTazTB4VwN2FMrdyPFhIGwe_NKJQVtdR41yk37EwAE9f0PfqdAAnItDeNZmIaVxPV8BCQlHFzXlYV9LjN-XocIWUGp4IjxofCqaqLprBIrsqXaWppJRBDyNwGpL8pZ-Xll4nyhKtCpIYscKKySCUoqA"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm tracking-tight text-on-surface">SplitUp</span><span class="font-label-caps text-label-caps uppercase tracking-widest text-primary">Profile</span></div></div><div class="flex items-center gap-space-xs"><button class="w-11 h-11 flex items-center justify-center relative rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/40 transition-colors"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-error ring-2 ring-surface"></span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="relative w-full pt-16 pb-28 min-h-screen bg-surface"><div class="flex flex-col w-full px-margin pb-10">
+<!-- USER IDENTITY SECTION -->
+<section class="flex flex-col items-center text-center pt-3 pb-6">
+<!-- Avatar Container with Frosted Glow -->
+<div class="relative mb-4 group">
+<div class="absolute -inset-1.5 rounded-full bg-primary/20 blur-md transition duration-500 group-hover:bg-primary/35"></div>
+<div class="relative w-24 h-24 rounded-full overflow-hidden shadow-2xl bg-surface-container-high flex items-center justify-center">
+<img alt="Kabir Joshi profile portrait" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGD0mbcfbQkm39yZxXJidYSgWjc-HFDQ8Jh_-VvdIKrygA2ZtB4MUKljANdWsIDaZUnG_WkiLl-q8YR1147RLQX3dvmMrZb0dh0Uca3-7Qwjc5GAfRDOKQmvyhMAfjqxMMfy-e-cIVU8_3rXLe3p1KYfjkxsWqDxRgz5VRbJsv7KhAZ__XWDHlmDETaqLOcn8QY_Zs4fQhEzXRE8eMMfAM8h8s6PlMJCGrUnMbYAwaqruwgYSXR0ntIg"/>
+</div>
+<button aria-label="Update profile avatar" class="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-surface-container-highest/90 text-primary-fixed backdrop-blur-md shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform" type="button">
+<span class="material-symbols-outlined text-[16px]">photo_camera</span>
+</button>
+</div>
+<!-- User Name & Verified Badge -->
+<div class="flex items-center justify-center gap-1.5 mb-1">
+<h1 class="font-headline-md text-headline-md text-on-surface tracking-tight">Kabir Joshi</h1>
+<span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/20 text-primary" title="Verified Identity">
+<span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+</span>
+</div>
+<!-- Email Badge & Quick Copy -->
+<div class="flex items-center justify-center gap-1.5 text-on-surface-variant font-body-sm text-body-sm mb-2.5">
+<span>kabir.joshi@gmail.com</span>
+<button aria-label="Copy email" class="p-1 rounded-full text-outline hover:text-on-surface hover:bg-surface-variant/40 active:scale-90 transition-all" id="copy-email-btn" type="button">
+<span class="material-symbols-outlined text-[15px]" id="copy-icon">content_copy</span>
+</button>
+</div>
+<!-- Read-Only Phone Chip -->
+<div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high/70 backdrop-blur-md text-outline">
+<span class="material-symbols-outlined text-[13px] text-primary">lock</span>
+<span class="font-label-numeric-sm text-label-numeric-sm tracking-wide text-on-surface-variant">+91 98201 44109</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant"></span>
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-primary">Verified</span>
+</div>
+</section>
+<!-- SUMMARY BALANCE CARD (Net Balances) -->
+<section class="mb-6">
+<div class="relative overflow-hidden rounded-2xl bg-surface-container/70 backdrop-blur-xl shadow-xl shadow-surface-container-lowest/40">
+<!-- Ambient Decorative Specular Glow -->
+<div class="absolute -top-12 -right-12 w-32 h-32 rounded-full bg-primary/10 blur-2xl pointer-events-none"></div>
+<div class="absolute -bottom-10 -left-10 w-28 h-28 rounded-full bg-tertiary-container/10 blur-2xl pointer-events-none"></div>
+<!-- Two-Column Ledger Balance Breakdown -->
+<div class="grid grid-cols-2 p-5 gap-3 relative z-10">
+<!-- Owed Column -->
+<div class="flex flex-col pr-2">
+<div class="flex items-center gap-1 mb-1 text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-primary text-[16px]">arrow_downward_alt</span>
+<span>You are owed</span>
+</div>
+<div class="font-label-numeric-lg text-label-numeric-lg text-primary tracking-tight font-semibold mb-2">
+            +₹6,450
+          </div>
+<span class="inline-flex items-center self-start px-2 py-0.5 rounded-full bg-primary-container/20 text-primary-fixed-dim font-label-caps text-label-caps tracking-wider">
+            From 3 friends
+          </span>
+</div>
+<!-- Vertical Divider -->
+<div class="absolute left-1/2 top-4 bottom-4 w-px bg-surface-variant/30"></div>
+<!-- You Owe Column -->
+<div class="flex flex-col pl-4">
+<div class="flex items-center gap-1 mb-1 text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-tertiary text-[16px]">arrow_upward_alt</span>
+<span>You owe</span>
+</div>
+<div class="font-label-numeric-lg text-label-numeric-lg text-tertiary tracking-tight font-semibold mb-2">
+            -₹1,200
+          </div>
+<span class="inline-flex items-center self-start px-2 py-0.5 rounded-full bg-tertiary-container/20 text-tertiary-fixed font-label-caps text-label-caps tracking-wider">
+            To Friday Gang
+          </span>
+</div>
+</div>
+<!-- Net Balance Highlight Banner -->
+<div class="px-5 py-3 bg-surface-container-high/80 backdrop-blur-md flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">account_balance_wallet</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Net Balance</span>
+</div>
+<div class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+<span class="font-label-numeric-md text-label-numeric-md text-primary font-medium tracking-tight">+₹5,250 in your favor</span>
+</div>
+</div>
+</div>
+</section>
+<!-- ACCOUNT & PREFERENCES LIST -->
+<section class="mb-6">
+<h2 class="font-label-caps text-label-caps uppercase tracking-widest text-outline px-1 mb-2">
+      Account &amp; Preferences
+    </h2>
+<div class="flex flex-col rounded-2xl bg-surface-container/60 backdrop-blur-xl overflow-hidden shadow-md">
+<!-- Edit Name -->
+<button class="group flex items-center justify-between w-full px-4 py-3.5 hover:bg-surface-container-high/50 active:bg-surface-container-high/80 transition-colors text-left" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-surface-container-high/80 flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[19px]">badge</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md text-on-surface font-medium truncate">Edit name</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Kabir Joshi</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-outline group-hover:text-on-surface transition-colors flex-shrink-0 ml-2">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</div>
+</button>
+<!-- Divider line -->
+<div class="h-px w-full bg-surface-variant/20 ml-16"></div>
+<!-- Email -->
+<button class="group flex items-center justify-between w-full px-4 py-3.5 hover:bg-surface-container-high/50 active:bg-surface-container-high/80 transition-colors text-left" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-surface-container-high/80 flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[19px]">mail</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md text-on-surface font-medium truncate">Email</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">kabir.joshi@gmail.com</span>
+</div>
+</div>
+<div class="flex items-center gap-1 text-outline group-hover:text-on-surface transition-colors flex-shrink-0 ml-2">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</div>
+</button>
+<!-- Divider line -->
+<div class="h-px w-full bg-surface-variant/20 ml-16"></div>
+<!-- Appearance Segmented Bar -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3.5 gap-3">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-surface-container-high/80 flex items-center justify-center text-primary flex-shrink-0">
+<span class="material-symbols-outlined text-[19px]">dark_mode</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface font-medium">Appearance</span>
+</div>
+<!-- Segmented Toggle Pill Container -->
+<div class="flex items-center p-1 rounded-full bg-surface-container-lowest/80 backdrop-blur-md self-end sm:self-auto" id="theme-segmented">
+<button class="theme-opt px-3 py-1 rounded-full font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant hover:text-on-surface transition-all" data-theme-val="light" type="button">
+            Light
+          </button>
+<button class="theme-opt active-theme px-3 py-1 rounded-full font-label-caps text-label-caps uppercase tracking-wider bg-primary-container text-on-primary-container shadow-sm transition-all font-semibold" data-theme-val="dark" type="button">
+            Dark
+          </button>
+<button class="theme-opt px-3 py-1 rounded-full font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant hover:text-on-surface transition-all" data-theme-val="system" type="button">
+            System
+          </button>
+</div>
+</div>
+</div>
+</section>
+<!-- GENERAL PREFERENCES LIST -->
+<section class="mb-6">
+<h2 class="font-label-caps text-label-caps uppercase tracking-widest text-outline px-1 mb-2">
+      General
+    </h2>
+<div class="flex flex-col rounded-2xl bg-surface-container/60 backdrop-blur-xl overflow-hidden shadow-md">
+<!-- Notifications -->
+<button class="group flex items-center justify-between w-full px-4 py-3.5 hover:bg-surface-container-high/50 active:bg-surface-container-high/80 transition-colors text-left" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-surface-container-high/80 flex items-center justify-center text-secondary flex-shrink-0">
+<span class="material-symbols-outlined text-[19px]">notifications_active</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-body-md text-body-md text-on-surface font-medium">Notifications</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Push &amp; SMS active</span>
+</div>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0 ml-2">
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+<span class="material-symbols-outlined text-outline text-[20px] group-hover:text-on-surface transition-colors">chevron_right</span>
+</div>
+</button>
+<!-- Divider line -->
+<div class="h-px w-full bg-surface-variant/20 ml-16"></div>
+<!-- Blocked Users -->
+<button class="group flex items-center justify-between w-full px-4 py-3.5 hover:bg-surface-container-high/50 active:bg-surface-container-high/80 transition-colors text-left" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-surface-container-high/80 flex items-center justify-center text-on-surface-variant flex-shrink-0">
+<span class="material-symbols-outlined text-[19px]">block</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface font-medium truncate">Blocked users</span>
+</div>
+<div class="flex items-center gap-2 flex-shrink-0 ml-2">
+<span class="font-label-numeric-sm text-label-numeric-sm text-outline">0 users</span>
+<span class="material-symbols-outlined text-outline text-[20px] group-hover:text-on-surface transition-colors">chevron_right</span>
+</div>
+</button>
+<!-- Divider line -->
+<div class="h-px w-full bg-surface-variant/20 ml-16"></div>
+<!-- Help & Support -->
+<button class="group flex items-center justify-between w-full px-4 py-3.5 hover:bg-surface-container-high/50 active:bg-surface-container-high/80 transition-colors text-left" type="button">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-9 h-9 rounded-xl bg-surface-container-high/80 flex items-center justify-center text-primary-fixed-dim flex-shrink-0">
+<span class="material-symbols-outlined text-[19px]">support_agent</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface font-medium truncate">Help &amp; Support</span>
+</div>
+<div class="flex items-center text-outline group-hover:text-on-surface transition-colors flex-shrink-0 ml-2">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</div>
+</button>
+</div>
+</section>
+<!-- LOG OUT & METADATA FOOTNOTE -->
+<section class="mt-2 flex flex-col items-center">
+<!-- Logout Button -->
+<button class="w-full flex items-center justify-center gap-2 py-3.5 px-6 rounded-full bg-surface-container/70 backdrop-blur-xl text-tertiary hover:bg-surface-container-high/70 active:scale-[0.98] transition-all shadow-md" id="logout-button" type="button">
+<span class="material-symbols-outlined text-[18px]">logout</span>
+<span class="font-headline-sm text-headline-sm tracking-tight font-medium">Log out</span>
+</button>
+<!-- App Version Footnote -->
+<div class="mt-5 text-center flex flex-col items-center gap-1">
+<div class="flex items-center gap-1 text-outline font-label-numeric-sm text-label-numeric-sm">
+<span class="material-symbols-outlined text-[13px] text-primary">verified_user</span>
+<span>SplitUp v2.4.1 (Build 184)</span>
+</div>
+<span class="font-body-sm text-body-sm text-outline-variant">End-to-end encrypted ledger</span>
+</div>
+</section>
+</div>
+<script>
+  // Segmented Theme Toggle Interaction
+  const themeButtons = document.querySelectorAll('#theme-segmented .theme-opt');
+  themeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      themeButtons.forEach(b => {
+        b.classList.remove('bg-primary-container', 'text-on-primary-container', 'shadow-sm', 'font-semibold');
+        b.classList.add('text-on-surface-variant');
+      });
+      btn.classList.add('bg-primary-container', 'text-on-primary-container', 'shadow-sm', 'font-semibold');
+      btn.classList.remove('text-on-surface-variant');
+    });
+  });
+
+  // Copy Email Micro-interaction
+  const copyBtn = document.getElementById('copy-email-btn');
+  const copyIcon = document.getElementById('copy-icon');
+  if (copyBtn && copyIcon) {
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard?.writeText('kabir.joshi@gmail.com');
+      copyIcon.textContent = 'done';
+      copyIcon.classList.add('text-primary');
+      setTimeout(() => {
+        copyIcon.textContent = 'content_copy';
+        copyIcon.classList.remove('text-primary');
+      }, 1800);
+    });
+  }
+
+  // Logout Confirmation Feedback
+  const logoutBtn = document.getElementById('logout-button');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      const origText = logoutBtn.innerHTML;
+      logoutBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">refresh</span><span class="font-headline-sm text-headline-sm tracking-tight">Signing out...</span>';
+      setTimeout(() => {
+        logoutBtn.innerHTML = origText;
+      }, 1200);
+    });
+  }
+</script></main><div class="fixed bottom-0 w-full z-50 pointer-events-none pb-safe px-margin"><nav class="pointer-events-auto mx-auto mb-3 max-w-md h-16 rounded-full bg-surface-container-low/80 backdrop-blur-2xl shadow-[0_12px_32px_rgba(0,0,0,0.45)] px-space-sm flex items-center justify-around" data-active-classes="text-primary bg-surface-container-highest/60"><a class="flex flex-col items-center justify-center w-14 h-12 rounded-full text-on-surface-variant hover:text-on-surface transition-all" data-path="splitup-home-dashboard" href="#"><span class="material-symbols-outlined text-[22px]">space_dashboard</span><span class="font-label-caps text-label-caps mt-0.5 tracking-wider">Home</span></a><a class="flex flex-col items-center justify-center w-14 h-12 rounded-full text-on-surface-variant hover:text-on-surface transition-all" data-path="splitup-groups" href="#"><span class="material-symbols-outlined text-[22px]">group</span><span class="font-label-caps text-label-caps mt-0.5 tracking-wider">Groups</span></a><a class="flex flex-col items-center justify-center w-14 h-12 rounded-full text-on-surface-variant hover:text-on-surface transition-all" data-path="splitup-trips" href="#"><span class="material-symbols-outlined text-[22px]">luggage</span><span class="font-label-caps text-label-caps mt-0.5 tracking-wider">Trips</span></a><a class="flex flex-col items-center justify-center w-14 h-12 rounded-full text-primary bg-surface-container-highest/60 transition-all" data-path="splitup-profile" href="#"><span class="material-symbols-outlined text-[22px]">account_circle</span><span class="font-label-caps text-label-caps mt-0.5 tracking-wider text-primary">Profile</span></a></nav></div></body></html>

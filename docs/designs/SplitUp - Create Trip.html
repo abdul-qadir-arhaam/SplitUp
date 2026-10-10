@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#0b1512;}body{overscroll-behavior-y:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'surface-container-highest': '#2d3733', 'secondary': '#e4c278', 'on-tertiary-container': '#5a0e00', 'surface-container-lowest': '#06100d', 'on-primary-container': '#003322', 'primary': '#63dcac', 'background': '#0b1512', 'secondary-fixed': '#ffdf9b', 'surface-container-low': '#141e1a', 'on-tertiary-fixed': '#3d0700', 'secondary-fixed-dim': '#e4c278', 'on-secondary-fixed': '#251a00', 'on-primary-fixed-variant': '#005139', 'surface-tint': '#63dcac', 'on-surface-variant': '#bccac1', 'on-tertiary-fixed-variant': '#84240d', 'on-background': '#dae5e0', 'surface': '#0b1512', 'primary-fixed-dim': '#63dcac', 'on-secondary': '#3f2e00', 'tertiary-fixed': '#ffdad2', 'secondary-container': '#5d4604', 'error': '#ffb4ab', 'on-tertiary': '#621000', 'on-primary-fixed': '#002115', 'surface-dim': '#0b1512', 'tertiary': '#ffb4a3', 'tertiary-fixed-dim': '#ffb4a3', 'on-surface': '#dae5e0', 'on-secondary-container': '#d5b46b', 'on-error': '#690005', 'tertiary-container': '#e96e50', 'surface-container': '#18221e', 'outline-variant': '#3d4a43', 'error-container': '#93000a', 'surface-variant': '#2d3733', 'on-error-container': '#ffdad6', 'on-secondary-fixed-variant': '#5a4302', 'primary-fixed': '#81f9c7', 'inverse-surface': '#dae5e0', 'surface-bright': '#313b38', 'inverse-primary': '#006c4d', 'surface-container-high': '#222c29', 'inverse-on-surface': '#28332f', 'outline': '#87948c', 'on-primary': '#003826', 'primary-container': '#1fa67a' }, borderRadius: { 'DEFAULT': '0.25rem', 'lg': '0.5rem', 'xl': '0.75rem', 'full': '9999px' }, spacing: { 'space-xs': '0.25rem', 'margin': '1.25rem', 'gutter': '1rem', 'space-sm': '0.5rem', 'space-md': '1rem', 'space-xl': '2rem', 'space-lg': '1.5rem' }, fontFamily: { 'display-lg-mobile': ['JetBrains Mono'], 'body-md': ['Manrope'], 'label-caps': ['Manrope'], 'body-sm': ['Manrope'], 'label-numeric-sm': ['JetBrains Mono'], 'display-lg': ['JetBrains Mono'], 'body-lg': ['Manrope'], 'label-numeric-md': ['JetBrains Mono'], 'headline-md': ['Manrope'], 'headline-sm': ['Manrope'], 'label-numeric-lg': ['JetBrains Mono'], 'headline-lg': ['Manrope'] }, fontSize: { 'display-lg-mobile': ['32px', { lineHeight: '40px', letterSpacing: '-0.02em', fontWeight: '600' }], 'body-md': ['14px', { lineHeight: '20px', fontWeight: '400' }], 'label-caps': ['10px', { lineHeight: '12px', letterSpacing: '0.08em', fontWeight: '700' }], 'body-sm': ['12px', { lineHeight: '16px', fontWeight: '400' }], 'label-numeric-sm': ['11px', { lineHeight: '14px', letterSpacing: '0.02em', fontWeight: '400' }], 'display-lg': ['40px', { lineHeight: '48px', letterSpacing: '-0.03em', fontWeight: '600' }], 'body-lg': ['16px', { lineHeight: '24px', fontWeight: '400' }], 'label-numeric-md': ['14px', { lineHeight: '20px', letterSpacing: '0em', fontWeight: '500' }], 'headline-md': ['22px', { lineHeight: '28px', letterSpacing: '-0.01em', fontWeight: '600' }], 'headline-sm': ['18px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }], 'label-numeric-lg': ['18px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '500' }], 'headline-lg': ['28px', { lineHeight: '36px', letterSpacing: '-0.02em', fontWeight: '700' }] } } } }</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface antialiased min-h-screen relative flex flex-col selection:bg-primary-container selection:text-on-primary-container"><div class="pointer-events-none fixed inset-0 z-0 overflow-hidden"><div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#0D382E] opacity-25 blur-[120px]"></div><div class="absolute top-1/4 -right-24 w-80 h-80 rounded-full bg-[#3B3117] opacity-15 blur-[100px]"></div></div><header class="fixed top-0 w-full z-50 bg-surface/75 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-margin flex items-center justify-between relative"><button aria-label="Go back" class="w-11 h-11 -ml-space-xs flex items-center justify-center rounded-full text-on-surface hover:text-primary transition-colors focus:outline-none" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[22px]">arrow_back_ios_new</span></button><div class="absolute inset-x-16 text-center pointer-events-none"><h1 class="font-headline-sm text-headline-sm text-on-surface truncate">Friend Detail</h1></div><div class="flex items-center gap-space-xs"><button aria-label="More options" class="w-11 h-11 -mr-space-xs flex items-center justify-center rounded-full text-on-surface hover:text-primary transition-colors focus:outline-none" type="button"><span class="material-symbols-outlined text-[24px]">more_horiz</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-14 pb-safe bg-surface z-10"><div class="flex flex-col w-full px-margin pb-space-xl">
+<!-- Subtle Ambient Glow Canvas Decor -->
+<div class="relative w-full mb-space-md pt-space-xs">
+<div class="flex items-center justify-between">
+<div>
+<span class="font-label-caps text-label-caps uppercase tracking-wider text-primary">Step 1 of 2</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mt-0.5 tracking-tight">New Trip</h2>
+</div>
+<div class="flex items-center gap-space-xs bg-surface-container-high px-3 py-1.5 rounded-full">
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">flight_takeoff</span>
+<span class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant font-medium">Shared Pot</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Set an optional ledger budget and invite travel companions.</p>
+</div>
+<form class="flex flex-col gap-space-lg w-full" id="create-trip-form" onsubmit="event.preventDefault();">
+<!-- Trip Destination / Title Section -->
+<div class="flex flex-col gap-space-xs">
+<label class="font-headline-sm text-headline-sm text-on-surface flex items-center justify-between" for="trip-name">
+<span>Trip Name</span>
+<span class="font-label-caps text-label-caps text-primary">Required</span>
+</label>
+<div class="relative flex items-center bg-surface-container-low rounded-xl px-4 py-3.5 shadow-sm transition-all focus-within:bg-surface-container focus-within:shadow-[0_0_0_2px_rgba(99,220,172,0.3)]">
+<span class="material-symbols-outlined text-primary text-[22px] mr-3">explore</span>
+<input class="bg-transparent border-0 outline-none w-full font-body-lg text-body-lg text-on-surface placeholder:text-outline" id="trip-name" placeholder="e.g. Ladakh Bike Roadtrip, Bali Getaway 🌴" type="text" value="Goa Monsoon Retreat 🌊"/>
+<button class="text-outline hover:text-on-surface p-1 flex items-center justify-center transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">sentiment_satisfied</span>
+</button>
+</div>
+</div>
+<!-- Target Budget Card (Monospaced & Indian Currency notation) -->
+<div class="flex flex-col gap-space-xs bg-surface-container-low p-4 rounded-xl backdrop-blur-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary text-[20px]">payments</span>
+<label class="font-headline-sm text-headline-sm text-on-surface" for="trip-budget">Shared Budget</label>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Optional cap</span>
+</div>
+<div class="relative mt-2 flex items-center bg-surface-container-highest/60 rounded-xl px-4 py-3">
+<span class="font-display-lg-mobile text-display-lg-mobile text-primary mr-1 select-none">₹</span>
+<input class="bg-transparent border-0 outline-none w-full font-display-lg-mobile text-display-lg-mobile text-on-surface tracking-tight" id="trip-budget" inputmode="numeric" type="text" value="45,000"/>
+<div class="flex flex-col items-end">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase">INR</span>
+<span class="font-body-sm text-body-sm text-primary">Per Group</span>
+</div>
+</div>
+<!-- Quick presets -->
+<div class="flex items-center gap-2 mt-2 overflow-x-auto py-1 no-scrollbar">
+<button class="px-3 py-1.5 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface-variant hover:text-on-surface font-label-numeric-sm text-label-numeric-sm whitespace-nowrap transition-colors" onclick="document.getElementById('trip-budget').value='25,000'" type="button">
+          ₹25,000
+        </button>
+<button class="px-3 py-1.5 rounded-full bg-primary/15 text-primary font-label-numeric-sm text-label-numeric-sm whitespace-nowrap transition-colors" onclick="document.getElementById('trip-budget').value='50,000'" type="button">
+          ₹50,000
+        </button>
+<button class="px-3 py-1.5 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface-variant hover:text-on-surface font-label-numeric-sm text-label-numeric-sm whitespace-nowrap transition-colors" onclick="document.getElementById('trip-budget').value='1,00,000'" type="button">
+          ₹1,00,000
+        </button>
+<button class="px-3 py-1.5 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface-variant hover:text-on-surface font-body-sm text-body-sm whitespace-nowrap transition-colors" onclick="document.getElementById('trip-budget').value=''" type="button">
+          Custom
+        </button>
+</div>
+</div>
+<!-- Trip Dates Section (Compact Touch Card) -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<label class="font-headline-sm text-headline-sm text-on-surface">Travel Dates</label>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Estimated</span>
+</div>
+<button class="w-full text-left flex items-center justify-between bg-surface-container-low hover:bg-surface-container p-4 rounded-xl transition-colors group" type="button">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[20px]">calendar_month</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium">18 Jul – 23 Jul 2025</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">5 nights • Monsoon Season</p>
+</div>
+</div>
+<div class="flex items-center text-outline group-hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit_calendar</span>
+</div>
+</button>
+</div>
+<!-- Visual Divider -->
+<div class="h-px bg-surface-container-highest w-full my-1"></div>
+<!-- Add Members Section -->
+<div class="flex flex-col gap-space-md">
+<div>
+<div class="flex items-center justify-between">
+<label class="font-headline-sm text-headline-sm text-on-surface">Trip Companions</label>
+<span class="font-label-numeric-sm text-label-numeric-sm text-primary bg-primary/10 px-2 py-0.5 rounded-full">4 Included</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">Who is sharing bills and dividing checks on this journey?</p>
+</div>
+<!-- Quick Add from Existing Groups Preset row -->
+<div class="flex flex-col gap-1.5">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Quick pull from groups</span>
+<div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary-container/40 text-on-secondary-container hover:bg-secondary-container transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+<span class="font-body-sm text-body-sm whitespace-nowrap font-medium">Goa Weekend</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-bright transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">home</span>
+<span class="font-body-sm text-body-sm whitespace-nowrap">Flat 402</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-bright transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">sports_cricket</span>
+<span class="font-body-sm text-body-sm whitespace-nowrap">Box Cricket League</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant hover:text-on-surface hover:bg-surface-bright transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">celebration</span>
+<span class="font-body-sm text-body-sm whitespace-nowrap">Friday Gang</span>
+</button>
+</div>
+</div>
+<!-- Selected Members Horizontal Ribbon -->
+<div class="flex flex-wrap items-center gap-2 bg-surface-container-low p-3 rounded-xl min-h-[58px]">
+<!-- Self Member Pill -->
+<div class="inline-flex items-center gap-2 bg-primary/15 text-primary px-2.5 py-1 rounded-full">
+<div class="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-[11px]">
+            K
+          </div>
+<span class="font-body-sm text-body-sm font-medium text-on-surface">Kabir (You)</span>
+<span class="material-symbols-outlined text-[14px] text-primary">verified_user</span>
+</div>
+<!-- Rahul -->
+<div class="inline-flex items-center gap-1.5 bg-surface-container-high text-on-surface px-2.5 py-1 rounded-full group">
+<div class="w-6 h-6 rounded-full overflow-hidden bg-surface-bright flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="Portrait photo of Rahul, an Indian young man with friendly smile wearing a casual denim shirt in soft warm lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYRqybKMm4IQi7X-Ta0OxqTUKjP8GF9Cz_ocDBSSKgMb_8jYmF8_GrM8jFq53xONoSKQppL30ZrNwnwxLQcb0qkQUSs0lPl6cX3KXJh6iKqMWhLjBknXw04-IcWVUYbZBaKxn8WpgUgRadlLSgTLnIuLzZrGmmv6MkNBtfu5v7FU4TUw8PjRZA57RFGfyskcb-hWDj31VrT_RdzIJyj7i3cQ6QY91tnN08ZjvP4LiWlb8geuv0LLuruw"/>
+</div>
+<span class="font-body-sm text-body-sm font-medium">Rahul K.</span>
+<button aria-label="Remove Rahul" class="text-on-surface-variant hover:text-error transition-colors ml-0.5 flex items-center" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div>
+<!-- Priya -->
+<div class="inline-flex items-center gap-1.5 bg-surface-container-high text-on-surface px-2.5 py-1 rounded-full group">
+<div class="w-6 h-6 rounded-full overflow-hidden bg-surface-bright flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="Close up lifestyle portrait of Priya, a stylish Indian woman smiling outdoors with soft bokeh forest tones" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_4gCL7CKldh4C-LwLrpNkawqKGY1SmHiGolSi6cZrcrHrWaTZk44tkJgUD09FDkj9DMO0ZPQTLs9oUyicYV69y-oo8id0f9H5-bofjsVbj5wc8meQIQAH5ZIGvYpjBKuQbQpEP7vLxSA7PzrRgr_9fmYi4jlN-XuD5rN21m1T1LHkFPvG2sjjJw9bAS7dSFts7dXZyVscM5wMcmO7ViGGq8IeOowlKNbIyeNHRZrnQsOn86g4EKiY0g"/>
+</div>
+<span class="font-body-sm text-body-sm font-medium">Priya S.</span>
+<button aria-label="Remove Priya" class="text-on-surface-variant hover:text-error transition-colors ml-0.5 flex items-center" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div>
+<!-- Aarav -->
+<div class="inline-flex items-center gap-1.5 bg-surface-container-high text-on-surface px-2.5 py-1 rounded-full group">
+<div class="w-6 h-6 rounded-full bg-secondary/20 text-secondary flex items-center justify-center text-[10px] font-bold">
+            AP
+          </div>
+<span class="font-body-sm text-body-sm font-medium">Aarav P.</span>
+<button aria-label="Remove Aarav" class="text-on-surface-variant hover:text-error transition-colors ml-0.5 flex items-center" type="button">
+<span class="material-symbols-outlined text-[14px]">close</span>
+</button>
+</div>
+</div>
+<!-- Search Field for Friends & Contacts -->
+<div class="relative flex items-center bg-surface-container-low rounded-xl px-3.5 py-2.5 transition-colors focus-within:bg-surface-container">
+<span class="material-symbols-outlined text-outline text-[20px] mr-2">search</span>
+<input class="bg-transparent border-0 outline-none w-full font-body-md text-body-md text-on-surface placeholder:text-outline" placeholder="Search friends, phone contacts..." type="text"/>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center" type="button">
+<span class="material-symbols-outlined text-[18px]">contact_page</span>
+</button>
+</div>
+<!-- Suggestions and Contacts Direct Add List -->
+<div class="flex flex-col gap-2 mt-1">
+<span class="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Suggested &amp; Contacts</span>
+<!-- Registered SplitUp Friend: Rohan -->
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-3">
+<div class="relative w-10 h-10 rounded-full overflow-hidden bg-surface-container-high">
+<img class="w-full h-full object-cover" data-alt="Warm studio headshot of Rohan, a stylish Indian traveler with a green jacket against ambient forest green backdrop" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBAQB3CD4O1xanCo8AdEe0gSmw9Ufnb4TwhqWqqUVeXtHLTvHNzVWA9ONedAvoxKZ2aUCUHkKoSckYCdYNGOBl3_ZkfsdRdQu7TtOru2RnTIWuTC5wAdmmoiprL8M-bQYQBcmhH8HObFfvXf6LMr83XfoAl0ApqE1y5GApKJEgQIxk9vo4jMK5XcRwH9D4xRWp38st8Bwlc5YwUkU74KLTx75tEsxXuTmVS7fFdNQbzFmk5e29qzQt6gA"/>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-body-md text-body-md text-on-surface font-semibold">Rohan Kapoor</span>
+<span class="material-symbols-outlined text-primary text-[14px]" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">+91 98201 44109 • On SplitUp</span>
+</div>
+</div>
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span class="font-body-sm text-body-sm font-semibold">Add</span>
+</button>
+</div>
+<!-- Registered SplitUp Friend: Tanvi -->
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest text-primary flex items-center justify-center font-bold text-[14px]">
+              TM
+            </div>
+<div>
+<div class="flex items-center gap-1.5">
+<span class="font-body-md text-body-md text-on-surface font-semibold">Tanvi Mehta</span>
+<span class="material-symbols-outlined text-primary text-[14px]" style="font-variation-settings: 'FILL' 1;">bolt</span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant">tanvi.m@gmail.com • Flatmate</span>
+</div>
+</div>
+<button class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+<span class="font-body-sm text-body-sm font-semibold">Add</span>
+</button>
+</div>
+<!-- Phone Contact NOT on SplitUp: Vikram -->
+<div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-bright text-on-surface-variant flex items-center justify-center font-bold text-[14px]">
+              VD
+            </div>
+<div>
+<span class="font-body-md text-body-md text-on-surface font-semibold">Vikram Deshmukh</span>
+<div class="flex items-center gap-2">
+<span class="font-body-sm text-body-sm text-on-surface-variant">+91 97692 88210</span>
+<span class="inline-flex items-center font-label-caps text-label-caps bg-secondary-container/30 text-on-secondary-container px-1.5 py-0.5 rounded">Contact</span>
+</div>
+</div>
+</div>
+<button class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high hover:bg-surface-bright text-secondary font-body-sm text-body-sm transition-colors" type="button">
+<span class="material-symbols-outlined text-[14px]">sms</span>
+<span>Invite</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Extra Settings Toggles -->
+<div class="flex flex-col gap-2 p-3 bg-surface-container-low rounded-xl">
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">currency_rupee</span>
+<span class="font-body-md text-body-md text-on-surface">Default Currency</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="font-label-numeric-sm text-label-numeric-sm font-semibold">INR (₹)</span>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</div>
+</div>
+<div class="h-px bg-surface-container-highest w-full"></div>
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">receipt_long</span>
+<span class="font-body-md text-body-md text-on-surface">Auto-categorize Bills</span>
+</div>
+<input checked="" class="w-4 h-4 accent-primary rounded bg-surface-container cursor-pointer" type="checkbox"/>
+</div>
+</div>
+<!-- Fixed Bottom Sticky Bar / Main Create Trip Action -->
+<div class="pt-space-md flex flex-col gap-space-xs">
+<button class="w-full h-14 rounded-full bg-primary-container hover:bg-primary active:scale-[0.98] text-on-primary-container font-headline-sm text-headline-sm flex items-center justify-center gap-2 shadow-[0_8px_24px_rgba(31,166,122,0.25)] transition-all font-bold" type="submit">
+<span class="material-symbols-outlined text-[22px]">add_circle</span>
+<span>Create Trip</span>
+</button>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-center">
+        Expenses can be added anytime once the trip is created.
+      </p>
+</div>
+</form>
+</div>
+<script>
+  // Simple micro-interactions for removing companion pills
+  document.querySelectorAll('#create-trip-form button[aria-label^="Remove"]').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      const parentPill = this.closest('.inline-flex');
+      if (parentPill) {
+        parentPill.style.transition = 'all 0.2s ease';
+        parentPill.style.opacity = '0';
+        parentPill.style.transform = 'scale(0.8)';
+        setTimeout(() => parentPill.remove(), 200);
+      }
+    });
+  });
+</script></main></body></html>

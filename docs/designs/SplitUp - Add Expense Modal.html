@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_blank" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;min-height:100vh;margin:0;padding:0;background-color:#0b1512;color:#dae5e0;}body{overscroll-behavior-y:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'secondary': '#e4c278', 'secondary-fixed-dim': '#e4c278', 'on-tertiary': '#621000', 'on-tertiary-container': '#5a0e00', 'on-primary': '#003826', 'tertiary': '#ffb4a3', 'on-secondary': '#3f2e00', 'background': '#0b1512', 'on-error': '#690005', 'on-surface': '#dae5e0', 'on-secondary-fixed-variant': '#5a4302', 'error': '#ffb4ab', 'surface-bright': '#313b38', 'on-primary-fixed-variant': '#005139', 'on-primary-fixed': '#002115', 'surface-tint': '#63dcac', 'surface-variant': '#2d3733', 'on-primary-container': '#003322', 'tertiary-container': '#e96e50', 'surface': '#0b1512', 'inverse-on-surface': '#28332f', 'outline-variant': '#3d4a43', 'surface-container': '#18221e', 'inverse-primary': '#006c4d', 'inverse-surface': '#dae5e0', 'primary': '#63dcac', 'secondary-fixed': '#ffdf9b', 'on-error-container': '#ffdad6', 'surface-dim': '#0b1512', 'secondary-container': '#5d4604', 'primary-fixed': '#81f9c7', 'surface-container-highest': '#2d3733', 'on-secondary-container': '#d5b46b', 'error-container': '#93000a', 'surface-container-lowest': '#06100d', 'surface-container-low': '#141e1a', 'on-tertiary-fixed': '#3d0700', 'on-background': '#dae5e0', 'on-tertiary-fixed-variant': '#84240d', 'primary-fixed-dim': '#63dcac', 'on-surface-variant': '#bccac1', 'tertiary-fixed-dim': '#ffb4a3', 'surface-container-high': '#222c29', 'tertiary-fixed': '#ffdad2', 'outline': '#87948c', 'on-secondary-fixed': '#251a00', 'primary-container': '#1fa67a' }, borderRadius: { 'DEFAULT': '0.25rem', 'lg': '0.5rem', 'xl': '0.75rem', 'full': '9999px' }, spacing: { 'space-xs': '0.25rem', 'space-sm': '0.5rem', 'margin': '1.25rem', 'space-md': '1rem', 'space-lg': '1.5rem', 'space-xl': '2rem', 'gutter': '1rem' }, fontFamily: { 'body-sm': ['Manrope'], 'label-numeric-md': ['JetBrains Mono'], 'headline-md': ['Manrope'], 'label-numeric-sm': ['JetBrains Mono'], 'label-numeric-lg': ['JetBrains Mono'], 'body-md': ['Manrope'], 'body-lg': ['Manrope'], 'headline-lg': ['Manrope'], 'display-lg-mobile': ['JetBrains Mono'], 'display-lg': ['JetBrains Mono'], 'headline-sm': ['Manrope'], 'label-caps': ['Manrope'] }, fontSize: { 'body-sm': ['12px', { 'lineHeight': '16px', 'fontWeight': '400' }], 'label-numeric-md': ['14px', { 'lineHeight': '20px', 'letterSpacing': '0em', 'fontWeight': '500' }], 'headline-md': ['22px', { 'lineHeight': '28px', 'letterSpacing': '-0.01em', 'fontWeight': '600' }], 'label-numeric-sm': ['11px', { 'lineHeight': '14px', 'letterSpacing': '0.02em', 'fontWeight': '400' }], 'label-numeric-lg': ['18px', { 'lineHeight': '24px', 'letterSpacing': '-0.01em', 'fontWeight': '500' }], 'body-md': ['14px', { 'lineHeight': '20px', 'fontWeight': '400' }], 'body-lg': ['16px', { 'lineHeight': '24px', 'fontWeight': '400' }], 'headline-lg': ['28px', { 'lineHeight': '36px', 'letterSpacing': '-0.02em', 'fontWeight': '700' }], 'display-lg-mobile': ['32px', { 'lineHeight': '40px', 'letterSpacing': '-0.02em', 'fontWeight': '600' }], 'display-lg': ['40px', { 'lineHeight': '48px', 'letterSpacing': '-0.03em', 'fontWeight': '600' }], 'headline-sm': ['18px', { 'lineHeight': '24px', 'letterSpacing': '-0.01em', 'fontWeight': '600' }], 'label-caps': ['10px', { 'lineHeight': '12px', 'letterSpacing': '0.08em', 'fontWeight': '700' }] } } } };</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased flex flex-col min-h-screen"><main class="flex-1 w-full bg-surface relative"><div class="flex flex-col w-full relative">
+<!-- Ambient Glow Underlays -->
+<div class="fixed top-12 left-1/4 w-72 h-72 rounded-full bg-primary/10 blur-[120px] pointer-events-none"></div>
+<div class="fixed top-48 right-4 w-64 h-64 rounded-full bg-secondary/10 blur-[100px] pointer-events-none"></div>
+<!-- Dimmed & Frosted Background Peeking App Layer (Simulated Ledger Backdrop) -->
+<div class="w-full px-margin pt-4 pb-24 opacity-30 blur-sm pointer-events-none select-none">
+<div class="flex items-center justify-between py-space-sm mb-space-md">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
+<span class="font-headline-sm text-headline-sm text-secondary">R</span>
+</div>
+<div>
+<p class="font-headline-sm text-headline-sm text-on-surface">Rahul Sharma</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">College Roommates • Goa Trip</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">Rahul owes you</p>
+<p class="font-label-numeric-lg text-label-numeric-lg text-primary">+₹1,450</p>
+</div>
+</div>
+<div class="space-y-space-sm">
+<div class="h-16 rounded-xl bg-surface-container-low flex items-center px-space-md justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">local_cafe</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface">Artjuna Breakfast</span>
+</div>
+<span class="font-label-numeric-md text-label-numeric-md text-primary">+₹420</span>
+</div>
+<div class="h-16 rounded-xl bg-surface-container-low flex items-center px-space-md justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]">directions_car</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface">Scooter Rental</span>
+</div>
+<span class="font-label-numeric-md text-label-numeric-md text-tertiary">-₹600</span>
+</div>
+</div>
+</div>
+<!-- Bottom Sheet Overlay Container -->
+<div class="fixed inset-0 bg-surface-container-lowest/80 backdrop-blur-md z-30 flex flex-col justify-end">
+<!-- Modal Sheet -->
+<div class="w-full max-w-lg mx-auto bg-surface-container-low/95 backdrop-blur-2xl rounded-t-[28px] shadow-2xl flex flex-col max-h-[813px] overflow-hidden relative">
+<!-- Top Perforated Pill Rim Accent -->
+<div class="w-full flex flex-col items-center pt-3 pb-2 flex-shrink-0">
+<div class="w-12 h-1.5 rounded-full bg-surface-variant"></div>
+</div>
+<!-- Sheet Header Bar -->
+<div class="flex items-center justify-between px-margin pb-3 flex-shrink-0">
+<button aria-label="Close" class="w-9 h-9 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center transition-colors hover:bg-surface-variant" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+<div class="text-center">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Add Expense</h2>
+</div>
+<!-- Currency Selector Pill -->
+<button class="h-8 px-3 rounded-full bg-surface-container-high text-on-surface-variant flex items-center gap-1 hover:bg-surface-variant" type="button">
+<span class="font-label-numeric-sm text-label-numeric-sm text-secondary font-medium">INR (₹)</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">expand_more</span>
+</button>
+</div>
+<!-- Scrollable Body Content -->
+<div class="overflow-y-auto px-margin space-y-space-md pb-36">
+<!-- 1. AMOUNT FIRST (Hero Section) -->
+<div class="flex flex-col items-center justify-center py-space-sm bg-surface-container rounded-2xl p-space-md">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant tracking-wider mb-1">Total Bill Amount</span>
+<div class="flex items-baseline justify-center gap-1 text-on-surface my-1">
+<span class="font-display-lg-mobile text-display-lg-mobile text-secondary font-medium">₹</span>
+<span class="font-display-lg text-display-lg text-on-surface tracking-tight font-medium" id="amount-display">1,200</span>
+<span class="w-0.5 h-7 bg-primary animate-pulse ml-0.5 rounded-full"></span>
+</div>
+<!-- Glass Numeric Keypad (Compact Refined) -->
+<div class="w-full max-w-xs mt-3 pt-3">
+<div class="grid grid-cols-3 gap-1.5">
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">1</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">2</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">3</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">4</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">5</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">6</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">7</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">8</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">9</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">.</button>
+<button class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface font-label-numeric-lg text-label-numeric-lg active:scale-95 transition-transform flex items-center justify-center" type="button">0</button>
+<button aria-label="Backspace" class="key-btn h-11 rounded-xl bg-surface-container-high text-on-surface-variant active:scale-95 transition-transform flex items-center justify-center" type="button">
+<span class="material-symbols-outlined text-[20px]">backspace</span>
+</button>
+</div>
+</div>
+</div>
+<!-- 2. DESCRIPTION & CATEGORIES -->
+<div class="space-y-space-sm">
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant text-[20px]">edit_note</span>
+<input class="w-full h-12 bg-surface-container rounded-xl pl-11 pr-4 text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/50 focus:outline-none focus:bg-surface-container-high" placeholder="What was this expense for?" type="text" value="Dinner at Burma Burma"/>
+</div>
+<!-- Category Chips Horizontal Row -->
+<div class="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
+<!-- Selected Food -->
+<button class="flex-shrink-0 h-8 px-3 rounded-full bg-primary-container text-on-primary flex items-center gap-1.5 shadow-sm" type="button">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+<span class="font-body-sm text-body-sm font-semibold">Food</span>
+</button>
+<button class="flex-shrink-0 h-8 px-3 rounded-full bg-surface-container text-on-surface-variant flex items-center gap-1.5 hover:bg-surface-container-high" type="button">
+<span class="material-symbols-outlined text-[16px]">flight</span>
+<span class="font-body-sm text-body-sm">Travel</span>
+</button>
+<button class="flex-shrink-0 h-8 px-3 rounded-full bg-surface-container text-on-surface-variant flex items-center gap-1.5 hover:bg-surface-container-high" type="button">
+<span class="material-symbols-outlined text-[16px]">hotel</span>
+<span class="font-body-sm text-body-sm">Stay</span>
+</button>
+<button class="flex-shrink-0 h-8 px-3 rounded-full bg-surface-container text-on-surface-variant flex items-center gap-1.5 hover:bg-surface-container-high" type="button">
+<span class="material-symbols-outlined text-[16px]">local_gas_station</span>
+<span class="font-body-sm text-body-sm">Fuel</span>
+</button>
+<button class="flex-shrink-0 h-8 px-3 rounded-full bg-surface-container text-on-surface-variant flex items-center gap-1.5 hover:bg-surface-container-high" type="button">
+<span class="material-symbols-outlined text-[16px]">confirmation_number</span>
+<span class="font-body-sm text-body-sm">Tickets</span>
+</button>
+<button class="flex-shrink-0 h-8 px-3 rounded-full bg-surface-container text-on-surface-variant flex items-center gap-1.5 hover:bg-surface-container-high" type="button">
+<span class="material-symbols-outlined text-[16px]">shopping_bag</span>
+<span class="font-body-sm text-body-sm">Shopping</span>
+</button>
+<button class="flex-shrink-0 h-8 px-3 rounded-full bg-surface-container text-on-surface-variant flex items-center gap-1.5 hover:bg-surface-container-high" type="button">
+<span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+<span class="font-body-sm text-body-sm">Other</span>
+</button>
+</div>
+</div>
+<!-- 3. "PAID BY" SELECTOR -->
+<div class="bg-surface-container rounded-2xl p-space-md space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant">Paid By</span>
+<button class="font-body-sm text-body-sm text-primary flex items-center gap-0.5" type="button">
+<span>Split payers</span>
+<span class="material-symbols-outlined text-[14px]">tune</span>
+</button>
+</div>
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar">
+<!-- Active Payer Pill: You -->
+<button class="flex items-center gap-2 h-10 pl-2 pr-3 rounded-full bg-surface-container-high text-on-surface flex-shrink-0 shadow-sm" type="button">
+<img class="w-6 h-6 rounded-full object-cover" data-alt="Close up profile photo of Kabir smiling with natural warm lighting, emerald jacket, soft evening background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8rZbtEyvqSmKUl25-DBCkz7G09gRqy2y7X8kcvTBzVLQ6-piaBPfLFfnTFfB-iMTjFZCtt88sli0Zk1YY16uhGe-lhqjli-Wq3JxTmTrGdFOS95wXEpsNjAZ8ColsMd-7VPx4nlYMY_381Vbb3Wvz8psdM9aBSPuVEc5C4ezJX4f73wexHelG3muK4ckHspboXGNnwHI7g3YnODX7Nb1vUAqO1d8k6O23gg3f-FoWXmhz1JAxCyxIkQ"/>
+<span class="font-body-md text-body-md font-semibold">You (Kabir)</span>
+<span class="font-label-numeric-sm text-label-numeric-sm text-secondary">₹1,200</span>
+<span class="material-symbols-outlined text-[16px] text-primary">check_circle</span>
+</button>
+<!-- Rahul Pill -->
+<button class="flex items-center gap-1.5 h-10 px-3 rounded-full bg-surface-container-lowest/60 text-on-surface-variant flex-shrink-0 hover:bg-surface-container-high" type="button">
+<img class="w-5 h-5 rounded-full object-cover" data-alt="Portrait photo of a young man with glasses in casual attire against urban architecture, soft contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlbAddEXO6CPGeUHNs71s-pNphc7OwcQ3uZ2JhX-364unbTEiN7Uf385PLf5FRxbVoaDi9vrxEAhXVrBs2xTqC_mlRA6gEd7K1txBqvbNbNwvJ8zw9JOOm5rC7ozKDnzMX2LE_8fj1jWofPvijyrJf8ZzcsYcFpiYJpC7rz2yItmRKfiyBZjeoCg1r0WPuul8h5rnmUu16mt9RqULhk_9ij4rw0WQCMt1LPQ5Anb4ZCx6pdoB4MJlbrQ"/>
+<span class="font-body-sm text-body-sm">Rahul</span>
+</button>
+<!-- Aarav Pill -->
+<button class="flex items-center gap-1.5 h-10 px-3 rounded-full bg-surface-container-lowest/60 text-on-surface-variant flex-shrink-0 hover:bg-surface-container-high" type="button">
+<img class="w-5 h-5 rounded-full object-cover" data-alt="Casual headshot of an Indian young adult smiling in an outdoor park setting with muted green foliage." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDq_j7TX702wahtbX6ZMEsyaa8EQZdp1aC4KdpuTNP5j2ywf4Z9w0ITtpGToCcm_rkiDxg7qqpILf7lMP_D321Z5GSkOw1RoHpprvZEnTSvXi49vgXBCFkZsQV3d7XU3We4GFCnIpXG1AaHW9REggH3-26EJhbatJ53NhoVy_peW6ebvYqhsqNaGJY3r0mZVb_urhVQi_idQA7PT1z-tSZotVtcT4SqOXnIBPuLE9HoSWgLm4quCFfY-A"/>
+<span class="font-body-sm text-body-sm">Aarav</span>
+</button>
+</div>
+</div>
+<!-- 4. "SPLIT" SELECTOR & SEGMENTED CONTROL -->
+<div class="space-y-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-caps text-label-caps uppercase text-on-surface-variant">Split Method</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">4 of 5 involved</span>
+</div>
+<!-- Frosted Segmented Control -->
+<div class="grid grid-cols-4 p-1 rounded-full bg-surface-container">
+<button class="h-8 rounded-full bg-primary text-on-primary font-body-sm text-body-sm font-semibold shadow-sm transition-all flex items-center justify-center" type="button">
+              Equal
+            </button>
+<button class="h-8 rounded-full text-on-surface-variant font-body-sm text-body-sm hover:text-on-surface transition-all flex items-center justify-center" type="button">
+              Exact
+            </button>
+<button class="h-8 rounded-full text-on-surface-variant font-body-sm text-body-sm hover:text-on-surface transition-all flex items-center justify-center" type="button">
+              Percent
+            </button>
+<button class="h-8 rounded-full text-on-surface-variant font-body-sm text-body-sm hover:text-on-surface transition-all flex items-center justify-center" type="button">
+              Shares
+            </button>
+</div>
+</div>
+<!-- 5. MEMBER LIST WITH CHECKBOXES & "NOT THERE" TOGGLE -->
+<div class="bg-surface-container rounded-2xl p-space-md space-y-2">
+<!-- Member Row 1: Kabir (You) -->
+<div class="flex items-center justify-between py-2">
+<div class="flex items-center gap-3">
+<div class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<img class="w-9 h-9 rounded-full object-cover" data-alt="Close up profile photo of Kabir smiling with natural warm lighting, emerald jacket, soft evening background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0UJ7pTVpHLW2HadyLWI2sags4bNpyLDt5lR0xLQ_soxFLQScZxGg6DrjYLj0O2dfzd2cTjgXTMdvIH9grN3uK9MI7EX6hwwLmpTQRC3EbZiZb4ophANH9ggBozmkJhWjtmf9PkkyBefpihaf99N8iwE93KIkwsI1pU4QBYjUzyGV2Bs0_FJ0JpXERBA4zyA-6OwVb4OmbIfTeeSiQra9Qgwzw5TQxVOQdlHLR-1uM4ytG_QGgStRiCg"/>
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-none">Kabir <span class="text-on-surface-variant text-[11px] font-normal">(You)</span></p>
+<span class="font-body-sm text-body-sm text-primary text-[11px]">Active</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-numeric-md text-label-numeric-md text-primary font-medium">₹300</span>
+</div>
+</div>
+<div class="h-[1px] w-full bg-surface-variant/40"></div>
+<!-- Member Row 2: Rahul -->
+<div class="flex items-center justify-between py-2">
+<div class="flex items-center gap-3">
+<div class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<img class="w-9 h-9 rounded-full object-cover" data-alt="Portrait photo of a young man with glasses in casual attire against urban architecture, soft contrast." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4YqRNmtFOsuDQQ02o4zFESeHzJH-G4luc-1r2WFd_R5Tb_dHbovh-eUsU_JsBhCOhK4jUJ37QWuP6w8Tz9a7rKNNDpKJh3hJD7MIUfwHpdvaGuW8UOC7bB0qy1OIvCHSEtNe7NIPnx1HTZT3CBCeN_TaFzZWmssE7zmxPh9bS81aJrcNw1IVwt-0YL7aRZJBkV1GHh8MtO_mNyMxGqqBQvAbHjsvw5ajF8t--JUB6HG0Dq9_aahIUjA"/>
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-none">Rahul Sharma</p>
+<span class="font-body-sm text-body-sm text-primary text-[11px]">Active</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-numeric-md text-label-numeric-md text-primary font-medium">₹300</span>
+</div>
+</div>
+<div class="h-[1px] w-full bg-surface-variant/40"></div>
+<!-- Member Row 3: Aarav -->
+<div class="flex items-center justify-between py-2">
+<div class="flex items-center gap-3">
+<div class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<img class="w-9 h-9 rounded-full object-cover" data-alt="Casual headshot of an Indian young adult smiling in an outdoor park setting with muted green foliage." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5gwHNhLZslHxBuoh0Vi5UZg8qS_EBtMhgDpWwbSxf_Zz47YADu4qxRCx14tVdKiqmWOrDNegTyiLG1Ybzu-CzHpq8OtapFkHd9ao9xn5Va67xj3lT2AXF0C3EMio8cb0OPsdaayyXcY6meJUm5wXYaDHiwLq9rcBdd3pTSaRPPekr5SIb3i5kN0KWGIwyqpKV5dfjQEXu6hN0stmrdaGFQZlK5g6tDDgDkL7T3dkqKtbgIeiuy9W2Mw"/>
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-none">Aarav Patel</p>
+<span class="font-body-sm text-body-sm text-primary text-[11px]">Active</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-numeric-md text-label-numeric-md text-primary font-medium">₹300</span>
+</div>
+</div>
+<div class="h-[1px] w-full bg-surface-variant/40"></div>
+<!-- Member Row 4: Diya -->
+<div class="flex items-center justify-between py-2">
+<div class="flex items-center gap-3">
+<div class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px]">check</span>
+</div>
+<div class="w-9 h-9 rounded-full bg-secondary/20 text-secondary flex items-center justify-center font-headline-sm text-headline-sm">
+                D
+              </div>
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium leading-none">Diya Sharma</p>
+<span class="font-body-sm text-body-sm text-primary text-[11px]">Active</span>
+</div>
+</div>
+<div class="text-right">
+<span class="font-label-numeric-md text-label-numeric-md text-primary font-medium">₹300</span>
+</div>
+</div>
+<div class="h-[1px] w-full bg-surface-variant/40"></div>
+<!-- Member Row 5: Sneha (Not There Toggle Active / Excluded) -->
+<div class="flex items-center justify-between py-2 opacity-45">
+<div class="flex items-center gap-3">
+<div class="w-5 h-5 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">remove</span>
+</div>
+<div class="w-9 h-9 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center font-headline-sm text-headline-sm">
+                S
+              </div>
+<div>
+<p class="font-body-md text-body-md text-on-surface line-through font-medium leading-none">Sneha Kulkarni</p>
+<span class="font-label-caps text-label-caps uppercase text-tertiary">Not there • Excluded</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="font-label-numeric-md text-label-numeric-md text-on-surface-variant">₹0</span>
+<!-- Tactile Switch Toggle Active ("Not there") -->
+<div class="w-10 h-6 rounded-full bg-tertiary-container flex items-center justify-end px-0.5">
+<div class="w-5 h-5 rounded-full bg-on-tertiary shadow-sm"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Receipt Camera & Quick Split Note -->
+<div class="flex items-center justify-between p-space-md rounded-2xl bg-surface-container-high/60">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface font-semibold leading-tight">Attach Itemized Receipt</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Auto-scan dish items</p>
+</div>
+</div>
+<button class="h-8 px-3 rounded-full bg-surface-container text-on-surface font-body-sm text-body-sm flex items-center gap-1 hover:bg-surface-variant" type="button">
+<span class="material-symbols-outlined text-[16px]">add_a_photo</span>
+<span>Upload</span>
+</button>
+</div>
+</div>
+<!-- 6. BOTTOM STICKY ACTION BAR -->
+<div class="absolute bottom-0 left-0 right-0 bg-surface-container-lowest/90 backdrop-blur-xl px-margin pt-3 pb-safe border-t-0 shadow-lg">
+<!-- Live Dynamic Split Monospace Summary -->
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-1.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">group</span>
+<span class="font-body-sm text-body-sm">4 people split evenly</span>
+</div>
+<div class="flex items-baseline gap-1">
+<span class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">each pays</span>
+<span class="font-label-numeric-lg text-label-numeric-lg text-primary font-semibold">₹300.00</span>
+</div>
+</div>
+<!-- Primary Emerald Pill Button -->
+<button class="w-full h-14 rounded-full bg-primary-container text-on-primary font-headline-sm text-headline-sm font-bold flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform mb-3" type="button">
+<span class="material-symbols-outlined text-[20px]">check</span>
+<span>Save Expense</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+  // Simple keypad interactive feedback
+  const amountDisplay = document.getElementById('amount-display');
+  const buttons = document.querySelectorAll('.key-btn');
+  let currentVal = "1200";
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const char = btn.innerText.trim();
+      if (!char) {
+        // Backspace action
+        currentVal = currentVal.length > 1 ? currentVal.slice(0, -1) : "0";
+      } else if (char === '.') {
+        if (!currentVal.includes('.')) currentVal += '.';
+      } else {
+        if (currentVal === "0") currentVal = char;
+        else if (currentVal.length < 7) currentVal += char;
+      }
+      // Format number presentation
+      if (amountDisplay) {
+        const parts = currentVal.split('.');
+        const intPart = parseInt(parts[0], 10);
+        const formatted = isNaN(intPart) ? "0" : intPart.toLocaleString('en-IN');
+        amountDisplay.textContent = parts.length > 1 ? `${formatted}.${parts[1]}` : formatted;
+      }
+    });
+  });
+</script></main></body></html>

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_tab" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#0b1512;color:#dae5e0;}body{overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "secondary-fixed": "#ffdf9b", "on-secondary-fixed-variant": "#5a4302", "tertiary-fixed-dim": "#ffb4a3", "surface-variant": "#2d3733", "tertiary": "#ffb4a3", "surface": "#0b1512", "on-secondary": "#3f2e00", "on-background": "#dae5e0", "inverse-surface": "#dae5e0", "on-primary": "#003826", "on-tertiary-fixed-variant": "#84240d", "secondary-container": "#5d4604", "surface-dim": "#0b1512", "on-secondary-fixed": "#251a00", "on-secondary-container": "#d5b46b", "primary": "#63dcac", "primary-container": "#1fa67a", "on-tertiary-fixed": "#3d0700", "tertiary-fixed": "#ffdad2", "surface-container-high": "#222c29", "inverse-primary": "#006c4d", "on-tertiary": "#621000", "surface-container-highest": "#2d3733", "background": "#0b1512", "surface-container-lowest": "#06100d", "primary-fixed-dim": "#63dcac", "tertiary-container": "#e96e50", "on-error-container": "#ffdad6", "on-primary-fixed": "#002115", "primary-fixed": "#81f9c7", "surface-bright": "#313b38", "on-error": "#690005", "on-surface": "#dae5e0", "on-tertiary-container": "#5a0e00", "secondary": "#e4c278", "on-primary-container": "#003322", "surface-container-low": "#141e1a", "error-container": "#93000a", "inverse-on-surface": "#28332f", "error": "#ffb4ab", "on-primary-fixed-variant": "#005139", "outline": "#87948c", "outline-variant": "#3d4a43", "secondary-fixed-dim": "#e4c278", "on-surface-variant": "#bccac1", "surface-container": "#18221e", "surface-tint": "#63dcac" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "space-lg": "1.5rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "margin": "1.25rem", "gutter": "1rem", "space-xl": "2rem", "space-md": "1rem" }, fontFamily: { "body-sm": ["Manrope"], "label-numeric-md": ["JetBrains Mono"], "label-caps": ["Manrope"], "headline-md": ["Manrope"], "label-numeric-sm": ["JetBrains Mono"], "body-lg": ["Manrope"], "headline-lg": ["Manrope"], "display-lg": ["JetBrains Mono"], "body-md": ["Manrope"], "display-lg-mobile": ["JetBrains Mono"], "headline-sm": ["Manrope"], "label-numeric-lg": ["JetBrains Mono"] }, fontSize: { "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }], "label-numeric-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "500" }], "label-caps": ["10px", { "lineHeight": "12px", "letterSpacing": "0.08em", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "label-numeric-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "400" }], "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "headline-lg": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.03em", "fontWeight": "600" }], "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "headline-sm": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "label-numeric-lg": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "500" }] } } } }</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface font-body-md text-on-surface relative min-h-screen overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container"><div class="fixed inset-0 pointer-events-none -z-10 overflow-hidden"><div class="absolute -top-32 -left-24 w-96 h-96 rounded-full bg-primary-container/20 blur-[100px]"></div><div class="absolute top-1/3 -right-32 w-80 h-80 rounded-full bg-secondary-container/25 blur-[120px]"></div><div class="absolute -bottom-24 left-1/4 w-96 h-96 rounded-full bg-inverse-primary/20 blur-[110px]"></div></div><header class="fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.25)]"><div class="h-16 px-margin flex items-center justify-between"><div class="flex items-center gap-space-sm"><img alt="SplitUp Brand Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiG4Vtqjb25JoSXMGQ9xAf43GZgmyW6KGUiR_Jtu1_iPHCpkvhdbWUY6h4zz1i2bMP1WOcBBpUTdoNp0b3xZBxVSPETmGOaDObTazTB4VwN2FMrdyPFhIGwe_NKJQVtdR41yk37EwAE9f0PfqdAAnItDeNZmIaVxPV8BCQlHFzXlYV9LjN-XocIWUGp4IjxofCqaqLprBIrsqXaWppJRBDyNwGpL8pZ-Xll4nyhKtCpIYscKKySCUoqA"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm tracking-tight text-on-surface">SplitUp</span><span class="font-label-caps text-label-caps uppercase tracking-widest text-primary">Splitup   Trips</span></div></div><div class="flex items-center gap-space-xs"><button aria-label="Create Trip" class="w-11 h-11 flex items-center justify-center rounded-full bg-surface-container-high/60 text-primary hover:bg-surface-container-highest transition-colors active:scale-95"><span class="material-symbols-outlined text-[20px]">add</span></button><button aria-label="User Profile" class="w-11 h-11 flex items-center justify-center rounded-full hover:bg-surface-variant/40 transition-colors"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></button></div></div></header><main class="relative w-full pt-16 pb-28 min-h-screen bg-surface"><div class="flex flex-col w-full">
+<div class="px-margin pt-space-md pb-space-lg flex flex-col gap-space-lg">
+<!-- Subheader Segmented Filter Bar & Action -->
+<div class="flex items-center justify-between gap-space-sm">
+<div class="flex p-1 bg-surface-container-low/90 backdrop-blur-xl rounded-full shadow-inner shadow-black/40" id="trip-tabs">
+<button class="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary-container text-on-primary-container font-headline-sm text-body-sm font-semibold transition-all shadow-sm" id="tab-active" onclick="switchTripTab('active')">
+<span>Active</span>
+<span class="px-1.5 py-0.2 rounded-full bg-surface-container-lowest/40 font-label-numeric-sm text-label-numeric-sm">3</span>
+</button>
+<button class="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-on-surface-variant hover:text-on-surface font-headline-sm text-body-sm font-medium transition-all" id="tab-completed" onclick="switchTripTab('completed')">
+<span>Completed</span>
+<span class="px-1.5 py-0.2 rounded-full bg-surface-container-high/60 text-on-surface-variant font-label-numeric-sm text-label-numeric-sm">2</span>
+</button>
+</div>
+<button class="flex items-center gap-1 px-3.5 py-2 rounded-full bg-surface-container-high hover:bg-surface-container-highest active:scale-95 text-primary transition-all shadow-sm" onclick="triggerNewTripModal()">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span class="font-headline-sm text-body-sm font-semibold">New</span>
+</button>
+</div>
+<!-- Active Trips List View -->
+<div class="flex flex-col gap-space-md" id="active-trips-view">
+<!-- CARD 1: Goa Sunburn & Shacks -->
+<div class="group relative rounded-xl bg-surface-container/70 backdrop-blur-2xl shadow-xl overflow-hidden transition-transform duration-200 hover:scale-[1.01]">
+<!-- Abstract CSS Mesh Banner (No stock photos) -->
+<div class="relative h-28 w-full overflow-hidden bg-gradient-to-tr from-surface-container-lowest via-[#0d2a23] to-[#2b210c]">
+<div class="absolute -top-10 -right-6 w-44 h-44 rounded-full bg-primary-container/30 blur-2xl"></div>
+<div class="absolute -bottom-8 left-8 w-36 h-36 rounded-full bg-secondary-container/40 blur-xl"></div>
+<!-- Abstract subtle vector accounting curves -->
+<svg class="absolute inset-0 w-full h-full opacity-20 text-primary" fill="none" preserveaspectratio="none" viewbox="0 0 400 120">
+<path d="M-20 90 C 80 120, 150 20, 260 50 C 330 70, 380 20, 420 40" fill="none" stroke="currentColor" stroke-width="2.5"></path>
+<path d="M-10 110 C 90 60, 190 110, 300 30 C 360 -10, 410 70, 450 80" fill="none" stroke="currentColor" stroke-dasharray="4 4" stroke-width="1.2"></path>
+</svg>
+<!-- Top Row Badges -->
+<div class="relative z-10 p-3.5 flex items-center justify-between">
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-lowest/80 backdrop-blur-md shadow-sm">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="font-label-caps text-label-caps uppercase text-primary tracking-wider">Active</span>
+</div>
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest/80 backdrop-blur-md text-on-surface-variant font-label-numeric-sm text-label-numeric-sm">
+<span class="material-symbols-outlined text-[13px] text-primary">schedule</span>
+<span>4 days left</span>
+</div>
+</div>
+<!-- Bottom Title overlay inside banner -->
+<div class="absolute bottom-2.5 left-4 right-4 flex items-end justify-between z-10">
+<div>
+<h2 class="font-headline-md text-headline-sm text-on-surface tracking-tight">Goa Sunburn &amp; Shacks</h2>
+<p class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">14 Mar – 18 Mar</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[22px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+</div>
+</div>
+<!-- Card Body -->
+<div class="p-4 flex flex-col gap-3.5 bg-surface-container-low/40">
+<!-- Member Row & Quick Settled Status -->
+<div class="flex items-center justify-between">
+<div class="flex items-center -space-x-2">
+<div class="w-7 h-7 rounded-full bg-surface-variant flex items-center justify-center text-[10px] font-bold text-on-surface shadow-sm">PK</div>
+<div class="w-7 h-7 rounded-full bg-[#18392b] flex items-center justify-center text-[10px] font-bold text-primary shadow-sm">KJ</div>
+<div class="w-7 h-7 rounded-full bg-[#2a2414] flex items-center justify-center text-[10px] font-bold text-secondary shadow-sm">RS</div>
+<div class="w-7 h-7 rounded-full bg-surface-container-highest flex items-center justify-center text-[10px] font-bold text-on-surface-variant shadow-sm">ST</div>
+<div class="w-7 h-7 rounded-full bg-surface-bright flex items-center justify-center font-label-numeric-sm text-label-numeric-sm font-semibold text-primary shadow-sm">+1</div>
+</div>
+<!-- Balance Standing Chip -->
+<div class="px-2.5 py-1 rounded-full bg-primary-container/20 text-primary font-label-numeric-sm text-label-numeric-sm font-semibold flex items-center gap-1 shadow-xs">
+<span class="material-symbols-outlined text-[14px]">arrow_downward_alt</span>
+<span>You get back ₹4,800</span>
+</div>
+</div>
+<!-- Budget Progress Line & Monospace Ledger Metrics -->
+<div class="flex flex-col gap-1.5 pt-1">
+<div class="flex justify-between items-baseline font-label-numeric-sm text-label-numeric-sm">
+<span class="text-on-surface-variant">Spent <span class="font-label-numeric-md text-label-numeric-md text-on-surface font-semibold">₹34,200</span></span>
+<span class="text-on-surface-variant/80">Cap <span class="font-label-numeric-md text-label-numeric-md font-medium text-on-surface-variant">₹50,000</span></span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(99,220,172,0.4)]" style="width: 68.4%;"></div>
+</div>
+<div class="flex justify-between items-center text-outline text-[11px] font-label-caps">
+<span class="uppercase tracking-wider">68.4% used</span>
+<span class="text-primary font-medium tracking-normal">₹15,800 buffer</span>
+</div>
+</div>
+</div>
+</div>
+<!-- CARD 2: Himachal Spiti Expedition -->
+<div class="group relative rounded-xl bg-surface-container/70 backdrop-blur-2xl shadow-xl overflow-hidden transition-transform duration-200 hover:scale-[1.01]">
+<!-- Abstract CSS Mesh Banner -->
+<div class="relative h-28 w-full overflow-hidden bg-gradient-to-tr from-surface-container-lowest via-[#121c2c] to-[#261726]">
+<div class="absolute -top-12 left-10 w-40 h-40 rounded-full bg-[#1b3a4b]/30 blur-2xl"></div>
+<div class="absolute bottom-0 right-4 w-32 h-32 rounded-full bg-tertiary-container/20 blur-xl"></div>
+<!-- Abstract Topographic Contour Lines -->
+<svg class="absolute inset-0 w-full h-full opacity-20 text-on-surface-variant" fill="none" preserveaspectratio="none" viewbox="0 0 400 120">
+<path d="M0 40 Q 90 80, 180 30 T 360 60 T 420 20" fill="none" stroke="currentColor" stroke-width="1.8"></path>
+<path d="M-20 80 Q 80 110, 200 65 T 390 90" fill="none" stroke="currentColor" stroke-dasharray="3 3" stroke-width="1.2"></path>
+</svg>
+<!-- Top Row Badges -->
+<div class="relative z-10 p-3.5 flex items-center justify-between">
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest/80 backdrop-blur-md shadow-sm">
+<span class="material-symbols-outlined text-[13px] text-secondary">flight_takeoff</span>
+<span class="font-label-caps text-label-caps uppercase text-secondary tracking-wider">Upcoming in 12d</span>
+</div>
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest/80 backdrop-blur-md text-on-surface-variant font-label-numeric-sm text-label-numeric-sm">
+<span class="material-symbols-outlined text-[13px] text-outline">date_range</span>
+<span>8 days expedition</span>
+</div>
+</div>
+<!-- Bottom Title overlay inside banner -->
+<div class="absolute bottom-2.5 left-4 right-4 flex items-end justify-between z-10">
+<div>
+<h2 class="font-headline-md text-headline-sm text-on-surface tracking-tight">Himachal Spiti Expedition</h2>
+<p class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">28 Mar – 05 Apr</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[22px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+</div>
+</div>
+<!-- Card Body -->
+<div class="p-4 flex flex-col gap-3.5 bg-surface-container-low/40">
+<!-- Member Row & Quick Debt Status -->
+<div class="flex items-center justify-between">
+<div class="flex items-center -space-x-2">
+<div class="w-7 h-7 rounded-full bg-[#1b263b] flex items-center justify-center text-[10px] font-bold text-on-surface shadow-sm">AS</div>
+<div class="w-7 h-7 rounded-full bg-[#203a31] flex items-center justify-center text-[10px] font-bold text-primary shadow-sm">KJ</div>
+<div class="w-7 h-7 rounded-full bg-[#3d2524] flex items-center justify-center text-[10px] font-bold text-tertiary shadow-sm">DM</div>
+<div class="w-7 h-7 rounded-full bg-surface-variant flex items-center justify-center text-[10px] font-bold text-on-surface-variant shadow-sm">TK</div>
+</div>
+<!-- Terracotta Balance Chip -->
+<div class="px-2.5 py-1 rounded-full bg-tertiary-container/20 text-tertiary font-label-numeric-sm text-label-numeric-sm font-semibold flex items-center gap-1 shadow-xs">
+<span class="material-symbols-outlined text-[14px]">arrow_upward_alt</span>
+<span>You owe ₹1,200</span>
+</div>
+</div>
+<!-- Budget Progress Line & Monospace Ledger Metrics -->
+<div class="flex flex-col gap-1.5 pt-1">
+<div class="flex justify-between items-baseline font-label-numeric-sm text-label-numeric-sm">
+<span class="text-on-surface-variant">Spent <span class="font-label-numeric-md text-label-numeric-md text-on-surface font-semibold">₹12,400</span></span>
+<span class="text-on-surface-variant/80">Cap <span class="font-label-numeric-md text-label-numeric-md font-medium text-on-surface-variant">₹65,000</span></span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+<div class="h-full bg-primary-container rounded-full transition-all duration-500" style="width: 19%;"></div>
+</div>
+<div class="flex justify-between items-center text-outline text-[11px] font-label-caps">
+<span class="uppercase tracking-wider">19.0% utilized</span>
+<span class="text-on-surface-variant font-medium tracking-normal">₹52,600 unallocated</span>
+</div>
+</div>
+</div>
+</div>
+<!-- CARD 3: Coorg Coffee Trail & Camp -->
+<div class="group relative rounded-xl bg-surface-container/70 backdrop-blur-2xl shadow-xl overflow-hidden transition-transform duration-200 hover:scale-[1.01]">
+<!-- Abstract CSS Mesh Banner -->
+<div class="relative h-28 w-full overflow-hidden bg-gradient-to-tr from-surface-container-lowest via-[#182a17] to-[#36270e]">
+<div class="absolute -top-8 -left-6 w-40 h-40 rounded-full bg-primary/20 blur-2xl"></div>
+<div class="absolute bottom-2 right-2 w-32 h-32 rounded-full bg-secondary/25 blur-xl"></div>
+<!-- Geometric Organic Flow -->
+<svg class="absolute inset-0 w-full h-full opacity-20 text-secondary" fill="none" preserveaspectratio="none" viewbox="0 0 400 120">
+<path d="M-10 60 C 100 20, 160 100, 260 40 C 330 10, 390 80, 420 50" fill="none" stroke="currentColor" stroke-width="2"></path>
+</svg>
+<!-- Top Row Badges -->
+<div class="relative z-10 p-3.5 flex items-center justify-between">
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-lowest/80 backdrop-blur-md shadow-sm">
+<span class="relative flex h-2 w-2">
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="font-label-caps text-label-caps uppercase text-primary tracking-wider">Active</span>
+</div>
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-lowest/80 backdrop-blur-md text-on-surface-variant font-label-numeric-sm text-label-numeric-sm">
+<span class="material-symbols-outlined text-[13px] text-secondary">wb_sunny</span>
+<span>Next weekend</span>
+</div>
+</div>
+<!-- Bottom Title overlay inside banner -->
+<div class="absolute bottom-2.5 left-4 right-4 flex items-end justify-between z-10">
+<div>
+<h2 class="font-headline-md text-headline-sm text-on-surface tracking-tight">Coorg Coffee Trail &amp; Camp</h2>
+<p class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">21 Mar – 24 Mar</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant text-[22px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+</div>
+</div>
+<!-- Card Body -->
+<div class="p-4 flex flex-col gap-3.5 bg-surface-container-low/40">
+<!-- Member Row & Quick Settled Status -->
+<div class="flex items-center justify-between">
+<div class="flex items-center -space-x-2">
+<div class="w-7 h-7 rounded-full bg-[#1b3427] flex items-center justify-center text-[10px] font-bold text-primary shadow-sm">KJ</div>
+<div class="w-7 h-7 rounded-full bg-[#2b2b1a] flex items-center justify-center text-[10px] font-bold text-secondary shadow-sm">RS</div>
+<div class="w-7 h-7 rounded-full bg-[#1b2b35] flex items-center justify-center text-[10px] font-bold text-on-surface shadow-sm">PK</div>
+<div class="w-7 h-7 rounded-full bg-surface-variant flex items-center justify-center text-[10px] font-bold text-on-surface-variant shadow-sm">MN</div>
+<div class="w-7 h-7 rounded-full bg-surface-bright flex items-center justify-center font-label-numeric-sm text-label-numeric-sm font-semibold text-secondary shadow-sm">+2</div>
+</div>
+<!-- Balanced State Chip -->
+<div class="px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-numeric-sm text-label-numeric-sm font-medium flex items-center gap-1 shadow-xs">
+<span class="material-symbols-outlined text-[14px] text-primary">check_circle</span>
+<span>All settled ₹0</span>
+</div>
+</div>
+<!-- Cautionary Brass Budget Progress Line -->
+<div class="flex flex-col gap-1.5 pt-1">
+<div class="flex justify-between items-baseline font-label-numeric-sm text-label-numeric-sm">
+<span class="text-on-surface-variant">Spent <span class="font-label-numeric-md text-label-numeric-md text-on-surface font-semibold">₹18,900</span></span>
+<span class="text-on-surface-variant/80">Cap <span class="font-label-numeric-md text-label-numeric-md font-medium text-on-surface-variant">₹22,000</span></span>
+</div>
+<div class="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+<div class="h-full bg-secondary rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(228,194,120,0.35)]" style="width: 85.9%;"></div>
+</div>
+<div class="flex justify-between items-center text-outline text-[11px] font-label-caps">
+<span class="text-secondary font-semibold uppercase tracking-wider">85.9% (Near Cap)</span>
+<span class="text-secondary font-medium tracking-normal">₹3,100 left</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Completed Trips Section (Toggled or Teaser) -->
+<div class="rounded-xl p-4 bg-surface-container-low/60 backdrop-blur-xl flex flex-col gap-3 shadow-lg" id="completed-teaser-box">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+</div>
+<div>
+<h3 class="font-headline-sm text-body-md font-semibold text-on-surface">2 Completed Trips Archived</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">All balances resolved and reconciled</p>
+</div>
+</div>
+<button class="font-label-caps text-label-caps text-primary uppercase font-bold tracking-wider hover:underline" onclick="switchTripTab('completed')">
+          View All
+        </button>
+</div>
+<!-- Quick Summary Metric Bar -->
+<div class="p-3 rounded-lg bg-surface-container-lowest/80 flex items-center justify-between">
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-outline uppercase">Total Shared Pool</span>
+<span class="font-label-numeric-md text-label-numeric-md text-on-surface font-semibold">₹86,500</span>
+</div>
+<div class="h-6 w-px bg-surface-variant"></div>
+<div class="flex flex-col items-end">
+<span class="font-label-caps text-label-caps text-outline uppercase">Status</span>
+<span class="font-label-numeric-sm text-label-numeric-sm text-primary font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">done_all</span> Settled seamlessly
+          </span>
+</div>
+</div>
+</div>
+<!-- Hidden Completed Full View (Toggled via JS) -->
+<div class="hidden flex flex-col gap-space-md" id="completed-trips-view">
+<!-- Completed Card A -->
+<div class="rounded-xl bg-surface-container/60 backdrop-blur-xl p-4 flex flex-col gap-3 shadow-md opacity-90">
+<div class="flex justify-between items-start">
+<div>
+<span class="font-label-caps text-label-caps uppercase text-outline">Jan 2025 · 5 Days</span>
+<h3 class="font-headline-sm text-body-lg font-semibold text-on-surface">Manali Winter Chalet</h3>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-label-caps text-label-caps uppercase font-bold">100% Settled</span>
+</div>
+<div class="flex justify-between items-center pt-2 font-label-numeric-sm text-label-numeric-sm">
+<span class="text-on-surface-variant">Total spend: <span class="text-on-surface font-medium">₹54,200</span></span>
+<span class="text-primary font-medium">Net ₹0 standing</span>
+</div>
+</div>
+<!-- Completed Card B -->
+<div class="rounded-xl bg-surface-container/60 backdrop-blur-xl p-4 flex flex-col gap-3 shadow-md opacity-90">
+<div class="flex justify-between items-start">
+<div>
+<span class="font-label-caps text-label-caps uppercase text-outline">Dec 2024 · 3 Days</span>
+<h3 class="font-headline-sm text-body-lg font-semibold text-on-surface">Pondicherry Heritage Stay</h3>
+</div>
+<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-label-caps text-label-caps uppercase font-bold">100% Settled</span>
+</div>
+<div class="flex justify-between items-center pt-2 font-label-numeric-sm text-label-numeric-sm">
+<span class="text-on-surface-variant">Total spend: <span class="text-on-surface font-medium">₹32,300</span></span>
+<span class="text-primary font-medium">Net ₹0 standing</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+  function switchTripTab(tab) {
+    const activeTabBtn = document.getElementById('tab-active');
+    const completedTabBtn = document.getElementById('tab-completed');
+    const activeView = document.getElementById('active-trips-view');
+    const completedView = document.getElementById('completed-trips-view');
+    const teaserBox = document.getElementById('completed-teaser-box');
+
+    if (tab === 'active') {
+      activeTabBtn.className = "flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary-container text-on-primary-container font-headline-sm text-body-sm font-semibold transition-all shadow-sm";
+      completedTabBtn.className = "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-on-surface-variant hover:text-on-surface font-headline-sm text-body-sm font-medium transition-all";
+      activeView.classList.remove('hidden');
+      completedView.classList.add('hidden');
+      teaserBox.classList.remove('hidden');
+    } else {
+      completedTabBtn.className = "flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary-container text-on-primary-container font-headline-sm text-body-sm font-semibold transition-all shadow-sm";
+      activeTabBtn.className = "flex items-center gap-1.5 px-4 py-1.5 rounded-full text-on-surface-variant hover:text-on-surface font-headline-sm text-body-sm font-medium transition-all";
+      activeView.classList.add('hidden');
+      completedView.classList.remove('hidden');
+      teaserBox.classList.add('hidden');
+    }
+  }
+
+  function triggerNewTripModal() {
+    const msg = document.createElement('div');
+    msg.className = "fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2 bg-surface-container-highest/95 backdrop-blur-xl text-primary font-body-sm text-body-sm rounded-full shadow-2xl z-50 transition-opacity duration-300 pointer-events-none flex items-center gap-2";
+    msg.innerHTML = '<span class="material-symbols-outlined text-[16px]">celebration</span> Ready to plan a new trip!';
+    document.body.appendChild(msg);
+    setTimeout(() => {
+      msg.style.opacity = '0';
+      setTimeout(() => msg.remove(), 400);
+    }, 2200);
+  }
+</script></main><div class="fixed bottom-0 w-full z-50 pointer-events-none pb-safe px-margin"><nav class="pointer-events-auto mx-auto mb-3 max-w-md h-16 rounded-full bg-surface-container-low/80 backdrop-blur-2xl shadow-[0_12px_32px_rgba(0,0,0,0.45)] px-space-sm flex items-center justify-around" data-active-classes="text-primary bg-surface-container-highest/60"><a class="flex flex-col items-center justify-center w-14 h-12 rounded-full text-on-surface-variant hover:text-on-surface transition-all" data-path="splitup-home-dashboard" href="#"><span class="material-symbols-outlined text-[22px]">space_dashboard</span><span class="font-label-caps text-label-caps mt-0.5 tracking-wider">Home</span></a><a class="flex flex-col items-center justify-center w-14 h-12 rounded-full text-on-surface-variant hover:text-on-surface transition-all" data-path="splitup-groups" href="#"><span class="material-symbols-outlined text-[22px]">group</span><span class="font-label-caps text-label-caps mt-0.5 tracking-wider">Groups</span></a><a class="flex flex-col items-center justify-center w-14 h-12 rounded-full text-primary bg-surface-container-highest/60 transition-all" data-path="splitup-trips" href="#"><span class="material-symbols-outlined text-[22px]">luggage</span><span class="font-label-caps text-label-caps mt-0.5 tracking-wider">Trips</span></a><a class="flex flex-col items-center justify-center w-14 h-12 rounded-full text-on-surface-variant hover:text-on-surface transition-all" data-path="splitup-profile" href="#"><span class="material-symbols-outlined text-[22px]">account_circle</span><span class="font-label-caps text-label-caps mt-0.5 tracking-wider">Profile</span></a></nav></div></body></html>

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><meta content="mobile_stack" name="shell-type"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100%;margin:0;padding:0;background-color:#0b1512;}body{overscroll-behavior-y:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: 'class', theme: { extend: { colors: { 'surface-container-highest': '#2d3733', 'secondary': '#e4c278', 'on-tertiary-container': '#5a0e00', 'surface-container-lowest': '#06100d', 'on-primary-container': '#003322', 'primary': '#63dcac', 'background': '#0b1512', 'secondary-fixed': '#ffdf9b', 'surface-container-low': '#141e1a', 'on-tertiary-fixed': '#3d0700', 'secondary-fixed-dim': '#e4c278', 'on-secondary-fixed': '#251a00', 'on-primary-fixed-variant': '#005139', 'surface-tint': '#63dcac', 'on-surface-variant': '#bccac1', 'on-tertiary-fixed-variant': '#84240d', 'on-background': '#dae5e0', 'surface': '#0b1512', 'primary-fixed-dim': '#63dcac', 'on-secondary': '#3f2e00', 'tertiary-fixed': '#ffdad2', 'secondary-container': '#5d4604', 'error': '#ffb4ab', 'on-tertiary': '#621000', 'on-primary-fixed': '#002115', 'surface-dim': '#0b1512', 'tertiary': '#ffb4a3', 'tertiary-fixed-dim': '#ffb4a3', 'on-surface': '#dae5e0', 'on-secondary-container': '#d5b46b', 'on-error': '#690005', 'tertiary-container': '#e96e50', 'surface-container': '#18221e', 'outline-variant': '#3d4a43', 'error-container': '#93000a', 'surface-variant': '#2d3733', 'on-error-container': '#ffdad6', 'on-secondary-fixed-variant': '#5a4302', 'primary-fixed': '#81f9c7', 'inverse-surface': '#dae5e0', 'surface-bright': '#313b38', 'inverse-primary': '#006c4d', 'surface-container-high': '#222c29', 'inverse-on-surface': '#28332f', 'outline': '#87948c', 'on-primary': '#003826', 'primary-container': '#1fa67a' }, borderRadius: { 'DEFAULT': '0.25rem', 'lg': '0.5rem', 'xl': '0.75rem', 'full': '9999px' }, spacing: { 'space-xs': '0.25rem', 'margin': '1.25rem', 'gutter': '1rem', 'space-sm': '0.5rem', 'space-md': '1rem', 'space-xl': '2rem', 'space-lg': '1.5rem' }, fontFamily: { 'display-lg-mobile': ['JetBrains Mono'], 'body-md': ['Manrope'], 'label-caps': ['Manrope'], 'body-sm': ['Manrope'], 'label-numeric-sm': ['JetBrains Mono'], 'display-lg': ['JetBrains Mono'], 'body-lg': ['Manrope'], 'label-numeric-md': ['JetBrains Mono'], 'headline-md': ['Manrope'], 'headline-sm': ['Manrope'], 'label-numeric-lg': ['JetBrains Mono'], 'headline-lg': ['Manrope'] }, fontSize: { 'display-lg-mobile': ['32px', { lineHeight: '40px', letterSpacing: '-0.02em', fontWeight: '600' }], 'body-md': ['14px', { lineHeight: '20px', fontWeight: '400' }], 'label-caps': ['10px', { lineHeight: '12px', letterSpacing: '0.08em', fontWeight: '700' }], 'body-sm': ['12px', { lineHeight: '16px', fontWeight: '400' }], 'label-numeric-sm': ['11px', { lineHeight: '14px', letterSpacing: '0.02em', fontWeight: '400' }], 'display-lg': ['40px', { lineHeight: '48px', letterSpacing: '-0.03em', fontWeight: '600' }], 'body-lg': ['16px', { lineHeight: '24px', fontWeight: '400' }], 'label-numeric-md': ['14px', { lineHeight: '20px', letterSpacing: '0em', fontWeight: '500' }], 'headline-md': ['22px', { lineHeight: '28px', letterSpacing: '-0.01em', fontWeight: '600' }], 'headline-sm': ['18px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }], 'label-numeric-lg': ['18px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '500' }], 'headline-lg': ['28px', { lineHeight: '36px', letterSpacing: '-0.02em', fontWeight: '700' }] } } } }</script><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-surface text-on-surface antialiased min-h-screen relative flex flex-col selection:bg-primary-container selection:text-on-primary-container"><div class="pointer-events-none fixed inset-0 z-0 overflow-hidden"><div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-[#0D382E] opacity-25 blur-[120px]"></div><div class="absolute top-1/4 -right-24 w-80 h-80 rounded-full bg-[#3B3117] opacity-15 blur-[100px]"></div></div><header class="fixed top-0 w-full z-50 bg-surface/75 backdrop-blur-xl pt-safe shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-14 px-margin flex items-center justify-between relative"><button aria-label="Go back" class="w-11 h-11 -ml-space-xs flex items-center justify-center rounded-full text-on-surface hover:text-primary transition-colors focus:outline-none" onclick="history.back()" type="button"><span class="material-symbols-outlined text-[22px]">arrow_back_ios_new</span></button><div class="absolute inset-x-16 text-center pointer-events-none"><h1 class="font-headline-sm text-headline-sm text-on-surface truncate">Friend Detail</h1></div><div class="flex items-center gap-space-xs"><button aria-label="More options" class="w-11 h-11 -mr-space-xs flex items-center justify-center rounded-full text-on-surface hover:text-primary transition-colors focus:outline-none" type="button"><span class="material-symbols-outlined text-[24px]">more_horiz</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-sm"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-14 pb-safe bg-surface z-10"><div class="flex flex-col w-full pb-28 space-y-4 px-margin">
+<!-- Trip Context Header -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container/70 backdrop-blur-xl p-space-md shadow-sm">
+<div class="flex items-start justify-between gap-space-sm">
+<div class="space-y-1">
+<div class="flex items-center gap-space-xs">
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary-container/50 text-secondary font-label-caps text-label-caps uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse"></span>
+            Active Trip · 4 Days Left
+          </span>
+<span class="text-on-surface-variant font-label-numeric-sm text-label-numeric-sm">14–18 Mar</span>
+</div>
+<div class="flex items-center gap-2">
+<h2 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Goa Trip 🏖️</h2>
+</div>
+</div>
+<!-- Companions Stack with Ambient Aura -->
+<div class="flex items-center -space-x-2 pt-1">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-headline-sm text-[12px] shadow-sm">
+          K
+        </div>
+<div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary flex items-center justify-center font-headline-sm text-[12px] shadow-sm">
+          R
+        </div>
+<div class="w-8 h-8 rounded-full bg-surface-container-high text-primary flex items-center justify-center font-headline-sm text-[12px] shadow-sm">
+          P
+        </div>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-secondary flex items-center justify-center font-headline-sm text-[12px] shadow-sm">
+          A
+        </div>
+<div class="w-8 h-8 rounded-full bg-surface-bright text-on-surface flex items-center justify-center font-label-numeric-sm text-label-numeric-sm shadow-sm">
+          +1
+        </div>
+</div>
+</div>
+</div>
+<!-- Hero: Frosted Budget Gauge & Pacing Section -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container/85 backdrop-blur-2xl p-space-md shadow-md space-y-space-md">
+<!-- Top Gauge Bar: Status Bracket Pills -->
+<div class="flex items-center justify-between text-on-surface-variant text-body-sm font-body-sm">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-secondary">speed</span>
+<span>Trip Budget Pulse</span>
+</div>
+<div class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/10 text-secondary font-label-caps text-label-caps">
+<span>BRACKET 60–80% (BRASS)</span>
+</div>
+</div>
+<!-- Semicircular SVG Gauge Container -->
+<div class="relative flex flex-col items-center justify-center pt-2">
+<div class="relative w-64 h-32 flex items-center justify-center">
+<!-- SVG Gauge -->
+<svg class="w-64 h-32 overflow-visible" viewbox="0 0 200 100">
+<defs>
+<lineargradient id="gaugeGlowBrass" x1="0%" x2="100%" y1="0%" y2="0%">
+<stop offset="0%" stop-color="#1fa67a"></stop>
+<stop offset="60%" stop-color="#e4c278"></stop>
+<stop offset="100%" stop-color="#e4c278"></stop>
+</lineargradient>
+<filter height="140%" id="brassGlow" width="140%" x="-20%" y="-20%">
+<fegaussianblur result="blur" stddeviation="3"></fegaussianblur>
+<fecomposite in="SourceGraphic" in2="blur" operator="over"></fecomposite>
+</filter>
+</defs>
+<!-- Gauge Background Track (Radius 80, Semicircle perimeter = 251.32) -->
+<path d="M 20 90 A 80 80 0 0 1 180 90" fill="none" stroke="#222c29" stroke-linecap="round" stroke-width="12"></path>
+<!-- Arc Zone Indicators (Subtle Tick Segment Guides) -->
+<path d="M 20 90 A 80 80 0 0 1 180 90" fill="none" opacity="0.3" stroke="#2d3733" stroke-dasharray="1 15" stroke-linecap="butt" stroke-width="12"></path>
+<!-- Gauge Active Filled Arc: 64% of 251.32 = 160.84 -->
+<path d="M 20 90 A 80 80 0 0 1 180 90" fill="none" filter="url(#brassGlow)" stroke="url(#gaugeGlowBrass)" stroke-dasharray="160.84 251.32" stroke-linecap="round" stroke-width="12"></path>
+</svg>
+<!-- Gauge Center Content -->
+<div class="absolute inset-x-0 bottom-1 flex flex-col items-center justify-end text-center pointer-events-none">
+<span class="font-display-lg-mobile text-display-lg-mobile text-on-surface tracking-tight leading-none">
+            ₹38,400
+          </span>
+<span class="font-label-numeric-sm text-label-numeric-sm text-secondary pt-1 flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+            64% consumed · ₹11,600 left
+          </span>
+</div>
+</div>
+<!-- Threshold Bracket Scale -->
+<div class="w-full max-w-xs flex justify-between items-center text-on-surface-variant font-label-caps text-[9px] px-2 pt-2 opacity-80">
+<span class="text-primary flex items-center gap-0.5"><span class="w-1 h-1 rounded-full bg-primary"></span>&lt;60% SAFE</span>
+<span class="text-secondary font-bold flex items-center gap-0.5"><span class="w-1 h-1 rounded-full bg-secondary"></span>60–80% MOD</span>
+<span class="text-tertiary-container flex items-center gap-0.5"><span class="w-1 h-1 rounded-full bg-tertiary-container"></span>80–100% HI</span>
+<span class="text-tertiary flex items-center gap-0.5"><span class="w-1 h-1 rounded-full bg-tertiary"></span>&gt;100% OVER</span>
+</div>
+</div>
+<!-- Pacing Pill & Live Budget Tweaker -->
+<div class="grid grid-cols-1 gap-2 pt-1">
+<div class="flex items-center justify-between rounded-lg bg-surface-container-low p-2.5">
+<div class="flex items-center gap-2">
+<div class="w-7 h-7 rounded-full bg-secondary-container/40 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[16px]">hourglass_top</span>
+</div>
+<div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Recommended burn rate</p>
+<p class="font-label-numeric-md text-label-numeric-md text-on-surface font-semibold">₹2,900 / day</p>
+</div>
+</div>
+<div class="flex items-center gap-1.5 bg-surface-container-highest/80 px-2.5 py-1.5 rounded-full">
+<span class="font-label-numeric-sm text-label-numeric-sm text-secondary">Cap: ₹50,000</span>
+<button aria-label="Edit budget cap" class="text-on-surface-variant hover:text-primary transition-colors flex items-center">
+<span class="material-symbols-outlined text-[14px]">edit</span>
+</button>
+</div>
+</div>
+<!-- Micro Interactive Slider Track -->
+<div class="flex flex-col gap-1.5 px-1 pt-1">
+<div class="flex justify-between items-center text-on-surface-variant font-label-numeric-sm text-label-numeric-sm">
+<span>₹0</span>
+<span class="text-secondary font-medium">₹38,400 spent</span>
+<span>₹50,000</span>
+</div>
+<div class="relative w-full h-2 rounded-full bg-surface-container-lowest overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 bg-gradient-to-r from-primary to-secondary rounded-full" style="width: 64%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Analytics Section (Bento Split: Category Donut & Daily Rhythm) -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<!-- Category Donut Card -->
+<div class="rounded-xl bg-surface-container/70 backdrop-blur-xl p-space-md shadow-sm space-y-3">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[18px]">pie_chart</span>
+          Category Breakdown
+        </h3>
+<span class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">4 Categories</span>
+</div>
+<div class="flex items-center justify-center gap-4 pt-1">
+<!-- SVG Donut Chart -->
+<div class="relative w-28 h-28 flex items-center justify-center shrink-0">
+<svg class="w-28 h-28 -rotate-90" viewbox="0 0 100 100">
+<!-- Circumference = 2 * PI * 38 = ~238.76 -->
+<!-- Base track -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#18221e" stroke-width="11"></circle>
+<!-- Segment 1: Food & Shacks 42% -> 100.28 -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#1fa67a" stroke-dasharray="100.28 238.76" stroke-dashoffset="0" stroke-width="11"></circle>
+<!-- Segment 2: Stay & Villa 30% -> 71.63 -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#14b8a6" stroke-dasharray="71.63 238.76" stroke-dashoffset="-100.28" stroke-width="11"></circle>
+<!-- Segment 3: Scooters 16% -> 38.20 -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#e4c278" stroke-dasharray="38.20 238.76" stroke-dashoffset="-171.91" stroke-width="11"></circle>
+<!-- Segment 4: Water Sports 12% -> 28.65 -->
+<circle cx="50" cy="50" fill="transparent" r="38" stroke="#e96e50" stroke-dasharray="28.65 238.76" stroke-dashoffset="-210.11" stroke-width="11"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+<span class="font-label-numeric-md text-label-numeric-md text-on-surface font-semibold leading-tight">₹38.4k</span>
+<span class="font-label-caps text-[9px] text-on-surface-variant uppercase">Total</span>
+</div>
+</div>
+<!-- Legend Items -->
+<div class="flex flex-col gap-1.5 flex-1 min-w-0">
+<div class="flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+<span class="truncate text-on-surface">Shacks &amp; Food</span>
+</div>
+<span class="font-label-numeric-sm text-label-numeric-sm text-primary font-medium shrink-0">42%</span>
+</div>
+<div class="flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-2 h-2 rounded-full bg-[#14b8a6] shrink-0"></span>
+<span class="truncate text-on-surface">Villa &amp; Stay</span>
+</div>
+<span class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant font-medium shrink-0">30%</span>
+</div>
+<div class="flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-2 h-2 rounded-full bg-secondary shrink-0"></span>
+<span class="truncate text-on-surface">Scooter Hire</span>
+</div>
+<span class="font-label-numeric-sm text-label-numeric-sm text-secondary font-medium shrink-0">16%</span>
+</div>
+<div class="flex items-center justify-between text-body-sm">
+<div class="flex items-center gap-1.5 truncate">
+<span class="w-2 h-2 rounded-full bg-tertiary-container shrink-0"></span>
+<span class="truncate text-on-surface">Water Sports</span>
+</div>
+<span class="font-label-numeric-sm text-label-numeric-sm text-tertiary font-medium shrink-0">12%</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Daily Spending Rhythm Card -->
+<div class="rounded-xl bg-surface-container/70 backdrop-blur-xl p-space-md shadow-sm space-y-3">
+<div class="flex items-center justify-between">
+<h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-1.5">
+<span class="material-symbols-outlined text-secondary text-[18px]">bar_chart</span>
+          Daily Expense Burn
+        </h3>
+<span class="font-label-numeric-sm text-label-numeric-sm text-secondary bg-secondary-container/40 px-2 py-0.5 rounded-full">Peak: Fri</span>
+</div>
+<!-- Bar Chart -->
+<div class="pt-2">
+<div class="h-28 flex items-end justify-between gap-2 px-2 pb-1">
+<!-- Day 1: Thu ₹6,500 (approx 45% of peak 14,200) -->
+<div class="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+<span class="font-label-numeric-sm text-[10px] text-on-surface-variant opacity-80">6.5k</span>
+<div class="w-full max-w-[28px] bg-primary/70 rounded-t-sm" style="height: 46%;"></div>
+</div>
+<!-- Day 2: Fri ₹14,200 (100% Peak) -->
+<div class="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+<span class="font-label-numeric-sm text-[10px] text-secondary font-bold">14.2k</span>
+<div class="w-full max-w-[28px] bg-secondary rounded-t-sm shadow-sm" style="height: 98%;"></div>
+</div>
+<!-- Day 3: Sat ₹9,800 (approx 69%) -->
+<div class="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+<span class="font-label-numeric-sm text-[10px] text-on-surface-variant opacity-80">9.8k</span>
+<div class="w-full max-w-[28px] bg-primary/70 rounded-t-sm" style="height: 69%;"></div>
+</div>
+<!-- Day 4: Sun Today ₹7,900 (approx 55%) -->
+<div class="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+<span class="font-label-numeric-sm text-[10px] text-primary font-semibold">7.9k</span>
+<div class="w-full max-w-[28px] bg-primary rounded-t-sm" style="height: 56%;"></div>
+</div>
+<!-- Day 5: Mon Proj ₹2,100 (approx 15%) -->
+<div class="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+<span class="font-label-numeric-sm text-[10px] text-on-surface-variant opacity-60">2.1k</span>
+<div class="w-full max-w-[28px] bg-surface-variant/80 rounded-t-sm border-dashed" style="height: 18%;"></div>
+</div>
+</div>
+<!-- Baseline Days Axis -->
+<div class="flex justify-between items-center text-center text-on-surface-variant font-label-numeric-sm text-[11px] pt-1 px-1">
+<span class="flex-1">Thu</span>
+<span class="flex-1 text-secondary font-medium">Fri</span>
+<span class="flex-1">Sat</span>
+<span class="flex-1 text-primary font-semibold">Today</span>
+<span class="flex-1 text-on-surface-variant/70">Mon (Est)</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Recent Expenses Ledger Section -->
+<div class="rounded-xl bg-surface-container/70 backdrop-blur-xl p-space-md shadow-sm space-y-3">
+<div class="flex items-center justify-between">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Trip Ledger</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">14 settled and active shared items</p>
+</div>
+<!-- Segmented View Filter -->
+<div class="flex items-center p-0.5 rounded-full bg-surface-container-highest">
+<button class="px-3 py-1 rounded-full bg-primary text-on-primary font-label-caps text-label-caps transition-all">
+          All
+        </button>
+<button class="px-3 py-1 rounded-full text-on-surface-variant hover:text-on-surface font-label-caps text-label-caps transition-all">
+          My Share
+        </button>
+</div>
+</div>
+<!-- Ledger Transaction Items -->
+<div class="flex flex-col space-y-2 pt-1">
+<!-- Item 1 -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low/70 hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-[19px] shrink-0">
+            🍹
+          </div>
+<div class="min-w-0">
+<h4 class="font-body-md text-body-md font-semibold text-on-surface truncate">Curlies Beach Shack Dinner</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+              Paid by <span class="text-primary font-medium">Kabir (You)</span> · Today, 3:15 PM
+            </p>
+</div>
+</div>
+<div class="text-right shrink-0 pl-2">
+<p class="font-label-numeric-md text-label-numeric-md font-semibold text-primary">₹4,850</p>
+<p class="font-label-numeric-sm text-label-numeric-sm text-on-surface-variant">Share: ₹970</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low/70 hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-full bg-secondary-container/30 flex items-center justify-center text-[19px] shrink-0">
+            🍽️
+          </div>
+<div class="min-w-0">
+<h4 class="font-body-md text-body-md font-semibold text-on-surface truncate">Thalassa Sunset Table</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+              Paid by <span class="text-secondary font-medium">Rahul</span> · Yesterday
+            </p>
+</div>
+</div>
+<div class="text-right shrink-0 pl-2">
+<p class="font-label-numeric-md text-label-numeric-md font-semibold text-on-surface">₹8,200</p>
+<p class="font-label-numeric-sm text-label-numeric-sm text-tertiary">Share: -₹1,640</p>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low/70 hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center text-[19px] shrink-0">
+            🛵
+          </div>
+<div class="min-w-0">
+<h4 class="font-body-md text-body-md font-semibold text-on-surface truncate">Scooter Rental (3 days)</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+              Paid by <span class="text-on-surface font-medium">Priya</span> · 15 Mar
+            </p>
+</div>
+</div>
+<div class="text-right shrink-0 pl-2">
+<p class="font-label-numeric-md text-label-numeric-md font-semibold text-on-surface">₹3,600</p>
+<p class="font-label-numeric-sm text-label-numeric-sm text-tertiary">Share: -₹720</p>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="flex items-center justify-between p-space-sm rounded-lg bg-surface-container-low/70 hover:bg-surface-container-high transition-colors">
+<div class="flex items-center gap-3 min-w-0">
+<div class="w-10 h-10 rounded-full bg-tertiary-container/20 flex items-center justify-center text-[19px] shrink-0">
+            🤿
+          </div>
+<div class="min-w-0">
+<h4 class="font-body-md text-body-md font-semibold text-on-surface truncate">Scuba Diving &amp; Watersports</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+              Paid by <span class="text-on-surface font-medium">Aarav</span> · 14 Mar
+            </p>
+</div>
+</div>
+<div class="text-right shrink-0 pl-2">
+<p class="font-label-numeric-md text-label-numeric-md font-semibold text-on-surface">₹12,000</p>
+<p class="font-label-numeric-sm text-label-numeric-sm text-tertiary">Share: -₹2,400</p>
+</div>
+</div>
+</div>
+<!-- View Full Ledger Link -->
+<button class="w-full py-2.5 rounded-lg bg-surface-container-highest/60 hover:bg-surface-container-highest text-primary font-body-sm text-body-sm flex items-center justify-center gap-1 transition-colors">
+<span>View All 14 Expenses</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+<!-- Floating Sticky Action Button (Bottom CTA) -->
+<div class="fixed bottom-6 inset-x-0 px-margin z-40 max-w-md mx-auto pointer-events-none">
+<button class="pointer-events-auto w-full h-14 rounded-full bg-primary hover:bg-primary/95 text-on-primary font-headline-sm text-headline-sm font-bold flex items-center justify-center gap-2 shadow-2xl transition-all active:scale-[0.98]" type="button">
+<span class="material-symbols-outlined text-[24px]">add_circle</span>
+<span>Add Expense to Goa Trip</span>
+</button>
+</div>
+</div></main></body></html>
