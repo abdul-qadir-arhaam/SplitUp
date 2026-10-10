@@ -6,18 +6,42 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
 
-class FriendDetailScreen extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../data/friends_repository.dart';
+import '../domain/friend_model.dart';
+import 'edit_nickname_dialog.dart';
+
+class FriendDetailScreen extends ConsumerWidget {
   final String friendId;
 
   const FriendDetailScreen({super.key, required this.friendId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final asyncFriends = ref.watch(friendsNotifierProvider);
 
-    final friend = MockDataRepository.friends.firstWhere(
-      (f) => f.user.id == friendId,
-      orElse: () => MockDataRepository.friends.first,
+    final friend = asyncFriends.maybeWhen(
+      data: (items) => items.firstWhere(
+        (f) => f.id == friendId,
+        orElse: () => FriendModel(
+          id: friendId,
+          name: 'Friend',
+          phoneE164: '+919876543210',
+          isAppUser: true,
+          individualLedgerId: 'ldg_default',
+          netPaise: 0,
+        ),
+      ),
+      orElse: () => FriendModel(
+        id: friendId,
+        name: 'Friend',
+        phoneE164: '+919876543210',
+        isAppUser: true,
+        individualLedgerId: 'ldg_default',
+        netPaise: 0,
+      ),
     );
 
     final expenses = MockDataRepository.expenses;
@@ -32,13 +56,57 @@ class FriendDetailScreen extends StatelessWidget {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          friend.user.displayName,
+          friend.resolvedName,
           style: SplitUpTypography.title(color: colors.textPrimary),
         ),
         actions: [
-          IconButton(
+          PopupMenuButton<String>(
             icon: Icon(Icons.more_vert_rounded, color: colors.textPrimary),
-            onPressed: () {},
+            color: colors.surfaceFlatRaised,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            onSelected: (value) async {
+              if (value == 'edit_nickname') {
+                EditNicknameDialog.show(context, friend);
+              } else if (value == 'unfriend') {
+                try {
+                  await ref.read(friendsNotifierProvider.notifier).removeFriend(friend.id);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Removed ${friend.resolvedName} from friends.')),
+                    );
+                    context.pop();
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString()), backgroundColor: colors.accentOwe),
+                    );
+                  }
+                }
+              }
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: 'edit_nickname',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_outlined, size: 18, color: colors.textPrimary),
+                    const SizedBox(width: 10),
+                    Text('Edit Name / Nickname', style: TextStyle(color: colors.textPrimary)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'unfriend',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_remove_outlined, size: 18, color: colors.accentOwe),
+                    const SizedBox(width: 10),
+                    Text('Remove Friend', style: TextStyle(color: colors.accentOwe)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -55,24 +123,48 @@ class FriendDetailScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     Avatar(
-                      name: friend.user.displayName,
+                      name: friend.resolvedName,
                       size: 64,
-                      isPlaceholder: friend.user.isPlaceholder,
+                      isPlaceholder: !friend.isAppUser,
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      friend.user.displayName,
+                      friend.resolvedName,
                       style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 20),
                     ),
+                    if (friend.nickname != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Profile name: ${friend.name}',
+                        style: SplitUpTypography.caption(color: colors.textMuted),
+                      ),
+                    ],
                     Text(
-                      friend.user.phone,
+                      friend.phoneE164,
                       style: SplitUpTypography.label(color: colors.textMuted),
                     ),
+                    if (!friend.isAppUser) ...[
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: colors.accentReceive),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: Icon(Icons.sms_outlined, size: 16, color: colors.accentReceive),
+                        label: Text('Not on app. Invite again.', style: TextStyle(color: colors.accentReceive)),
+                        onPressed: () async {
+                          final uri = Uri.parse('sms:${friend.phoneE164}?body=Hey! I added you on SplitUp to track our shared expenses. Download the app: https://splitup.app/download');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri);
+                          }
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     Container(height: 1, color: colors.divider),
                     const SizedBox(height: 16),
                     Text(
-                      isOwe ? 'YOU OWE RAHUL' : (friend.netPaise > 0 ? 'RAHUL OWES YOU' : 'ALL SETTLED UP'),
+                      isOwe ? 'YOU OWE ${friend.resolvedName.toUpperCase()}' : (friend.netPaise > 0 ? '${friend.resolvedName.toUpperCase()} OWES YOU' : 'ALL SETTLED UP'),
                       style: SplitUpTypography.caption(color: colors.textMuted).copyWith(
                         letterSpacing: 1.1,
                         fontWeight: FontWeight.w700,
@@ -96,7 +188,7 @@ class FriendDetailScreen extends StatelessWidget {
                             SnackBar(
                               backgroundColor: colors.surfaceFlatRaised,
                               content: Text(
-                                'Settlement request sent to ${friend.user.displayName}!',
+                                'Settlement request sent to ${friend.resolvedName}!',
                                 style: SplitUpTypography.body(color: colors.textPrimary),
                               ),
                             ),

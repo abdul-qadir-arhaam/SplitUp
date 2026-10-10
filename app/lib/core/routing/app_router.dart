@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/welcome_screen.dart';
 import '../../features/auth/presentation/phone_otp_screen.dart';
+import '../../features/auth/presentation/merge_explainer_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/friends/presentation/friend_detail_screen.dart';
 import '../../features/expenses/presentation/add_expense_screen.dart';
@@ -35,6 +36,17 @@ GoRouter createAppRouter({
       GoRoute(
         path: '/phone-otp',
         builder: (context, state) => const PhoneOtpScreen(),
+      ),
+      GoRoute(
+        path: '/welcome-back',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return MergeExplainerScreen(
+            expenseCount: extra?['expenseCount'] as int? ?? 3,
+            totalPaise: extra?['totalPaise'] as int? ?? 185000,
+            inviterName: extra?['inviterName'] as String? ?? 'Your friends',
+          );
+        },
       ),
 
       // 4-Tab Main Shell

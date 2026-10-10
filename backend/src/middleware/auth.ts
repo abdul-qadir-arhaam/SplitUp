@@ -43,6 +43,11 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
+  if (req.path === '/users/auth/verify') {
+    next();
+    return;
+  }
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     throw new UnauthenticatedError('Missing or invalid Authorization header');
   }

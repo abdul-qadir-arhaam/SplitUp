@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/routing/app_router.dart';
+import 'core/settings/theme_provider.dart';
 import 'core/theme/app_theme.dart';
 
-class SplitUpApp extends StatefulWidget {
+class SplitUpApp extends ConsumerWidget {
   const SplitUpApp({super.key});
 
   @override
-  State<SplitUpApp> createState() => _SplitUpAppState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
 
-class _SplitUpAppState extends State<SplitUpApp> {
-  ThemeMode _themeMode = ThemeMode.dark; // Default dark theme as specified in DESIGN.md
-
-  @override
-  Widget build(BuildContext context) {
     final router = createAppRouter(
-      currentThemeMode: _themeMode,
-      onThemeModeChanged: (newMode) => setState(() => _themeMode = newMode),
+      currentThemeMode: themeMode,
+      onThemeModeChanged: (newMode) {
+        ref.read(themeModeProvider.notifier).setThemeMode(newMode);
+      },
     );
 
     return MaterialApp.router(
@@ -24,7 +23,7 @@ class _SplitUpAppState extends State<SplitUpApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: _themeMode,
+      themeMode: themeMode,
       routerConfig: router,
     );
   }

@@ -6,6 +6,11 @@ import { idempotencyMiddleware } from './middleware/idempotency.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { appVersionRouter } from './modules/appVersion/routes.js';
 import { ledgersRouter } from './modules/ledgers/routes.js';
+import { usersRouter } from './modules/users/routes.js';
+import { contactsRouter } from './modules/contacts/routes.js';
+import { friendsRouter } from './modules/friends/routes.js';
+import { notificationsRouter } from './modules/notifications/routes.js';
+import { devicesRouter } from './modules/devices/routes.js';
 
 export const app = express();
 
@@ -25,7 +30,17 @@ app.get('/health', (req, res) => {
 app.use(appVersionRouter);
 
 // Authenticated and Idempotent v1 routes
-app.use('/v1', authMiddleware, idempotencyMiddleware, ledgersRouter);
+app.use(
+  '/v1',
+  authMiddleware,
+  idempotencyMiddleware,
+  usersRouter,
+  contactsRouter,
+  friendsRouter,
+  ledgersRouter,
+  notificationsRouter,
+  devicesRouter
+);
 
 // Standardized error handler
 app.use(errorHandler);

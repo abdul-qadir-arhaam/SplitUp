@@ -5,13 +5,25 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
 
-class HomeScreen extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../friends/data/friends_repository.dart';
+import '../../friends/domain/friend_model.dart';
+import '../../friends/presentation/add_friend_sheet.dart';
+import '../../notifications/data/notifications_repository.dart';
+
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
-    final friends = MockDataRepository.friends;
+    final asyncFriends = ref.watch(friendsNotifierProvider);
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
+
+    final friends = asyncFriends.maybeWhen(
+      data: (items) => items,
+      orElse: () => <FriendModel>[],
+    );
 
     // Calculate totals
     int totalOwedToMe = 0;
@@ -54,19 +66,22 @@ class HomeScreen extends StatelessWidget {
                             icon: Icon(Icons.notifications_outlined, color: colors.textPrimary, size: 26),
                             onPressed: () => context.push('/notifications'),
                           ),
-                          Positioned(
-                            right: 10,
-                            top: 10,
-                            child: Container(
-                              width: 9,
-                              height: 9,
-                              decoration: BoxDecoration(
-                                color: colors.statusWarn,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: colors.bgBase, width: 1.5),
+                          if (unreadCount > 0)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: colors.accentReceive,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  unreadCount > 9 ? '9+' : '$unreadCount',
+                                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ],
@@ -158,117 +173,157 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
 
-              // Friends Ledger Header
+              // Friends Ledger Header with Add Friend Action
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Friends',
-                        style: SplitUpTypography.title(color: colors.textPrimary),
+                      Row(
+                        children: [
+                          Text(
+                            'Friends',
+                            style: SplitUpTypography.title(color: colors.textPrimary),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '(${friends.length})',
+                            style: SplitUpTypography.label(color: colors.textMuted),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '${friends.length} friends',
-                        style: SplitUpTypography.label(color: colors.textMuted),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: colors.accentReceive,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        ),
+                        onPressed: () => AddFriendSheet.show(context),
+                        icon: const Icon(Icons.person_add_rounded, size: 18),
+                        label: const Text('Add Friend'),
                       ),
                     ],
                   ),
                 ),
               ),
 
-              // Friends List
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = friends[index];
-                      final isOwe = item.netPaise < 0;
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceFlat,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: colors.divider),
+              // Friends List or Empty State
+              if (friends.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(
+                      child: EmptyState(
+                        icon: Icons.group_add_outlined,
+                        title: 'No friends added yet',
+                        message: 'Add friends to easily split expenses, calculate balances, and settle dues.',
+                        action: PrimaryButton(
+                          label: 'Add your first friend',
+                          icon: Icons.person_add_rounded,
+                          onPressed: () => AddFriendSheet.show(context),
                         ),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: () => context.push('/friend/${item.user.id}'),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Avatar(
-                                  name: item.user.displayName,
-                                  size: 46,
-                                  isPlaceholder: item.user.isPlaceholder,
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              item.user.displayName,
-                                              style: SplitUpTypography.title(color: colors.textPrimary).copyWith(
-                                                fontSize: 16,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final item = friends[index];
+                        final isOwe = item.netPaise < 0;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceFlat,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: colors.divider),
+                          ),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () => context.push('/friend/${item.id}'),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  Avatar(
+                                    name: item.resolvedName,
+                                    size: 46,
+                                    isPlaceholder: !item.isAppUser,
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                item.resolvedName,
+                                                style: SplitUpTypography.title(color: colors.textPrimary).copyWith(
+                                                  fontSize: 16,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
                                               ),
-                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                          ),
-                                          if (item.user.isPlaceholder) ...[
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              'SMS',
-                                              style: SplitUpTypography.caption(color: colors.textMuted),
-                                            ),
+                                            if (!item.isAppUser) ...[
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: colors.statusWarn.withValues(alpha: 0.15),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  'SMS',
+                                                  style: TextStyle(fontSize: 10, color: colors.statusWarn, fontWeight: FontWeight.bold),
+                                                ),
+                                              ),
+                                            ],
                                           ],
-                                        ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item.phoneE164,
+                                          style: SplitUpTypography.caption(color: colors.textMuted),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      MoneyText(
+                                        item.netPaise,
+                                        variant: MoneyVariant.body,
+                                        showSign: true,
                                       ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        item.lastActivity ?? 'No recent activity',
-                                        style: SplitUpTypography.label(color: colors.textMuted),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                      if (isOwe) ...[
+                                        const SizedBox(height: 6),
+                                        SettleButton(
+                                          amountPaise: item.netPaise.abs(),
+                                          compact: true,
+                                          onPressed: () => context.push('/friend/${item.id}'),
+                                        ),
+                                      ],
                                     ],
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    MoneyText(
-                                      item.netPaise,
-                                      variant: MoneyVariant.body,
-                                      showSign: true,
-                                    ),
-                                    if (isOwe) ...[
-                                      const SizedBox(height: 6),
-                                      SettleButton(
-                                        amountPaise: item.netPaise.abs(),
-                                        compact: true,
-                                        onPressed: () => context.push('/friend/${item.user.id}'),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                    childCount: friends.length,
+                        );
+                      },
+                      childCount: friends.length,
+                    ),
                   ),
                 ),
-              ),
 
               const SliverToBoxAdapter(
                 child: SizedBox(height: 100),

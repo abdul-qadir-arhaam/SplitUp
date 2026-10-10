@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/mock/mock_data.dart';
-import '../../../core/money/paise.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../data/notifications_repository.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends ConsumerWidget {
   const NotificationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
-    final notifs = MockDataRepository.notifications;
+    final asyncNotifs = ref.watch(notificationsNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -28,7 +28,7 @@ class NotificationsScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () {},
+            onPressed: () => ref.read(notificationsNotifierProvider.notifier).markAllRead(),
             child: Text(
               'Mark all read',
               style: SplitUpTypography.label(color: colors.accentBrass),
@@ -38,111 +38,64 @@ class NotificationsScreen extends StatelessWidget {
       ),
       body: AppBackground(
         child: SafeArea(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            itemCount: notifs.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final n = notifs[index];
-              final hasAction = n.actionState == 'OPEN';
-
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: n.isRead ? colors.surfaceFlat : colors.glassFillStrong,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: n.isRead ? colors.divider : colors.accentReceive.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: colors.surfaceFlatRaised,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            n.type.contains('SETTLEMENT')
-                                ? Icons.verified_user_outlined
-                                : (n.type.contains('BUDGET') ? Icons.warning_amber_rounded : Icons.person_add_outlined),
-                            size: 18,
-                            color: n.type.contains('BUDGET') ? colors.statusWarn : colors.accentReceive,
-                          ),
+          child: asyncNotifs.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (items) {
+              if (items.isEmpty) {
+                return const Center(child: EmptyState(icon: Icons.notifications_off_outlined, title: 'No notifications', message: 'You are all caught up!'));
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                itemCount: items.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final n = items[index];
+                  return InkWell(
+                    onTap: () => ref.read(notificationsNotifierProvider.notifier).markRead(n.id),
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: n.isRead ? colors.surfaceFlat : colors.glassFillStrong,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: n.isRead ? colors.divider : colors.accentReceive.withValues(alpha: 0.4),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                n.title,
-                                style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                n.message,
-                                style: SplitUpTypography.body(color: colors.textSecondary).copyWith(fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Inline Action buttons if actionable settlement
-                    if (hasAction && n.relatedSettlement != null) ...[
-                      const SizedBox(height: 14),
-                      Container(height: 1, color: colors.divider),
-                      const SizedBox(height: 12),
-                      Row(
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Icon(
+                            n.type == 'FRIEND_ADDED' || n.type == 'FRIEND_JOINED'
+                                ? Icons.person_add_rounded
+                                : Icons.receipt_long_rounded,
+                            color: n.isRead ? colors.textMuted : colors.accentReceive,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 14),
                           Expanded(
-                            child: PrimaryButton(
-                              height: 42,
-                              label: 'Confirm ${formatPaise(n.relatedSettlement!.amountPaise)}',
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    backgroundColor: colors.surfaceFlatRaised,
-                                    content: Text(
-                                      'Settlement confirmed! Balances updated.',
-                                      style: SplitUpTypography.body(color: colors.textPrimary),
-                                    ),
-                                  ),
-                                );
-                              },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(n.title, style: SplitUpTypography.title(color: colors.textPrimary)),
+                                const SizedBox(height: 4),
+                                Text(n.body, style: SplitUpTypography.body(color: colors.textSecondary)),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: SecondaryButton(
-                              height: 42,
-                              label: 'Reject',
-                              textColor: colors.accentOwe,
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    backgroundColor: colors.surfaceFlatRaised,
-                                    content: Text(
-                                      'Settlement rejected.',
-                                      style: SplitUpTypography.body(color: colors.textPrimary),
-                                    ),
-                                  ),
-                                );
-                              },
+                          if (!n.isRead)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(top: 6),
+                              decoration: BoxDecoration(color: colors.accentReceive, shape: BoxShape.circle),
                             ),
-                          ),
                         ],
                       ),
-                    ],
-                  ],
-                ),
+                    ),
+                  );
+                },
               );
             },
           ),

@@ -4,11 +4,14 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
 
-class WelcomeScreen extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/auth/auth_provider.dart';
+
+class WelcomeScreen extends ConsumerWidget {
   const WelcomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
 
     return Scaffold(
@@ -101,7 +104,21 @@ class WelcomeScreen extends StatelessWidget {
                 SecondaryButton(
                   label: 'Continue with Google',
                   icon: Icons.g_mobiledata_rounded,
-                  onPressed: () => context.go('/home'),
+                  onPressed: () async {
+                    final res = await ref.read(authNotifierProvider.notifier).signInWithGoogle();
+                    if (!context.mounted) return;
+                    if (res?.mergeSummary?.merged == true) {
+                      context.go(
+                        '/welcome-back',
+                        extra: {
+                          'expenseCount': res!.mergeSummary!.expenseCount,
+                          'totalPaise': res.mergeSummary!.totalPaise,
+                        },
+                      );
+                    } else {
+                      context.go('/home');
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
                 Text(

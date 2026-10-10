@@ -4,14 +4,17 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
 
-class PhoneOtpScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/auth/auth_provider.dart';
+
+class PhoneOtpScreen extends ConsumerStatefulWidget {
   const PhoneOtpScreen({super.key});
 
   @override
-  State<PhoneOtpScreen> createState() => _PhoneOtpScreenState();
+  ConsumerState<PhoneOtpScreen> createState() => _PhoneOtpScreenState();
 }
 
-class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
+class _PhoneOtpScreenState extends ConsumerState<PhoneOtpScreen> {
   final _phoneController = TextEditingController(text: '9876543210');
   final _otpController = TextEditingController();
   bool _codeSent = false;
@@ -24,26 +27,38 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
     super.dispose();
   }
 
-  void _handleSendCode() {
+  Future<void> _handleSendCode() async {
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _codeSent = true;
-          _otpController.text = '123456'; // Default dev test OTP
-        });
-      }
-    });
+    await ref.read(authNotifierProvider.notifier).sendOtp(_phoneController.text);
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _codeSent = true;
+        _otpController.text = '123456'; // Test OTP
+      });
+    }
   }
 
-  void _handleVerify() {
+  Future<void> _handleVerify() async {
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) {
-        context.go('/home');
-      }
-    });
+    final res = await ref.read(authNotifierProvider.notifier).verifyOtp(
+          _phoneController.text,
+          _otpController.text,
+        );
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (res?.mergeSummary?.merged == true) {
+      context.go(
+        '/welcome-back',
+        extra: {
+          'expenseCount': res!.mergeSummary!.expenseCount,
+          'totalPaise': res.mergeSummary!.totalPaise,
+        },
+      );
+    } else {
+      context.go('/home');
+    }
   }
 
   @override
