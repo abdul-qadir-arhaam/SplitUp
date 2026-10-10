@@ -90,7 +90,14 @@ GoRouter createAppRouter({
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/add-expense',
-        builder: (context, state) => const AddExpenseScreen(),
+        builder: (context, state) {
+          final friendId = state.uri.queryParameters['friendId'];
+          final initialLedgerId = state.uri.queryParameters['ledgerId'];
+          return AddExpenseScreen(
+            friendId: friendId,
+            initialLedgerId: initialLedgerId,
+          );
+        },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,

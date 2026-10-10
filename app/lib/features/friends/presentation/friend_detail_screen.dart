@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/mock/mock_data.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/money/paise.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../data/friends_repository.dart';
 import '../domain/friend_model.dart';
 import 'edit_nickname_dialog.dart';
+import '../../expenses/data/expenses_repository.dart';
+import '../../expenses/presentation/expense_detail_sheet.dart';
+import '../../settlements/data/settlements_repository.dart';
+import '../../settlements/domain/settlement_model.dart';
+import '../../settlements/presentation/settle_sheet.dart';
+import '../../expenses/presentation/add_expense_screen.dart';
 
 class FriendDetailScreen extends ConsumerWidget {
   final String friendId;
@@ -21,6 +25,8 @@ class FriendDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final asyncFriends = ref.watch(friendsNotifierProvider);
+    final asyncExpenses = ref.watch(expensesNotifierProvider);
+    final asyncSettlements = ref.watch(settlementsNotifierProvider);
 
     final friend = asyncFriends.maybeWhen(
       data: (items) => items.firstWhere(
@@ -44,7 +50,24 @@ class FriendDetailScreen extends ConsumerWidget {
       ),
     );
 
-    final expenses = MockDataRepository.expenses;
+    final expenses = asyncExpenses.maybeWhen(
+      data: (list) => list
+          .where((e) =>
+              e.ledgerId == friend.individualLedgerId ||
+              e.payers.any((p) => p.userId == friend.id) ||
+              e.splits.any((s) => s.userId == friend.id))
+          .toList(),
+      orElse: () => const [],
+    );
+
+    final settlements = asyncSettlements.maybeWhen(
+      data: (list) => list.where((s) => s.fromUserId == friend.id || s.toUserId == friend.id).toList(),
+      orElse: () => const <SettlementModel>[],
+    );
+
+    final pendingMatches = settlements.where((s) => s.isPending || s.isOutdated);
+    final pendingSettlement = pendingMatches.isEmpty ? null : pendingMatches.first;
+
     final isOwe = friend.netPaise < 0;
 
     return Scaffold(
@@ -110,6 +133,26 @@ class FriendDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: colors.accentReceive,
+        foregroundColor: Colors.black,
+        elevation: 4,
+        icon: const Icon(Icons.add_rounded, size: 22),
+        label: Text(
+          'Add Expense',
+          style: SplitUpTypography.title(color: Colors.black).copyWith(fontSize: 14),
+        ),
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (ctx) => AddExpenseScreen(
+                friendId: friend.id,
+                initialLedgerId: friend.individualLedgerId,
+              ),
+            ),
+          );
+        },
+      ),
       body: AppBackground(
         child: SafeArea(
           bottom: false,
@@ -153,7 +196,8 @@ class FriendDetailScreen extends ConsumerWidget {
                         icon: Icon(Icons.sms_outlined, size: 16, color: colors.accentReceive),
                         label: Text('Not on app. Invite again.', style: TextStyle(color: colors.accentReceive)),
                         onPressed: () async {
-                          final uri = Uri.parse('sms:${friend.phoneE164}?body=Hey! I added you on SplitUp to track our shared expenses. Download the app: https://splitup.app/download');
+                          final uri = Uri.parse(
+                              'sms:${friend.phoneE164}?body=Hey! I added you on SplitUp to track our shared expenses. Download the app: https://splitup.app/download');
                           if (await canLaunchUrl(uri)) {
                             await launchUrl(uri);
                           }
@@ -164,7 +208,11 @@ class FriendDetailScreen extends ConsumerWidget {
                     Container(height: 1, color: colors.divider),
                     const SizedBox(height: 16),
                     Text(
-                      isOwe ? 'YOU OWE ${friend.resolvedName.toUpperCase()}' : (friend.netPaise > 0 ? '${friend.resolvedName.toUpperCase()} OWES YOU' : 'ALL SETTLED UP'),
+                      isOwe
+                          ? 'YOU OWE ${friend.resolvedName.toUpperCase()}'
+                          : (friend.netPaise > 0
+                              ? '${friend.resolvedName.toUpperCase()} OWES YOU'
+                              : 'ALL SETTLED UP'),
                       style: SplitUpTypography.caption(color: colors.textMuted).copyWith(
                         letterSpacing: 1.1,
                         fontWeight: FontWeight.w700,
@@ -178,27 +226,135 @@ class FriendDetailScreen extends ConsumerWidget {
                           ? colors.accentOwe
                           : (friend.netPaise > 0 ? colors.accentReceive : colors.textSecondary),
                     ),
+
+                    // Settle Button: STRICT INVARIANT: Visible ONLY when user owes money
                     if (isOwe) ...[
                       const SizedBox(height: 18),
                       PrimaryButton(
                         label: 'Settle ${formatPaise(friend.netPaise.abs())}',
                         icon: Icons.check_circle_outline,
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: colors.surfaceFlatRaised,
-                              content: Text(
-                                'Settlement request sent to ${friend.resolvedName}!',
-                                style: SplitUpTypography.body(color: colors.textPrimary),
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: () => SettleSheet.show(context, friend),
                       ),
                     ],
                   ],
                 ),
               ),
+
+              // Pending / Outdated Settlement Banner if present
+              if (pendingSettlement != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: pendingSettlement.isOutdated
+                        ? colors.accentOwe.withValues(alpha: 0.12)
+                        : colors.surfaceFlatRaised,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: pendingSettlement.isOutdated ? colors.accentOwe : colors.accentBrass,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                pendingSettlement.isOutdated
+                                    ? Icons.warning_amber_rounded
+                                    : Icons.hourglass_top_rounded,
+                                size: 18,
+                                color: pendingSettlement.isOutdated ? colors.accentOwe : colors.accentBrass,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                pendingSettlement.isOutdated ? 'Settlement Outdated' : 'Settlement Pending',
+                                style: SplitUpTypography.title(
+                                  color: pendingSettlement.isOutdated ? colors.accentOwe : colors.accentBrass,
+                                ).copyWith(fontSize: 14),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            formatPaise(pendingSettlement.amountPaise),
+                            style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        pendingSettlement.isOutdated
+                            ? 'The balance changed since this request was made. Tap resubmit to adjust the amount.'
+                            : (pendingSettlement.fromUserId == 'usr_arhaam'
+                                ? 'Waiting for ${friend.resolvedName} to confirm receipt.'
+                                : '${friend.resolvedName} sent you this settlement request.'),
+                        style: SplitUpTypography.caption(color: colors.textSecondary),
+                      ),
+                      if (pendingSettlement.isOutdated && pendingSettlement.fromUserId == 'usr_arhaam') ...[
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: colors.accentBrass),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: Icon(Icons.refresh_rounded, size: 16, color: colors.accentBrass),
+                          label: Text('Resubmit Amount', style: TextStyle(color: colors.accentBrass)),
+                          onPressed: () async {
+                            await ref.read(settlementsNotifierProvider.notifier).resubmitSettlement(
+                                  pendingSettlement.id,
+                                  newAmountPaise: friend.netPaise.abs(),
+                                );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Resubmitted settlement with current balance.')),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                      if (pendingSettlement.isPending && pendingSettlement.toUserId == 'usr_arhaam') ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: colors.accentReceive,
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.check_rounded, size: 16),
+                                label: const Text('Confirm'),
+                                onPressed: () => ref
+                                    .read(settlementsNotifierProvider.notifier)
+                                    .confirmSettlement(pendingSettlement.id),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: colors.accentOwe,
+                                  side: BorderSide(color: colors.accentOwe),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.close_rounded, size: 16),
+                                label: const Text('Reject'),
+                                onPressed: () => ref
+                                    .read(settlementsNotifierProvider.notifier)
+                                    .rejectSettlement(pendingSettlement.id),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
 
               // "Also in" Groups section
               if (friend.commonGroups.isNotEmpty) ...[
@@ -236,72 +392,113 @@ class FriendDetailScreen extends ConsumerWidget {
 
               const SizedBox(height: 24),
               Text(
-                'Shared Expenses & Activity',
+                'Shared Expenses (${expenses.length})',
                 style: SplitUpTypography.title(color: colors.textPrimary),
               ),
               const SizedBox(height: 12),
 
-              // Expense items
-              ...expenses.map((exp) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(16),
+              // Real Expense Items list
+              if (expenses.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: colors.surfaceFlat,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: colors.divider),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: colors.surfaceFlatRaised,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          exp.category == 'food'
-                              ? Icons.restaurant_rounded
-                              : (exp.category == 'travel' ? Icons.directions_car_rounded : Icons.receipt_long_rounded),
-                          size: 20,
-                          color: colors.accentBrass,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              exp.title,
-                              style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Paid by ${exp.paidBy.displayName}',
-                              style: SplitUpTypography.caption(color: colors.textMuted),
-                            ),
-                          ],
+                  child: Center(
+                    child: Text(
+                      'No shared expenses yet. Tap Add Expense below to record your first expense!',
+                      style: SplitUpTypography.body(color: colors.textMuted),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                )
+              else
+                ...expenses.map((exp) {
+                  final isDisputed = exp.isDisputed;
+                  final payerName = (exp.payers.isNotEmpty && exp.payers.first.userId == 'usr_arhaam')
+                      ? 'You'
+                      : friend.resolvedName;
+
+                  return InkWell(
+                    onTap: () => ExpenseDetailSheet.show(context, exp, friendId: friend.id),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceFlat,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDisputed ? colors.accentOwe.withValues(alpha: 0.6) : colors.divider,
                         ),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      child: Row(
                         children: [
-                          MoneyText(
-                            exp.totalPaise,
-                            variant: MoneyVariant.body,
-                            colored: false,
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceFlatRaised,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              exp.category == 'food'
+                                  ? Icons.restaurant_rounded
+                                  : (exp.category == 'travel'
+                                      ? Icons.directions_car_rounded
+                                      : Icons.receipt_long_rounded),
+                              size: 20,
+                              color: isDisputed ? colors.accentOwe : colors.accentBrass,
+                            ),
                           ),
-                          Text(
-                            'Equal split',
-                            style: SplitUpTypography.caption(color: colors.textMuted),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        exp.title,
+                                        style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isDisputed) ...[
+                                      const SizedBox(width: 6),
+                                      Icon(Icons.flag_rounded, size: 14, color: colors.accentOwe),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Paid by $payerName',
+                                  style: SplitUpTypography.caption(color: colors.textMuted),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              MoneyText(
+                                exp.totalPaise,
+                                variant: MoneyVariant.body,
+                                colored: false,
+                              ),
+                              Text(
+                                exp.splitType.toLowerCase(),
+                                style: SplitUpTypography.caption(color: colors.textMuted),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                );
-              }),
+                    ),
+                  );
+                }),
 
               const SizedBox(height: 80),
             ],

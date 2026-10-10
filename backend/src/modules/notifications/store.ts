@@ -1,10 +1,25 @@
 import { ulid } from 'ulidx';
 
+export type NotificationType =
+  | 'FRIEND_ADDED'
+  | 'FRIEND_JOINED'
+  | 'EXPENSE_ADDED'
+  | 'EXPENSE_DISPUTED'
+  | 'SETTLEMENT_REQUEST'
+  | 'SETTLEMENT_REQUESTED'
+  | 'SETTLEMENT_CONFIRMED'
+  | 'SETTLEMENT_REJECTED'
+  | 'SETTLEMENT_OUTDATED';
+
+export type NotificationActionState = 'OPEN' | 'DONE' | 'EXPIRED';
+
 export interface NotificationItem {
   id: string;
   userId: string;
-  type: 'FRIEND_ADDED' | 'FRIEND_JOINED' | 'EXPENSE_ADDED' | 'SETTLEMENT_REQUEST' | 'SETTLEMENT_CONFIRMED';
+  type: NotificationType;
   payload: Record<string, any>;
+  actionState?: NotificationActionState | null;
+  actionResult?: string | null;
   readAt: string | null;
   createdAt: string;
 }
@@ -12,13 +27,20 @@ export interface NotificationItem {
 class NotificationsStore {
   private items = new Map<string, NotificationItem>();
 
-  create(data: { userId: string; type: NotificationItem['type']; payload: Record<string, any> }): NotificationItem {
+  create(data: {
+    userId: string;
+    type: NotificationType;
+    payload: Record<string, any>;
+    actionState?: NotificationActionState | null;
+  }): NotificationItem {
     const id = `notif_${ulid()}`;
     const notif: NotificationItem = {
       id,
       userId: data.userId,
       type: data.type,
       payload: data.payload,
+      actionState: data.actionState || null,
+      actionResult: null,
       readAt: null,
       createdAt: new Date().toISOString(),
     };
@@ -60,6 +82,37 @@ class NotificationsStore {
     for (const item of this.items.values()) {
       if (item.userId === userId && item.readAt === null) {
         item.readAt = now;
+      }
+    }
+  }
+
+  updateActionState(
+    id: string,
+    actionState: NotificationActionState,
+    actionResult?: string
+  ): boolean {
+    const item = this.items.get(id);
+    if (item) {
+      item.actionState = actionState;
+      if (actionResult !== undefined) {
+        item.actionResult = actionResult;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  updateSettlementNotification(
+    settlementId: string,
+    actionState: NotificationActionState,
+    actionResult?: string
+  ): void {
+    for (const item of this.items.values()) {
+      if (item.payload?.settlementId === settlementId) {
+        item.actionState = actionState;
+        if (actionResult !== undefined) {
+          item.actionResult = actionResult;
+        }
       }
     }
   }

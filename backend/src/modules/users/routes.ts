@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { inMemoryUsers, findUserById, findUserByPhone, createUser, updateUser, mergePlaceholder } from './store.js';
 import { normalizePhoneE164 } from './phone.js';
+import { inMemoryLedgers } from '../ledgers/routes.js';
+import { calculateNetBalances } from '../balances/index.js';
 import { NotFoundError, ValidationError } from '../../lib/errors.js';
 
 export const usersRouter = Router();
@@ -53,6 +55,35 @@ usersRouter.patch('/users/me', (req, res) => {
       photoUrl: updated.photoUrl,
       status: updated.status,
       updatedAt: updated.updatedAt,
+    },
+  });
+});
+
+// GET /v1/users/me/totals
+usersRouter.get('/users/me/totals', (req, res) => {
+  const callerId = req.user?.id || 'usr_arhaam';
+  let totalOwedPaise = 0;
+  let totalReceivablePaise = 0;
+
+  for (const ledger of inMemoryLedgers.values()) {
+    if (ledger.memberIds.includes(callerId)) {
+      const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
+      const confirmedSettlements = ledger.settlements.filter((s: any) => s.status === 'CONFIRMED');
+      const netResult = calculateNetBalances(ledger.memberIds, activeExpenses, confirmedSettlements);
+      const net = netResult.balances[callerId] || 0;
+      if (net < 0) {
+        totalOwedPaise += -net;
+      } else if (net > 0) {
+        totalReceivablePaise += net;
+      }
+    }
+  }
+
+  res.json({
+    data: {
+      totalOwedPaise,
+      totalReceivablePaise,
+      netPaise: totalReceivablePaise - totalOwedPaise,
     },
   });
 });

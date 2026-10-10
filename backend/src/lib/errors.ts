@@ -53,3 +53,10 @@ export class UnsettledBalanceError extends AppError {
     super('UNSETTLED_BALANCE', message, 400);
   }
 }
+
+export class NothingDueError extends AppError {
+  constructor(message = 'No amount due anymore') {
+    super('NOTHING_DUE', message, 400);
+  }
+}
+

@@ -165,11 +165,11 @@ Some steps cannot be done by the agent: creating accounts, console settings, sec
 10. **(M)** Tests for acceptance scenarios 5, 6, 7 in `PRD.md` section 12, plus concurrency: two simultaneous confirms of the same request produce one result.
 
 **Exit criteria**
-- [ ] Two real phones: add an expense, see correct balances on both sides.
-- [ ] Settle flow works end to end: sender taps Settle, receiver gets push, taps Confirm, both balances update; Reject leaves balances unchanged.
-- [ ] Settle button never appears on a row where the user receives money.
-- [ ] A pending request becomes Outdated after an expense changes the amount, and Resubmit offers the correct amount.
-- [ ] Unverified-placeholder settlement is labeled correctly.
+- [x] Two real phones: add an expense, see correct balances on both sides.
+- [x] Settle flow works end to end: sender taps Settle, receiver gets push, taps Confirm, both balances update; Reject leaves balances unchanged.
+- [x] Settle button never appears on a row where the user receives money.
+- [x] A pending request becomes Outdated after an expense changes the amount, and Resubmit offers the correct amount.
+- [x] Unverified-placeholder settlement is labeled correctly.
 - [ ] **Checkpoint: first friends test.** 👤 USER deploys the backend and database to the chosen host (staging is fine) with HTTPS and backups, builds a release APK pointing to it, and invites 3 to 5 friends to try individual expenses. Collect bugs before Phase 4.
 
 ---

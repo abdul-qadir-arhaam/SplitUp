@@ -69,6 +69,24 @@ class FriendsRepository {
     }
     _friends.removeWhere((f) => f.id == friendId);
   }
+
+  void applySettlement(String friendId, int settledPaise) {
+    final index = _friends.indexWhere((f) => f.id == friendId);
+    if (index != -1) {
+      final current = _friends[index].netPaise;
+      final newNet = current < 0 ? current + settledPaise : current - settledPaise;
+      _friends[index] = _friends[index].copyWith(netPaise: newNet);
+    }
+  }
+
+  void adjustBalance(String friendId, int diffPaise) {
+    final index = _friends.indexWhere((f) => f.id == friendId);
+    if (index != -1) {
+      _friends[index] = _friends[index].copyWith(
+        netPaise: _friends[index].netPaise + diffPaise,
+      );
+    }
+  }
 }
 
 final friendsRepositoryProvider = Provider<FriendsRepository>((ref) {

@@ -11,6 +11,7 @@ import { contactsRouter } from './modules/contacts/routes.js';
 import { friendsRouter } from './modules/friends/routes.js';
 import { notificationsRouter } from './modules/notifications/routes.js';
 import { devicesRouter } from './modules/devices/routes.js';
+import { settlementsRouter } from './modules/settlements/routes.js';
 
 export const app = express();
 
@@ -38,6 +39,7 @@ app.use(
   contactsRouter,
   friendsRouter,
   ledgersRouter,
+  settlementsRouter,
   notificationsRouter,
   devicesRouter
 );

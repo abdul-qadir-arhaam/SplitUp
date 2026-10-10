@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { ulid } from 'ulidx';
 import { calculateSplits, calculateNetBalances, simplifyDebts, calculatePairwiseDebts } from '../balances/index.js';
 import { assertMember } from '../../middleware/auth.js';
-import { ValidationError, NotFoundError } from '../../lib/errors.js';
+import { ValidationError, NotFoundError, ForbiddenError } from '../../lib/errors.js';
+import { activityStore } from '../activity/store.js';
+import { notificationsStore } from '../notifications/store.js';
 
 export const ledgersRouter = Router();
 
@@ -51,6 +53,38 @@ const createExpenseSchema = z.object({
   note: z.string().max(500).optional(),
 });
 
+const updateExpenseSchema = z.object({
+  title: z.string().min(1).max(120).optional(),
+  category: z.enum(['food', 'travel', 'stay', 'fuel', 'tickets', 'shopping', 'groceries', 'other']).optional(),
+  totalPaise: z.number().int().positive().optional(),
+  splitType: z.enum(['EQUAL', 'EXACT', 'PERCENT', 'SHARES']).optional(),
+  payers: z.array(
+    z.object({
+      userId: z.string(),
+      paidPaise: z.number().int().positive(),
+    })
+  ).nonempty().optional(),
+  participants: z.array(
+    z.object({
+      userId: z.string(),
+      included: z.boolean(),
+      splitValue: z.number().int().optional(),
+    })
+  ).nonempty().optional(),
+  expenseDate: z.string().optional(),
+  note: z.string().max(500).optional(),
+});
+
+function findExpenseAndLedger(expenseId: string): { expense: any; ledger: StoredLedger } | null {
+  for (const ledger of inMemoryLedgers.values()) {
+    const exp = ledger.expenses.find((e: any) => e.id === expenseId);
+    if (exp) {
+      return { expense: exp, ledger };
+    }
+  }
+  return null;
+}
+
 // Create Expense in Ledger
 ledgersRouter.post('/ledgers/:id/expenses', (req, res, next) => {
   try {
@@ -60,7 +94,6 @@ ledgersRouter.post('/ledgers/:id/expenses', (req, res, next) => {
       throw new NotFoundError(`Ledger ${ledgerId} not found`);
     }
 
-    // Check membership authorization
     const callerId = req.user?.id || 'usr_arhaam';
     assertMember(ledger.memberIds, callerId);
 
@@ -104,12 +137,265 @@ ledgersRouter.post('/ledgers/:id/expenses', (req, res, next) => {
       splits,
       createdBy: callerId,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+      deletedBy: null,
     };
 
     ledger.expenses.push(expenseRecord);
 
+    // Activity log
+    activityStore.log({
+      ledgerId,
+      actorUserId: callerId,
+      action: 'EXPENSE_CREATED',
+      entityType: 'expense',
+      entityId: expenseRecord.id,
+      payload: {
+        title: body.title,
+        totalPaise: body.totalPaise,
+      },
+    });
+
     res.status(201).json({
       data: expenseRecord,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// List Expenses for a Ledger
+ledgersRouter.get('/ledgers/:id/expenses', (req, res, next) => {
+  try {
+    const ledgerId = req.params.id;
+    const ledger = inMemoryLedgers.get(ledgerId);
+    if (!ledger) {
+      throw new NotFoundError(`Ledger ${ledgerId} not found`);
+    }
+
+    const callerId = req.user?.id || 'usr_arhaam';
+    assertMember(ledger.memberIds, callerId);
+
+    const activeExpenses = ledger.expenses
+      .filter((e: any) => !e.deletedAt)
+      .map((e: any) => ({
+        ...e,
+        isDisputed: activityStore.isExpenseDisputed(e.id),
+      }))
+      .sort((a: any, b: any) => b.createdAt.localeCompare(a.createdAt));
+
+    res.json({
+      data: activeExpenses,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get Expense Detail (receipt-style)
+ledgersRouter.get('/expenses/:id', (req, res, next) => {
+  try {
+    const match = findExpenseAndLedger(req.params.id);
+    if (!match) {
+      throw new NotFoundError(`Expense ${req.params.id} not found`);
+    }
+
+    const { expense, ledger } = match;
+    const callerId = req.user?.id || 'usr_arhaam';
+    assertMember(ledger.memberIds, callerId);
+
+    res.json({
+      data: {
+        ...expense,
+        isDisputed: activityStore.isExpenseDisputed(expense.id),
+        disputes: activityStore.listDisputesForExpense(expense.id),
+        activityLog: activityStore.listForExpense(expense.id),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Edit Expense
+ledgersRouter.patch('/expenses/:id', (req, res, next) => {
+  try {
+    const match = findExpenseAndLedger(req.params.id);
+    if (!match) {
+      throw new NotFoundError(`Expense ${req.params.id} not found`);
+    }
+
+    const { expense, ledger } = match;
+    const callerId = req.user?.id || 'usr_arhaam';
+    assertMember(ledger.memberIds, callerId);
+
+    if (expense.deletedAt) {
+      throw new ValidationError('Cannot edit a deleted expense');
+    }
+
+    const body = updateExpenseSchema.parse(req.body);
+
+    const oldValues = {
+      title: expense.title,
+      totalPaise: expense.totalPaise,
+      category: expense.category,
+    };
+
+    if (body.title !== undefined) expense.title = body.title;
+    if (body.category !== undefined) expense.category = body.category;
+    if (body.expenseDate !== undefined) expense.expenseDate = body.expenseDate;
+    if (body.note !== undefined) expense.note = body.note;
+
+    // If payers/participants/totals changed, re-evaluate splits
+    const totalPaise = body.totalPaise !== undefined ? body.totalPaise : expense.totalPaise;
+    const splitType = body.splitType !== undefined ? body.splitType : expense.splitType;
+    const payers = body.payers !== undefined ? body.payers : expense.payers;
+    const participants = body.participants !== undefined ? body.participants : expense.participants;
+
+    if (body.totalPaise !== undefined || body.payers !== undefined || body.participants !== undefined || body.splitType !== undefined) {
+      const sumPaid = payers.reduce((sum: number, p: any) => sum + p.paidPaise, 0);
+      if (sumPaid !== totalPaise) {
+        throw new ValidationError(`Sum of payer amounts (${sumPaid} paise) does not equal expense total (${totalPaise} paise)`);
+      }
+      for (const p of payers) assertMember(ledger.memberIds, p.userId);
+      for (const part of participants) {
+        assertMember(ledger.memberIds, part.userId);
+        if (!part.included && payers.some((p: any) => p.userId === part.userId)) {
+          throw new ValidationError(`Excluded member ${part.userId} cannot be a payer`);
+        }
+      }
+
+      expense.totalPaise = totalPaise;
+      expense.splitType = splitType;
+      expense.payers = payers;
+      expense.splits = calculateSplits(totalPaise, splitType, participants);
+    }
+
+    expense.updatedAt = new Date().toISOString();
+
+    activityStore.log({
+      ledgerId: ledger.id,
+      actorUserId: callerId,
+      action: 'EXPENSE_EDITED',
+      entityType: 'expense',
+      entityId: expense.id,
+      payload: {
+        before: oldValues,
+        after: {
+          title: expense.title,
+          totalPaise: expense.totalPaise,
+          category: expense.category,
+        },
+      },
+    });
+
+    res.json({
+      data: expense,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Delete Expense (Soft delete)
+ledgersRouter.delete('/expenses/:id', (req, res, next) => {
+  try {
+    const match = findExpenseAndLedger(req.params.id);
+    if (!match) {
+      throw new NotFoundError(`Expense ${req.params.id} not found`);
+    }
+
+    const { expense, ledger } = match;
+    const callerId = req.user?.id || 'usr_arhaam';
+    assertMember(ledger.memberIds, callerId);
+
+    expense.deletedAt = new Date().toISOString();
+    expense.deletedBy = callerId;
+
+    activityStore.log({
+      ledgerId: ledger.id,
+      actorUserId: callerId,
+      action: 'EXPENSE_DELETED',
+      entityType: 'expense',
+      entityId: expense.id,
+      payload: {
+        title: expense.title,
+        totalPaise: expense.totalPaise,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Expense deleted successfully',
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Dispute Expense
+ledgersRouter.post('/expenses/:id/dispute', (req, res, next) => {
+  try {
+    const match = findExpenseAndLedger(req.params.id);
+    if (!match) {
+      throw new NotFoundError(`Expense ${req.params.id} not found`);
+    }
+
+    const { expense, ledger } = match;
+    const callerId = req.user?.id || 'usr_arhaam';
+    assertMember(ledger.memberIds, callerId);
+
+    const dispute = activityStore.createDispute(expense.id, callerId);
+
+    activityStore.log({
+      ledgerId: ledger.id,
+      actorUserId: callerId,
+      action: 'EXPENSE_DISPUTED',
+      entityType: 'expense',
+      entityId: expense.id,
+    });
+
+    // Notify creator
+    if (expense.createdBy !== callerId) {
+      notificationsStore.create({
+        userId: expense.createdBy,
+        type: 'EXPENSE_DISPUTED',
+        payload: {
+          expenseId: expense.id,
+          ledgerId: ledger.id,
+          disputedBy: callerId,
+          title: expense.title,
+        },
+      });
+    }
+
+    res.status(201).json({
+      data: {
+        dispute,
+        isDisputed: true,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Get Ledger Activity Log
+ledgersRouter.get('/ledgers/:id/activity', (req, res, next) => {
+  try {
+    const ledgerId = req.params.id;
+    const ledger = inMemoryLedgers.get(ledgerId);
+    if (!ledger) {
+      throw new NotFoundError(`Ledger ${ledgerId} not found`);
+    }
+
+    const callerId = req.user?.id || 'usr_arhaam';
+    assertMember(ledger.memberIds, callerId);
+
+    const activities = activityStore.listForLedger(ledgerId);
+    res.json({
+      data: activities,
     });
   } catch (err) {
     next(err);
@@ -128,7 +414,8 @@ ledgersRouter.get('/ledgers/:id/balances', (req, res, next) => {
     const callerId = req.user?.id || 'usr_arhaam';
     assertMember(ledger.memberIds, callerId);
 
-    const result = calculateNetBalances(ledger.memberIds, ledger.expenses, ledger.settlements);
+    const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
+    const result = calculateNetBalances(ledger.memberIds, activeExpenses, ledger.settlements);
 
     res.json({
       data: result,
@@ -150,7 +437,8 @@ ledgersRouter.get('/ledgers/:id/simplified', (req, res, next) => {
     const callerId = req.user?.id || 'usr_arhaam';
     assertMember(ledger.memberIds, callerId);
 
-    const netResult = calculateNetBalances(ledger.memberIds, ledger.expenses, ledger.settlements);
+    const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
+    const netResult = calculateNetBalances(ledger.memberIds, activeExpenses, ledger.settlements);
     const plan = simplifyDebts(netResult.balances);
 
     res.json({
@@ -176,7 +464,8 @@ ledgersRouter.get('/ledgers/:id/pairwise', (req, res, next) => {
     const callerId = req.user?.id || 'usr_arhaam';
     assertMember(ledger.memberIds, callerId);
 
-    const debts = calculatePairwiseDebts(ledger.expenses, ledger.settlements);
+    const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
+    const debts = calculatePairwiseDebts(activeExpenses, ledger.settlements);
 
     res.json({
       data: {

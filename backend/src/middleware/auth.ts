@@ -22,6 +22,17 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
   if (config.AUTH_STUB_MODE) {
     // Development and test stub
+    const xUserId = req.headers['x-user-id'] as string;
+    if (xUserId) {
+      req.user = {
+        id: xUserId,
+        phone: '+919876543210',
+        name: `User ${xUserId}`,
+      };
+      next();
+      return;
+    }
+
     if (authHeader && authHeader.startsWith('Bearer user:')) {
       const customId = authHeader.replace('Bearer user:', '').trim();
       req.user = {

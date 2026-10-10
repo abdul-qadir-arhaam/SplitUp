@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/mock/mock_data.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../friends/data/friends_repository.dart';
+import '../../friends/domain/friend_model.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   final ThemeMode currentThemeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
 
@@ -16,9 +19,26 @@ class ProfileScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
     final user = MockDataRepository.currentUser;
+    final asyncFriends = ref.watch(friendsNotifierProvider);
+
+    final friends = asyncFriends.maybeWhen(
+      data: (items) => items,
+      orElse: () => const <FriendModel>[],
+    );
+
+    int totalYouOwe = 0;
+    int totalYouAreOwed = 0;
+    for (final f in friends) {
+      if (f.netPaise < 0) {
+        totalYouOwe += f.netPaise.abs();
+      } else if (f.netPaise > 0) {
+        totalYouAreOwed += f.netPaise;
+      }
+    }
+    final netBalance = totalYouAreOwed - totalYouOwe;
 
     return Scaffold(
       appBar: AppBar(
@@ -74,6 +94,54 @@ class ProfileScreen extends StatelessWidget {
                     IconButton(
                       icon: Icon(Icons.edit_outlined, color: colors.textSecondary),
                       onPressed: () {},
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Summary Totals Card: Total you owe, Total you are owed, Net
+              GlassCard(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'FINANCIAL TOTALS',
+                      style: SplitUpTypography.caption(color: colors.textMuted).copyWith(
+                        letterSpacing: 1.2,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Total you owe', style: SplitUpTypography.body(color: colors.textSecondary)),
+                        MoneyText(totalYouOwe, variant: MoneyVariant.title, customColor: colors.accentOwe),
+                      ],
+                    ),
+                    const Divider(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Total you are owed', style: SplitUpTypography.body(color: colors.textSecondary)),
+                        MoneyText(totalYouAreOwed, variant: MoneyVariant.title, customColor: colors.accentReceive),
+                      ],
+                    ),
+                    const Divider(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Net Balance', style: SplitUpTypography.title(color: colors.textPrimary)),
+                        MoneyText(
+                          netBalance.abs(),
+                          variant: MoneyVariant.title,
+                          customColor: netBalance < 0
+                              ? colors.accentOwe
+                              : (netBalance > 0 ? colors.accentReceive : colors.textSecondary),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -187,13 +255,20 @@ class _SettingsTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: colors.divider),
       ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Icon(icon, color: colors.textSecondary, size: 22),
-        title: Text(title, style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
-        trailing: trailingText != null
-            ? Text(trailingText!, style: SplitUpTypography.caption(color: colors.textMuted))
-            : Icon(Icons.arrow_forward_ios_rounded, size: 14, color: colors.textMuted),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+          leading: Icon(icon, color: colors.textSecondary, size: 20),
+          title: Text(
+            title,
+            style: SplitUpTypography.body(color: colors.textPrimary),
+          ),
+          trailing: trailingText != null
+              ? Text(trailingText!, style: SplitUpTypography.caption(color: colors.textMuted))
+              : Icon(Icons.arrow_forward_ios_rounded, color: colors.textMuted, size: 14),
+          onTap: onTap,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
       ),
     );
   }
