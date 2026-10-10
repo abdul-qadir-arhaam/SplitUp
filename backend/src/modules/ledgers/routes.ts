@@ -62,37 +62,71 @@ const participantSchema = z
     splitValue: p.splitValue !== undefined ? p.splitValue : p.owedPaise,
   }));
 
-const createExpenseSchema = z.object({
+const payerItemSchema = z
+  .object({
+    userId: z.string().optional(),
+    user_id: z.string().optional(),
+    paidPaise: z.number().int().positive().optional(),
+    paid_paise: z.number().int().positive().optional(),
+  })
+  .transform((p) => {
+    const uid = p.userId || p.user_id;
+    const paise = p.paidPaise !== undefined ? p.paidPaise : p.paid_paise;
+    if (!uid) throw new ValidationError('Missing userId for payer');
+    if (paise === undefined || paise <= 0) throw new ValidationError('Payer amount must be a positive integer');
+    return { userId: uid, paidPaise: paise };
+  });
+
+const createExpenseSchema = z.preprocess((val: any) => {
+  if (val && typeof val === 'object') {
+    // Backward compatibility if single payer is sent
+    if (!val.payers) {
+      const singleUserId =
+        val.payerId ||
+        val.payerUserId ||
+        val.paidBy ||
+        (val.payer && (val.payer.userId || val.payer.user_id));
+      if (singleUserId && val.totalPaise) {
+        val.payers = [{ userId: singleUserId, paidPaise: val.totalPaise }];
+      }
+    }
+  }
+  return val;
+}, z.object({
   title: z.string().min(1).max(120),
   totalPaise: z.number().int().positive(),
   category: categorySchema.default('other'),
   splitType: z.enum(['EQUAL', 'EXACT', 'PERCENT', 'SHARES']),
-  payers: z.array(
-    z.object({
-      userId: z.string(),
-      paidPaise: z.number().int().positive(),
-    })
-  ).nonempty(),
+  payers: z.array(payerItemSchema).nonempty(),
   participants: z.array(participantSchema).nonempty(),
   expenseDate: z.string().default(() => new Date().toISOString().split('T')[0]),
   note: z.string().max(500).optional(),
-});
+}));
 
-const updateExpenseSchema = z.object({
+const updateExpenseSchema = z.preprocess((val: any) => {
+  if (val && typeof val === 'object') {
+    if (!val.payers) {
+      const singleUserId =
+        val.payerId ||
+        val.payerUserId ||
+        val.paidBy ||
+        (val.payer && (val.payer.userId || val.payer.user_id));
+      if (singleUserId && val.totalPaise) {
+        val.payers = [{ userId: singleUserId, paidPaise: val.totalPaise }];
+      }
+    }
+  }
+  return val;
+}, z.object({
   title: z.string().min(1).max(120).optional(),
   category: categorySchema.optional(),
   totalPaise: z.number().int().positive().optional(),
   splitType: z.enum(['EQUAL', 'EXACT', 'PERCENT', 'SHARES']).optional(),
-  payers: z.array(
-    z.object({
-      userId: z.string(),
-      paidPaise: z.number().int().positive(),
-    })
-  ).nonempty().optional(),
+  payers: z.array(payerItemSchema).nonempty().optional(),
   participants: z.array(participantSchema).nonempty().optional(),
   expenseDate: z.string().optional(),
   note: z.string().max(500).optional(),
-});
+}));
 
 function findExpenseAndLedger(expenseId: string): { expense: any; ledger: StoredLedger } | null {
   for (const ledger of inMemoryLedgers.values()) {
@@ -126,6 +160,15 @@ ledgersRouter.post('/ledgers/:id/expenses', (req, res, next) => {
       );
     }
 
+    // Check for duplicate payers
+    const payerUserIds = new Set<string>();
+    for (const p of body.payers) {
+      if (payerUserIds.has(p.userId)) {
+        throw new ValidationError(`Duplicate payer ${p.userId} in expense payers`);
+      }
+      payerUserIds.add(p.userId);
+    }
+
     // Validate Rule 2 & 3: Participants must be current ledger members and excluded cannot be payers
     for (const payer of body.payers) {
       assertMember(ledger.memberIds, payer.userId);
@@ -153,6 +196,7 @@ ledgersRouter.post('/ledgers/:id/expenses', (req, res, next) => {
       expenseDate: body.expenseDate,
       note: body.note,
       payers: body.payers,
+      participants: body.participants,
       splits,
       createdBy: callerId,
       createdAt: new Date().toISOString(),
@@ -265,6 +309,7 @@ ledgersRouter.patch('/expenses/:id', (req, res, next) => {
       title: expense.title,
       totalPaise: expense.totalPaise,
       category: expense.category,
+      payers: JSON.parse(JSON.stringify(expense.payers)),
     };
 
     if (body.title !== undefined) expense.title = body.title;
@@ -276,14 +321,25 @@ ledgersRouter.patch('/expenses/:id', (req, res, next) => {
     const totalPaise = body.totalPaise !== undefined ? body.totalPaise : expense.totalPaise;
     const splitType = body.splitType !== undefined ? body.splitType : expense.splitType;
     const payers = body.payers !== undefined ? body.payers : expense.payers;
-    const participants = body.participants !== undefined ? body.participants : expense.participants;
+    const participants = body.participants !== undefined
+      ? body.participants
+      : (expense.participants || expense.splits.map((s: any) => ({ userId: s.userId, included: s.included, splitValue: s.splitValue })));
 
     if (body.totalPaise !== undefined || body.payers !== undefined || body.participants !== undefined || body.splitType !== undefined) {
       const sumPaid = payers.reduce((sum: number, p: any) => sum + p.paidPaise, 0);
       if (sumPaid !== totalPaise) {
         throw new ValidationError(`Sum of payer amounts (${sumPaid} paise) does not equal expense total (${totalPaise} paise)`);
       }
-      for (const p of payers) assertMember(ledger.memberIds, p.userId);
+
+      const editPayerUserIds = new Set<string>();
+      for (const p of payers) {
+        if (editPayerUserIds.has(p.userId)) {
+          throw new ValidationError(`Duplicate payer ${p.userId} in expense payers`);
+        }
+        editPayerUserIds.add(p.userId);
+        assertMember(ledger.memberIds, p.userId);
+      }
+
       for (const part of participants) {
         assertMember(ledger.memberIds, part.userId);
         if (!part.included && payers.some((p: any) => p.userId === part.userId)) {
@@ -294,6 +350,7 @@ ledgersRouter.patch('/expenses/:id', (req, res, next) => {
       expense.totalPaise = totalPaise;
       expense.splitType = splitType;
       expense.payers = payers;
+      expense.participants = participants;
       expense.splits = calculateSplits(totalPaise, splitType, participants);
     }
 
@@ -311,6 +368,7 @@ ledgersRouter.patch('/expenses/:id', (req, res, next) => {
           title: expense.title,
           totalPaise: expense.totalPaise,
           category: expense.category,
+          payers: expense.payers,
         },
       },
     });

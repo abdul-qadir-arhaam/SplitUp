@@ -205,4 +205,177 @@ describe('API Endpoints and Middleware Integration Tests', () => {
       { from: 'usr_arhaam', to: 'usr_rahul', amountPaise: 20000 },
     ]);
   });
+
+  describe('Multiple Payers Feature Tests', () => {
+    it('rejects expense if sum of payers does not equal totalPaise', async () => {
+      const resLess = await request(app)
+        .post('/v1/ledgers/ledger_test_1/expenses')
+        .send({
+          title: 'Underpaid',
+          totalPaise: 100000,
+          splitType: 'EQUAL',
+          payers: [
+            { userId: 'usr_arhaam', paidPaise: 40000 },
+            { userId: 'usr_rahul', paidPaise: 50000 },
+          ], // sum = 90,000 != 100,000
+          participants: [
+            { userId: 'usr_arhaam', included: true },
+            { userId: 'usr_rahul', included: true },
+          ],
+        });
+      expect(resLess.status).toBe(400);
+      expect(resLess.body.error.code).toBe('VALIDATION_ERROR');
+
+      const resMore = await request(app)
+        .post('/v1/ledgers/ledger_test_1/expenses')
+        .send({
+          title: 'Overpaid',
+          totalPaise: 100000,
+          splitType: 'EQUAL',
+          payers: [
+            { userId: 'usr_arhaam', paidPaise: 60000 },
+            { userId: 'usr_rahul', paidPaise: 50000 },
+          ], // sum = 110,000 != 100,000
+          participants: [
+            { userId: 'usr_arhaam', included: true },
+            { userId: 'usr_rahul', included: true },
+          ],
+        });
+      expect(resMore.status).toBe(400);
+      expect(resMore.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('rejects expense if an excluded ("Not there") member is included as a payer', async () => {
+      const res = await request(app)
+        .post('/v1/ledgers/ledger_test_1/expenses')
+        .send({
+          title: 'Excluded Member Payer',
+          totalPaise: 100000,
+          splitType: 'EQUAL',
+          payers: [
+            { userId: 'usr_arhaam', paidPaise: 50000 },
+            { userId: 'usr_amit', paidPaise: 50000 }, // Amit is excluded
+          ],
+          participants: [
+            { userId: 'usr_arhaam', included: true },
+            { userId: 'usr_rahul', included: true },
+            { userId: 'usr_amit', included: false },
+          ],
+        });
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.message).toContain('Excluded member usr_amit cannot be a payer');
+    });
+
+    it('rejects expense if a non-member is a payer', async () => {
+      const res = await request(app)
+        .post('/v1/ledgers/ledger_test_1/expenses')
+        .send({
+          title: 'Non-member Payer',
+          totalPaise: 100000,
+          splitType: 'EQUAL',
+          payers: [
+            { userId: 'usr_arhaam', paidPaise: 50000 },
+            { userId: 'usr_unknown_999', paidPaise: 50000 },
+          ],
+          participants: [
+            { userId: 'usr_arhaam', included: true },
+            { userId: 'usr_rahul', included: true },
+          ],
+        });
+      expect(res.status).toBe(403);
+    });
+
+    it('rejects duplicate payer in payers list', async () => {
+      const res = await request(app)
+        .post('/v1/ledgers/ledger_test_1/expenses')
+        .send({
+          title: 'Duplicate Payer',
+          totalPaise: 100000,
+          splitType: 'EQUAL',
+          payers: [
+            { userId: 'usr_arhaam', paidPaise: 50000 },
+            { userId: 'usr_arhaam', paidPaise: 50000 },
+          ],
+          participants: [
+            { userId: 'usr_arhaam', included: true },
+            { userId: 'usr_rahul', included: true },
+          ],
+        });
+      expect(res.status).toBe(400);
+      expect(res.body.error.message).toContain('Duplicate payer');
+    });
+
+    it('supports backward compatibility for single payer field', async () => {
+      const res = await request(app)
+        .post('/v1/ledgers/ledger_test_1/expenses')
+        .send({
+          title: 'Legacy Single Payer',
+          totalPaise: 60000,
+          splitType: 'EQUAL',
+          paidBy: 'usr_arhaam', // Legacy field
+          participants: [
+            { userId: 'usr_arhaam', included: true },
+            { userId: 'usr_rahul', included: true },
+          ],
+        });
+      expect(res.status).toBe(201);
+      expect(res.body.data.payers).toEqual([
+        { userId: 'usr_arhaam', paidPaise: 60000 },
+      ]);
+    });
+
+    it('editing payers updates balances and logs before and after payers in activity log', async () => {
+      // 1. Create with Rahul paying full
+      const createRes = await request(app)
+        .post('/v1/ledgers/ledger_test_1/expenses')
+        .send({
+          title: 'Team Lunch',
+          totalPaise: 100000,
+          splitType: 'EQUAL',
+          payers: [{ userId: 'usr_rahul', paidPaise: 100000 }],
+          participants: [
+            { userId: 'usr_arhaam', included: true },
+            { userId: 'usr_rahul', included: true },
+          ],
+        });
+      const expenseId = createRes.body.data.id;
+
+      // Check balance before: Arhaam owes Rahul 500
+      let balRes = await request(app).get('/v1/ledgers/ledger_test_1/balances');
+      expect(balRes.body.data.balances['usr_arhaam']).toBe(-50000);
+      expect(balRes.body.data.balances['usr_rahul']).toBe(50000);
+
+      // 2. Edit to split payers equally: Arhaam 500, Rahul 500
+      const patchRes = await request(app)
+        .patch(`/v1/expenses/${expenseId}`)
+        .send({
+          payers: [
+            { userId: 'usr_arhaam', paidPaise: 50000 },
+            { userId: 'usr_rahul', paidPaise: 50000 },
+          ],
+        });
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body.data.payers).toHaveLength(2);
+
+      // Check balance after: both settled at 0
+      balRes = await request(app).get('/v1/ledgers/ledger_test_1/balances');
+      expect(balRes.body.data.balances['usr_arhaam']).toBe(0);
+      expect(balRes.body.data.balances['usr_rahul']).toBe(0);
+
+      // Check activity log contains before and after payers
+      const detailRes = await request(app).get(`/v1/expenses/${expenseId}`);
+      expect(detailRes.status).toBe(200);
+      const activity = detailRes.body.data.activityLog;
+      const editEvent = activity.find((a: any) => a.action === 'EXPENSE_EDITED');
+      expect(editEvent).toBeDefined();
+      expect(editEvent.payload.before.payers).toEqual([
+        { userId: 'usr_rahul', paidPaise: 100000 },
+      ]);
+      expect(editEvent.payload.after.payers).toEqual([
+        { userId: 'usr_arhaam', paidPaise: 50000 },
+        { userId: 'usr_rahul', paidPaise: 50000 },
+      ]);
+    });
+  });
 });

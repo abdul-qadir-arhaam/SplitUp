@@ -6,6 +6,7 @@ import '../../features/auth/presentation/merge_explainer_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/friends/presentation/friend_detail_screen.dart';
 import '../../features/expenses/presentation/add_expense_screen.dart';
+import '../../features/expenses/domain/expense_model.dart';
 import '../../features/groups/presentation/groups_screen.dart';
 import '../../features/groups/presentation/create_group_screen.dart';
 import '../../features/groups/presentation/group_detail_screen.dart';
@@ -13,6 +14,7 @@ import '../../features/groups/presentation/group_settle_graph_screen.dart';
 import '../../features/trips/presentation/trips_screen.dart';
 import '../../features/trips/presentation/create_trip_screen.dart';
 import '../../features/trips/presentation/trip_detail_screen.dart';
+import '../../features/trips/presentation/trip_settle_graph_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../theme/colors.dart';
@@ -103,6 +105,7 @@ GoRouter createAppRouter({
             initialLedgerId: initialLedgerId ?? extra?['initialLedgerId'],
             friendIds: friendIds ?? (extra?['friendIds'] as List<String>?),
             initialMembers: extra?['initialMembers'] as List<Map<String, dynamic>>?,
+            existingExpense: extra?['existingExpense'] as ExpenseModel?,
           );
         },
       ),
@@ -138,6 +141,14 @@ GoRouter createAppRouter({
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
           return TripDetailScreen(tripId: id);
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/trips/:id/graph',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return TripSettleGraphScreen(tripId: id);
         },
       ),
       GoRoute(

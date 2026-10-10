@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/money/paise.dart';
 import '../domain/group_model.dart';
 import '../../../core/mock/mock_data.dart';
+import '../../expenses/domain/expense_model.dart';
+import '../../expenses/data/expenses_repository.dart';
 
 class GroupsRepository {
   static const _storageKey = 'splitup_groups_data_v2';
@@ -380,6 +382,327 @@ class GroupsRepository {
     await _saveToStorage();
   }
 
+  GroupModel? getGroupByIdSync(String groupId) {
+    final index = _groups.indexWhere((g) => g.id == groupId);
+    return index != -1 ? _groups[index] : null;
+  }
+
+  static ({
+    int totalSpentPaise,
+    int myNetPaise,
+    List<GroupMember> updatedMembers,
+  }) calculateGroupMetrics(GroupModel group, List<ExpenseModel> groupExpenses) {
+    if (groupExpenses.isEmpty) {
+      if (group.id == 'grp_friday' || group.id == 'grp_flat402') {
+        return (
+          totalSpentPaise: group.totalSpentPaise,
+          myNetPaise: group.myNetPaise,
+          updatedMembers: group.members,
+        );
+      }
+      final zeroMembers = group.members.map((m) => GroupMember(
+        userId: m.userId,
+        name: m.name,
+        phoneE164: m.phoneE164,
+        photoUrl: m.photoUrl,
+        role: m.role,
+        netPaise: 0,
+        isAppUser: m.isAppUser,
+      )).toList();
+      return (
+        totalSpentPaise: 0,
+        myNetPaise: 0,
+        updatedMembers: zeroMembers,
+      );
+    }
+
+    int totalSpent = 0;
+    final Map<String, int> paidByUser = {for (final m in group.members) m.userId: 0};
+    final Map<String, int> shareByUser = {for (final m in group.members) m.userId: 0};
+
+    for (final exp in groupExpenses) {
+      if (exp.deletedAt != null) continue;
+      totalSpent += exp.totalPaise;
+      for (final p in exp.payers) {
+        paidByUser[p.userId] = (paidByUser[p.userId] ?? 0) + p.paidPaise;
+      }
+      for (final s in exp.splits) {
+        if (s.included) {
+          shareByUser[s.userId] = (shareByUser[s.userId] ?? 0) + s.owedPaise;
+        }
+      }
+    }
+
+    final updatedMembers = group.members.map((m) {
+      final paid = paidByUser[m.userId] ?? 0;
+      final share = shareByUser[m.userId] ?? 0;
+      final net = paid - share;
+      return GroupMember(
+        userId: m.userId,
+        name: m.name,
+        phoneE164: m.phoneE164,
+        photoUrl: m.photoUrl,
+        role: m.role,
+        netPaise: net,
+        isAppUser: m.isAppUser,
+      );
+    }).toList();
+
+    final myNet = (paidByUser['usr_arhaam'] ?? 0) - (shareByUser['usr_arhaam'] ?? 0);
+
+    return (
+      totalSpentPaise: totalSpent,
+      myNetPaise: myNet,
+      updatedMembers: updatedMembers,
+    );
+  }
+
+  static List<GraphLink> calculateSimplifiedDebts(List<GraphNode> nodes) {
+    final debtors = <({String userId, int amount})>[];
+    final creditors = <({String userId, int amount})>[];
+
+    for (final n in nodes) {
+      if (n.netPaise < 0) {
+        debtors.add((userId: n.userId, amount: -n.netPaise));
+      } else if (n.netPaise > 0) {
+        creditors.add((userId: n.userId, amount: n.netPaise));
+      }
+    }
+
+    debtors.sort((a, b) => b.amount != a.amount ? b.amount.compareTo(a.amount) : a.userId.compareTo(b.userId));
+    creditors.sort((a, b) => b.amount != a.amount ? b.amount.compareTo(a.amount) : a.userId.compareTo(b.userId));
+
+    final links = <GraphLink>[];
+    int dIdx = 0;
+    int cIdx = 0;
+
+    var curDebtors = debtors.map((d) => (userId: d.userId, amount: d.amount)).toList();
+    var curCreditors = creditors.map((c) => (userId: c.userId, amount: c.amount)).toList();
+
+    while (dIdx < curDebtors.length && cIdx < curCreditors.length) {
+      final d = curDebtors[dIdx];
+      final c = curCreditors[cIdx];
+
+      final amt = d.amount < c.amount ? d.amount : c.amount;
+      if (amt > 0) {
+        links.add(GraphLink(
+          fromUserId: d.userId,
+          toUserId: c.userId,
+          amountPaise: amt,
+          isPending: false,
+        ));
+      }
+
+      curDebtors[dIdx] = (userId: d.userId, amount: d.amount - amt);
+      curCreditors[cIdx] = (userId: c.userId, amount: c.amount - amt);
+
+      if (curDebtors[dIdx].amount == 0) dIdx++;
+      if (curCreditors[cIdx].amount == 0) cIdx++;
+    }
+
+    return links;
+  }
+
+  static List<GraphLink> calculatePairwiseDebts(List<ExpenseModel> expenses) {
+    final Map<String, Map<String, int>> matrix = {};
+
+    for (final exp in expenses) {
+      if (exp.totalPaise <= 0) continue;
+      for (final payer in exp.payers) {
+        if (payer.paidPaise <= 0) continue;
+        for (final split in exp.splits) {
+          if (!split.included || split.owedPaise <= 0) continue;
+          if (split.userId == payer.userId) continue;
+
+          final shareOwedToPayer = (split.owedPaise * payer.paidPaise / exp.totalPaise).round();
+          if (shareOwedToPayer > 0) {
+            matrix.putIfAbsent(split.userId, () => {});
+            matrix[split.userId]![payer.userId] =
+                (matrix[split.userId]![payer.userId] ?? 0) + shareOwedToPayer;
+          }
+        }
+      }
+    }
+
+    final Set<String> allUsers = {};
+    for (final u in matrix.keys) {
+      allUsers.add(u);
+      allUsers.addAll(matrix[u]!.keys);
+    }
+
+    final userList = allUsers.toList();
+    final List<GraphLink> links = [];
+
+    for (int i = 0; i < userList.length; i++) {
+      for (int j = i + 1; j < userList.length; j++) {
+        final u1 = userList[i];
+        final u2 = userList[j];
+        final u1OwesU2 = matrix[u1]?[u2] ?? 0;
+        final u2OwesU1 = matrix[u2]?[u1] ?? 0;
+
+        final net = u1OwesU2 - u2OwesU1;
+        if (net > 0) {
+          links.add(GraphLink(fromUserId: u1, toUserId: u2, amountPaise: net, isPending: false));
+        } else if (net < 0) {
+          links.add(GraphLink(fromUserId: u2, toUserId: u1, amountPaise: -net, isPending: false));
+        }
+      }
+    }
+
+    return links;
+  }
+
+  static String _categoryLabel(String cat) {
+    switch (cat.toLowerCase()) {
+      case 'food':
+        return 'Food & Drinks';
+      case 'travel':
+        return 'Travel & Fuel';
+      case 'stay':
+        return 'Stay';
+      case 'tickets':
+        return 'Tickets';
+      case 'shopping':
+        return 'Shopping';
+      case 'groceries':
+        return 'Groceries';
+      case 'entertainment':
+        return 'Entertainment';
+      default:
+        return cat.isNotEmpty ? (cat[0].toUpperCase() + cat.substring(1)) : 'Other';
+    }
+  }
+
+  GroupDashboardData computeDashboard(GroupModel group, List<ExpenseModel> groupExpenses) {
+    if (groupExpenses.isEmpty) {
+      if (group.id == 'grp_friday') {
+        return getDashboard(group.id);
+      }
+      return GroupDashboardData(
+        totalSpentPaise: 0,
+        categories: const [],
+        memberBars: group.members.map((m) {
+          return MemberBarItem(
+            userId: m.userId,
+            name: m.name,
+            paidPaise: 0,
+            sharePaise: 0,
+          );
+        }).toList(),
+        spendingOverTime: const [],
+      );
+    }
+
+    final totalSpent = groupExpenses.fold(0, (sum, e) => sum + e.totalPaise);
+
+    final Map<String, int> catMap = {};
+    for (final exp in groupExpenses) {
+      final catKey = exp.category.isNotEmpty ? exp.category : 'other';
+      catMap[catKey] = (catMap[catKey] ?? 0) + exp.totalPaise;
+    }
+    final categories = catMap.entries.map((entry) {
+      final pct = totalSpent > 0 ? ((entry.value * 100) / totalSpent).round() : 0;
+      return CategoryBreakdownItem(
+        category: _categoryLabel(entry.key),
+        totalPaise: entry.value,
+        percentage: pct,
+      );
+    }).toList();
+
+    final Map<String, int> paidMap = {for (final m in group.members) m.userId: 0};
+    final Map<String, int> shareMap = {for (final m in group.members) m.userId: 0};
+    for (final exp in groupExpenses) {
+      for (final p in exp.payers) {
+        paidMap[p.userId] = (paidMap[p.userId] ?? 0) + p.paidPaise;
+      }
+      for (final s in exp.splits) {
+        if (s.included) {
+          shareMap[s.userId] = (shareMap[s.userId] ?? 0) + s.owedPaise;
+        }
+      }
+    }
+
+    final memberBars = group.members.map((m) {
+      return MemberBarItem(
+        userId: m.userId,
+        name: m.name,
+        paidPaise: paidMap[m.userId] ?? 0,
+        sharePaise: shareMap[m.userId] ?? 0,
+      );
+    }).toList();
+
+    final Map<String, int> dateMap = {};
+    for (final exp in groupExpenses) {
+      final d = exp.expenseDate.isNotEmpty ? exp.expenseDate : 'Recent';
+      dateMap[d] = (dateMap[d] ?? 0) + exp.totalPaise;
+    }
+    final spendingOverTime = dateMap.entries.map((entry) {
+      return SpendingOverTimeItem(date: entry.key, totalPaise: entry.value);
+    }).toList();
+
+    return GroupDashboardData(
+      totalSpentPaise: totalSpent,
+      categories: categories,
+      memberBars: memberBars,
+      spendingOverTime: spendingOverTime,
+    );
+  }
+
+  GroupGraphData computeGraph(GroupModel group, List<ExpenseModel> groupExpenses, {bool simplified = true}) {
+    if (groupExpenses.isEmpty) {
+      if (group.id == 'grp_friday') {
+        return getGraph(group.id, simplified: simplified);
+      }
+      final nodes = group.members.map((m) {
+        return GraphNode(
+          userId: m.userId,
+          name: m.userId == 'usr_arhaam' ? '${m.name} (You)' : m.name,
+          netPaise: 0,
+        );
+      }).toList();
+      return GroupGraphData(
+        groupId: group.id,
+        mode: simplified ? 'simplified' : 'actual',
+        nodes: nodes,
+        links: const [],
+      );
+    }
+
+    final Map<String, int> paidMap = {for (final m in group.members) m.userId: 0};
+    final Map<String, int> shareMap = {for (final m in group.members) m.userId: 0};
+
+    for (final exp in groupExpenses) {
+      for (final p in exp.payers) {
+        paidMap[p.userId] = (paidMap[p.userId] ?? 0) + p.paidPaise;
+      }
+      for (final s in exp.splits) {
+        if (s.included) {
+          shareMap[s.userId] = (shareMap[s.userId] ?? 0) + s.owedPaise;
+        }
+      }
+    }
+
+    final nodes = group.members.map((m) {
+      final net = (paidMap[m.userId] ?? 0) - (shareMap[m.userId] ?? 0);
+      return GraphNode(
+        userId: m.userId,
+        name: m.userId == 'usr_arhaam' ? '${m.name} (You)' : m.name,
+        netPaise: net,
+      );
+    }).toList();
+
+    final links = simplified
+        ? calculateSimplifiedDebts(nodes)
+        : calculatePairwiseDebts(groupExpenses);
+
+    return GroupGraphData(
+      groupId: group.id,
+      mode: simplified ? 'simplified' : 'actual',
+      nodes: nodes,
+      links: links,
+    );
+  }
+
   GroupDashboardData getDashboard(String groupId) {
     final index = _groups.indexWhere((g) => g.id == groupId);
     final group = index != -1 ? _groups[index] : null;
@@ -546,13 +869,50 @@ final groupsNotifierProvider = AsyncNotifierProvider<GroupsNotifier, List<GroupM
 });
 
 final groupDetailProvider = FutureProvider.family<GroupModel, String>((ref, groupId) async {
-  return ref.watch(groupsRepositoryProvider).getGroupById(groupId);
+  final repo = ref.watch(groupsRepositoryProvider);
+  final group = await repo.getGroupById(groupId);
+
+  final asyncExpenses = ref.watch(expensesNotifierProvider);
+  final allExpenses = asyncExpenses.maybeWhen(
+    data: (list) => list,
+    orElse: () => <ExpenseModel>[],
+  );
+  final groupExpenses = allExpenses.where((e) => e.ledgerId == groupId && e.deletedAt == null).toList();
+
+  if (groupExpenses.isEmpty) {
+    return group;
+  }
+
+  final metrics = GroupsRepository.calculateGroupMetrics(group, groupExpenses);
+  return group.copyWith(
+    totalSpentPaise: metrics.totalSpentPaise,
+    myNetPaise: metrics.myNetPaise,
+    members: metrics.updatedMembers,
+  );
 });
 
 final groupDashboardProvider = Provider.family<GroupDashboardData, String>((ref, groupId) {
-  return ref.watch(groupsRepositoryProvider).getDashboard(groupId);
+  final group = ref.watch(groupDetailProvider(groupId)).maybeWhen(
+    data: (g) => g,
+    orElse: () => ref.watch(groupsRepositoryProvider).getGroupByIdSync(groupId) ?? GroupModel(id: groupId, name: 'Group', creatorUserId: 'usr_arhaam', isAdmin: true, memberIds: const [], members: const [], myNetPaise: 0, totalSpentPaise: 0, lastActivity: '', createdAt: ''),
+  );
+  final allExpenses = ref.watch(expensesNotifierProvider).maybeWhen(
+    data: (list) => list,
+    orElse: () => <ExpenseModel>[],
+  );
+  final groupExpenses = allExpenses.where((e) => e.ledgerId == groupId && e.deletedAt == null).toList();
+  return ref.watch(groupsRepositoryProvider).computeDashboard(group, groupExpenses);
 });
 
 final groupGraphProvider = Provider.family<GroupGraphData, ({String groupId, bool simplified})>((ref, arg) {
-  return ref.watch(groupsRepositoryProvider).getGraph(arg.groupId, simplified: arg.simplified);
+  final group = ref.watch(groupDetailProvider(arg.groupId)).maybeWhen(
+    data: (g) => g,
+    orElse: () => ref.watch(groupsRepositoryProvider).getGroupByIdSync(arg.groupId) ?? GroupModel(id: arg.groupId, name: 'Group', creatorUserId: 'usr_arhaam', isAdmin: true, memberIds: const [], members: const [], myNetPaise: 0, totalSpentPaise: 0, lastActivity: '', createdAt: ''),
+  );
+  final allExpenses = ref.watch(expensesNotifierProvider).maybeWhen(
+    data: (list) => list,
+    orElse: () => <ExpenseModel>[],
+  );
+  final groupExpenses = allExpenses.where((e) => e.ledgerId == arg.groupId && e.deletedAt == null).toList();
+  return ref.watch(groupsRepositoryProvider).computeGraph(group, groupExpenses, simplified: arg.simplified);
 });

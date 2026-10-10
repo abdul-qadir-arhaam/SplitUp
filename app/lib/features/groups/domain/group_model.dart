@@ -95,6 +95,33 @@ class GroupModel {
     );
   }
 
+  GroupModel copyWith({
+    String? name,
+    String? photoUrl,
+    String? creatorUserId,
+    bool? isAdmin,
+    List<String>? memberIds,
+    List<GroupMember>? members,
+    int? myNetPaise,
+    int? totalSpentPaise,
+    String? lastActivity,
+    String? createdAt,
+  }) {
+    return GroupModel(
+      id: id,
+      name: name ?? this.name,
+      photoUrl: photoUrl ?? this.photoUrl,
+      creatorUserId: creatorUserId ?? this.creatorUserId,
+      isAdmin: isAdmin ?? this.isAdmin,
+      memberIds: memberIds ?? this.memberIds,
+      members: members ?? this.members,
+      myNetPaise: myNetPaise ?? this.myNetPaise,
+      totalSpentPaise: totalSpentPaise ?? this.totalSpentPaise,
+      lastActivity: lastActivity ?? this.lastActivity,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,

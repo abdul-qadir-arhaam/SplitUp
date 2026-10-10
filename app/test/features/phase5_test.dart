@@ -10,6 +10,10 @@ import 'package:app/features/groups/data/groups_repository.dart';
 import 'package:app/features/groups/presentation/group_detail_screen.dart';
 import 'package:app/features/notifications/data/notifications_repository.dart';
 import 'package:app/features/expenses/presentation/add_expense_screen.dart';
+import 'package:app/features/groups/domain/group_model.dart';
+import 'package:app/features/trips/domain/trip_model.dart';
+import 'package:app/features/trips/presentation/trip_settle_graph_screen.dart';
+import 'package:app/features/expenses/domain/expense_model.dart';
 import 'package:app/core/theme/app_theme.dart';
 
 void main() {
@@ -411,6 +415,182 @@ void main() {
       expect(find.textContaining('Priya'), findsWidgets);
       // Amit is not among selected friends
       expect(find.textContaining('Amit'), findsNothing);
+    });
+
+    test('New group dynamically calculates metrics and simplified settlement for Rs 500 expense split among 4 friends', () {
+      final repo = GroupsRepository();
+      final newGroup = GroupModel(
+        id: 'grp_custom_4friends',
+        name: 'Weekend Trekkers',
+        creatorUserId: 'usr_arhaam',
+        isAdmin: true,
+        memberIds: ['usr_arhaam', 'usr_rahul', 'usr_priya', 'usr_amit'],
+        members: [
+          const GroupMember(userId: 'usr_arhaam', name: 'Arhaam', phoneE164: '+919999999999', role: 'ADMIN', netPaise: 0, isAppUser: true),
+          const GroupMember(userId: 'usr_rahul', name: 'Rahul', phoneE164: '+919876543210', role: 'MEMBER', netPaise: 0, isAppUser: true),
+          const GroupMember(userId: 'usr_priya', name: 'Priya', phoneE164: '+919876543211', role: 'MEMBER', netPaise: 0, isAppUser: true),
+          const GroupMember(userId: 'usr_amit', name: 'Amit', phoneE164: '+919876543212', role: 'MEMBER', netPaise: 0, isAppUser: true),
+        ],
+        myNetPaise: 0,
+        totalSpentPaise: 0,
+        createdAt: '2026-10-10T12:00:00Z',
+      );
+
+      // 500 Rs expense paid by Arhaam, split equally among 4 friends (125 Rs / 12500 paise each)
+      final expense = ExpenseModel(
+        id: 'exp_500_split',
+        title: 'Snacks & Drinks',
+        totalPaise: 50000,
+        ledgerId: 'grp_custom_4friends',
+        category: 'Food',
+        splitType: 'EQUAL',
+        expenseDate: '2026-10-10',
+        payers: const [ExpensePayer(userId: 'usr_arhaam', paidPaise: 50000)],
+        splits: const [
+          ExpenseSplit(userId: 'usr_arhaam', owedPaise: 12500, included: true),
+          ExpenseSplit(userId: 'usr_rahul', owedPaise: 12500, included: true),
+          ExpenseSplit(userId: 'usr_priya', owedPaise: 12500, included: true),
+          ExpenseSplit(userId: 'usr_amit', owedPaise: 12500, included: true),
+        ],
+        createdBy: 'usr_arhaam',
+        createdAt: DateTime(2026, 10, 10),
+        updatedAt: DateTime(2026, 10, 10),
+      );
+
+      final metrics = GroupsRepository.calculateGroupMetrics(newGroup, [expense]);
+      expect(metrics.totalSpentPaise, equals(50000)); // Exactly Rs 500, not 24,500!
+      expect(metrics.myNetPaise, equals(37500)); // Arhaam is owed 375 Rs
+
+      final rahul = metrics.updatedMembers.firstWhere((m) => m.userId == 'usr_rahul');
+      final priya = metrics.updatedMembers.firstWhere((m) => m.userId == 'usr_priya');
+      final amit = metrics.updatedMembers.firstWhere((m) => m.userId == 'usr_amit');
+      expect(rahul.netPaise, equals(-12500));
+      expect(priya.netPaise, equals(-12500));
+      expect(amit.netPaise, equals(-12500));
+
+      final graph = repo.computeGraph(newGroup, [expense]);
+      expect(graph.links.length, equals(3));
+      // None of the mock Rs 1,200 or Rs 1,500 debts!
+      for (final link in graph.links) {
+        expect(link.toUserId, equals('usr_arhaam'));
+        expect(link.amountPaise, equals(12500)); // Each owes Rs 125
+      }
+
+      final dashboard = repo.computeDashboard(newGroup, [expense]);
+      expect(dashboard.totalSpentPaise, equals(50000));
+      expect(dashboard.categories.first.category, equals('Food & Drinks'));
+      expect(dashboard.categories.first.totalPaise, equals(50000));
+    });
+
+    test('New trip dynamically calculates metrics and settlement for Rs 500 expense split among 4 friends', () {
+      final repo = TripsRepository();
+      final newTrip = TripModel(
+        id: 'trp_custom_4friends',
+        name: 'Hills Trip',
+        creatorUserId: 'usr_arhaam',
+        isAdmin: true,
+        budgetPaise: 100000,
+        isCompleted: false,
+        membersCount: 4,
+        myNetPaise: 0,
+        totalSpentPaise: 0,
+        createdAt: '2026-10-10T12:00:00Z',
+        members: [
+          const TripMember(userId: 'usr_arhaam', name: 'Arhaam', phoneE164: '+919999999999', role: 'ADMIN', netPaise: 0, isAppUser: true),
+          const TripMember(userId: 'usr_rahul', name: 'Rahul', phoneE164: '+919876543210', role: 'MEMBER', netPaise: 0, isAppUser: true),
+          const TripMember(userId: 'usr_priya', name: 'Priya', phoneE164: '+919876543211', role: 'MEMBER', netPaise: 0, isAppUser: true),
+          const TripMember(userId: 'usr_amit', name: 'Amit', phoneE164: '+919876543212', role: 'MEMBER', netPaise: 0, isAppUser: true),
+        ],
+      );
+
+      final expense = ExpenseModel(
+        id: 'exp_500_trip',
+        title: 'Toll & Snacks',
+        totalPaise: 50000,
+        ledgerId: 'trp_custom_4friends',
+        category: 'Travel',
+        splitType: 'EQUAL',
+        expenseDate: '2026-10-10',
+        payers: const [ExpensePayer(userId: 'usr_arhaam', paidPaise: 50000)],
+        splits: const [
+          ExpenseSplit(userId: 'usr_arhaam', owedPaise: 12500, included: true),
+          ExpenseSplit(userId: 'usr_rahul', owedPaise: 12500, included: true),
+          ExpenseSplit(userId: 'usr_priya', owedPaise: 12500, included: true),
+          ExpenseSplit(userId: 'usr_amit', owedPaise: 12500, included: true),
+        ],
+        createdBy: 'usr_arhaam',
+        createdAt: DateTime(2026, 10, 10),
+        updatedAt: DateTime(2026, 10, 10),
+      );
+
+      final metrics = TripsRepository.calculateTripMetrics(newTrip, [expense]);
+      expect(metrics.totalSpentPaise, equals(50000));
+      expect(metrics.myNetPaise, equals(37500));
+
+      final graph = repo.computeGraph(newTrip, [expense]);
+      expect(graph.links.length, equals(3));
+      for (final link in graph.links) {
+        expect(link.toUserId, equals('usr_arhaam'));
+        expect(link.amountPaise, equals(12500));
+      }
+
+      final dashboard = repo.computeDashboard(newTrip, [expense]);
+      expect(dashboard.trip.totalSpentPaise, equals(50000));
+      expect(dashboard.trip.myNetPaise, equals(37500));
+      expect(dashboard.budgetMeter.totalSpentPaise, equals(50000));
+    });
+
+    testWidgets('TripDetailScreen Settlement tab displays Settlement Node Graph CTA card', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.dark(),
+            home: const TripDetailScreen(tripId: 'trp_goa_2026'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap Settle tab
+      await tester.tap(find.text('Settle'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Settlement Node Graph'), findsOneWidget);
+      expect(find.text('Open Settlement Graph'), findsOneWidget);
+    });
+
+    testWidgets('TripSettleGraphScreen displays toggle, canvas visualizer and payment list', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.dark(),
+            home: const TripSettleGraphScreen(tripId: 'trp_goa_2026'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Settlement Graph'), findsOneWidget);
+      expect(find.text('Goa Vacation'), findsOneWidget);
+      expect(find.text('Simplified Plan (Min. Steps)'), findsOneWidget);
+      expect(find.text('Actual Debts (Pairwise)'), findsOneWidget);
+      expect(find.textContaining('Payment List'), findsOneWidget);
+      expect(find.byType(CustomPaint), findsWidgets);
+
+      // Tap on Pairwise debts toggle
+      await tester.tap(find.text('Actual Debts (Pairwise)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pairwise'), findsOneWidget);
     });
   });
 }

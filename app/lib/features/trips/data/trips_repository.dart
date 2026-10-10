@@ -4,7 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/mock/mock_data.dart';
 import '../../../core/money/paise.dart';
 import '../../groups/domain/group_model.dart';
+import '../../groups/data/groups_repository.dart';
 import '../../expenses/domain/expense_model.dart';
+import '../../expenses/data/expenses_repository.dart';
 import '../domain/trip_model.dart';
 
 class TripsRepository {
@@ -438,6 +440,233 @@ class TripsRepository {
     await _saveToStorage();
   }
 
+  TripModel? getTripByIdSync(String tripId) {
+    final idx = _trips.indexWhere((t) => t.id == tripId);
+    return idx != -1 ? _trips[idx] : null;
+  }
+
+  static ({
+    int totalSpentPaise,
+    int myNetPaise,
+    List<TripMember> updatedMembers,
+  }) calculateTripMetrics(TripModel trip, List<ExpenseModel> tripExpenses) {
+    if (tripExpenses.isEmpty) {
+      if (trip.id == 'trp_goa_2026') {
+        return (
+          totalSpentPaise: trip.totalSpentPaise,
+          myNetPaise: trip.myNetPaise,
+          updatedMembers: trip.members,
+        );
+      }
+      final zeroMembers = trip.members.map((m) => TripMember(
+        userId: m.userId,
+        name: m.name,
+        phoneE164: m.phoneE164,
+        role: m.role,
+        netPaise: 0,
+        isAppUser: m.isAppUser,
+      )).toList();
+      return (
+        totalSpentPaise: 0,
+        myNetPaise: 0,
+        updatedMembers: zeroMembers,
+      );
+    }
+
+    int totalSpent = 0;
+    final Map<String, int> paidByUser = {for (final m in trip.members) m.userId: 0};
+    final Map<String, int> shareByUser = {for (final m in trip.members) m.userId: 0};
+
+    for (final exp in tripExpenses) {
+      if (exp.deletedAt != null) continue;
+      totalSpent += exp.totalPaise;
+      for (final p in exp.payers) {
+        paidByUser[p.userId] = (paidByUser[p.userId] ?? 0) + p.paidPaise;
+      }
+      for (final s in exp.splits) {
+        if (s.included) {
+          shareByUser[s.userId] = (shareByUser[s.userId] ?? 0) + s.owedPaise;
+        }
+      }
+    }
+
+    final updatedMembers = trip.members.map((m) {
+      final paid = paidByUser[m.userId] ?? 0;
+      final share = shareByUser[m.userId] ?? 0;
+      final net = paid - share;
+      return TripMember(
+        userId: m.userId,
+        name: m.name,
+        phoneE164: m.phoneE164,
+        role: m.role,
+        netPaise: net,
+        isAppUser: m.isAppUser,
+      );
+    }).toList();
+
+    final myNet = (paidByUser['usr_arhaam'] ?? 0) - (shareByUser['usr_arhaam'] ?? 0);
+
+    return (
+      totalSpentPaise: totalSpent,
+      myNetPaise: myNet,
+      updatedMembers: updatedMembers,
+    );
+  }
+
+  TripDashboardData computeDashboard(TripModel trip, List<ExpenseModel> tripExpenses) {
+    if (tripExpenses.isEmpty) {
+      if (trip.id == 'trp_goa_2026') {
+        return getDashboard(trip.id);
+      }
+      final meter = computeBudgetMeter(
+        trip.budgetPaise,
+        0,
+        trip.startDate,
+        trip.endDate,
+      );
+      return TripDashboardData(
+        trip: trip,
+        budgetMeter: meter,
+        categoryBreakdown: const [],
+        dailySpending: const [],
+        memberSpends: trip.members.map((m) => TripMemberSpendItem(
+          userId: m.userId,
+          name: m.name,
+          paidPaise: 0,
+          sharePaise: 0,
+          netPaise: 0,
+        )).toList(),
+        expenses: const [],
+      );
+    }
+
+    final totalSpent = tripExpenses.fold(0, (sum, e) => sum + e.totalPaise);
+    final meter = computeBudgetMeter(
+      trip.budgetPaise,
+      totalSpent,
+      trip.startDate,
+      trip.endDate,
+    );
+
+    final Map<String, int> catMap = {};
+    for (final exp in tripExpenses) {
+      final catKey = exp.category.isNotEmpty ? exp.category : 'other';
+      catMap[catKey] = (catMap[catKey] ?? 0) + exp.totalPaise;
+    }
+    final categoryBreakdown = catMap.entries.map((entry) {
+      final pct = totalSpent > 0 ? ((entry.value * 100) / totalSpent).round() : 0;
+      return CategoryBreakdownItem(
+        category: entry.key,
+        totalPaise: entry.value,
+        percentage: pct,
+      );
+    }).toList();
+
+    final Map<String, int> dateMap = {};
+    for (final exp in tripExpenses) {
+      final d = exp.expenseDate.isNotEmpty ? exp.expenseDate : 'Today';
+      dateMap[d] = (dateMap[d] ?? 0) + exp.totalPaise;
+    }
+    final dailySpending = dateMap.entries.map((entry) {
+      return TripDailySpendingItem(date: entry.key, dayLabel: entry.key, totalPaise: entry.value);
+    }).toList();
+
+    final Map<String, int> paidMap = {for (final m in trip.members) m.userId: 0};
+    final Map<String, int> shareMap = {for (final m in trip.members) m.userId: 0};
+    for (final exp in tripExpenses) {
+      for (final p in exp.payers) {
+        paidMap[p.userId] = (paidMap[p.userId] ?? 0) + p.paidPaise;
+      }
+      for (final s in exp.splits) {
+        if (s.included) {
+          shareMap[s.userId] = (shareMap[s.userId] ?? 0) + s.owedPaise;
+        }
+      }
+    }
+
+    final memberSpends = trip.members.map((m) {
+      final p = paidMap[m.userId] ?? 0;
+      final s = shareMap[m.userId] ?? 0;
+      return TripMemberSpendItem(
+        userId: m.userId,
+        name: m.name,
+        paidPaise: p,
+        sharePaise: s,
+        netPaise: p - s,
+      );
+    }).toList();
+
+    final metrics = calculateTripMetrics(trip, tripExpenses);
+    final updatedTrip = trip.copyWith(
+      totalSpentPaise: metrics.totalSpentPaise,
+      myNetPaise: metrics.myNetPaise,
+      members: metrics.updatedMembers,
+    );
+
+    return TripDashboardData(
+      trip: updatedTrip,
+      budgetMeter: meter,
+      categoryBreakdown: categoryBreakdown,
+      dailySpending: dailySpending,
+      memberSpends: memberSpends,
+      expenses: tripExpenses,
+    );
+  }
+
+  GroupGraphData computeGraph(TripModel trip, List<ExpenseModel> tripExpenses, {bool simplified = true}) {
+    if (tripExpenses.isEmpty) {
+      if (trip.id == 'trp_goa_2026') {
+        return getGraph(trip.id, simplified: simplified);
+      }
+      final nodes = trip.members.map((m) {
+        return GraphNode(
+          userId: m.userId,
+          name: m.userId == 'usr_arhaam' ? '${m.name} (You)' : m.name,
+          netPaise: 0,
+        );
+      }).toList();
+      return GroupGraphData(
+        groupId: trip.id,
+        mode: simplified ? 'simplified' : 'actual',
+        nodes: nodes,
+        links: const [],
+      );
+    }
+
+    final Map<String, int> paidMap = {for (final m in trip.members) m.userId: 0};
+    final Map<String, int> shareMap = {for (final m in trip.members) m.userId: 0};
+    for (final exp in tripExpenses) {
+      for (final p in exp.payers) {
+        paidMap[p.userId] = (paidMap[p.userId] ?? 0) + p.paidPaise;
+      }
+      for (final s in exp.splits) {
+        if (s.included) {
+          shareMap[s.userId] = (shareMap[s.userId] ?? 0) + s.owedPaise;
+        }
+      }
+    }
+
+    final nodes = trip.members.map((m) {
+      final net = (paidMap[m.userId] ?? 0) - (shareMap[m.userId] ?? 0);
+      return GraphNode(
+        userId: m.userId,
+        name: m.userId == 'usr_arhaam' ? '${m.name} (You)' : m.name,
+        netPaise: net,
+      );
+    }).toList();
+
+    final links = simplified
+        ? GroupsRepository.calculateSimplifiedDebts(nodes)
+        : GroupsRepository.calculatePairwiseDebts(tripExpenses);
+
+    return GroupGraphData(
+      groupId: trip.id,
+      mode: simplified ? 'simplified' : 'actual',
+      nodes: nodes,
+      links: links,
+    );
+  }
+
   TripDashboardData getDashboard(String tripId) {
     final trip = _trips.firstWhere(
       (t) => t.id == tripId,
@@ -567,7 +796,7 @@ class TripsRepository {
     );
   }
 
-  GroupGraphData getGraph(String tripId) {
+  GroupGraphData getGraph(String tripId, {bool simplified = true}) {
     // Reuses graph visualization structure with ZERO offsets
     final nodes = [
       const GraphNode(userId: 'usr_arhaam', name: 'Arhaam (You)', netPaise: 1380000),
@@ -576,15 +805,22 @@ class TripsRepository {
       const GraphNode(userId: 'usr_sneha', name: 'Sneha', netPaise: -960000),
     ];
 
-    final links = [
-      const GraphLink(fromUserId: 'usr_sneha', toUserId: 'usr_arhaam', amountPaise: 960000, isPending: false),
-      const GraphLink(fromUserId: 'usr_priya', toUserId: 'usr_arhaam', amountPaise: 420000, isPending: false),
-      const GraphLink(fromUserId: 'usr_priya', toUserId: 'usr_rahul', amountPaise: 40000, isPending: false),
-    ];
+    final links = simplified
+        ? [
+            const GraphLink(fromUserId: 'usr_sneha', toUserId: 'usr_arhaam', amountPaise: 960000, isPending: false),
+            const GraphLink(fromUserId: 'usr_priya', toUserId: 'usr_arhaam', amountPaise: 420000, isPending: false),
+            const GraphLink(fromUserId: 'usr_priya', toUserId: 'usr_rahul', amountPaise: 40000, isPending: false),
+          ]
+        : [
+            const GraphLink(fromUserId: 'usr_sneha', toUserId: 'usr_arhaam', amountPaise: 750000, isPending: false),
+            const GraphLink(fromUserId: 'usr_sneha', toUserId: 'usr_rahul', amountPaise: 210000, isPending: false),
+            const GraphLink(fromUserId: 'usr_priya', toUserId: 'usr_arhaam', amountPaise: 630000, isPending: false),
+            const GraphLink(fromUserId: 'usr_priya', toUserId: 'usr_rahul', amountPaise: 170000, isPending: false),
+          ];
 
     return GroupGraphData(
       groupId: tripId,
-      mode: 'simplified',
+      mode: simplified ? 'simplified' : 'actual',
       nodes: nodes,
       links: links,
     );
@@ -683,13 +919,50 @@ final tripsNotifierProvider = AsyncNotifierProvider<TripsNotifier, List<TripMode
 });
 
 final tripDetailProvider = FutureProvider.family<TripModel, String>((ref, tripId) async {
-  return ref.watch(tripsRepositoryProvider).getTripById(tripId);
+  final repo = ref.watch(tripsRepositoryProvider);
+  final trip = await repo.getTripById(tripId);
+
+  final asyncExpenses = ref.watch(expensesNotifierProvider);
+  final allExpenses = asyncExpenses.maybeWhen(
+    data: (list) => list,
+    orElse: () => <ExpenseModel>[],
+  );
+  final tripExpenses = allExpenses.where((e) => e.ledgerId == tripId && e.deletedAt == null).toList();
+
+  if (tripExpenses.isEmpty) {
+    return trip;
+  }
+
+  final metrics = TripsRepository.calculateTripMetrics(trip, tripExpenses);
+  return trip.copyWith(
+    totalSpentPaise: metrics.totalSpentPaise,
+    myNetPaise: metrics.myNetPaise,
+    members: metrics.updatedMembers,
+  );
 });
 
 final tripDashboardProvider = Provider.family<TripDashboardData, String>((ref, tripId) {
-  return ref.watch(tripsRepositoryProvider).getDashboard(tripId);
+  final trip = ref.watch(tripDetailProvider(tripId)).maybeWhen(
+    data: (t) => t,
+    orElse: () => ref.watch(tripsRepositoryProvider).getTripByIdSync(tripId) ?? TripModel(id: tripId, name: 'Trip', creatorUserId: 'usr_arhaam', isAdmin: true, budgetPaise: 0, totalSpentPaise: 0, myNetPaise: 0, isCompleted: false, membersCount: 0, startDate: '', endDate: '', members: const [], createdAt: ''),
+  );
+  final allExpenses = ref.watch(expensesNotifierProvider).maybeWhen(
+    data: (list) => list,
+    orElse: () => <ExpenseModel>[],
+  );
+  final tripExpenses = allExpenses.where((e) => e.ledgerId == tripId && e.deletedAt == null).toList();
+  return ref.watch(tripsRepositoryProvider).computeDashboard(trip, tripExpenses);
 });
 
-final tripGraphProvider = Provider.family<GroupGraphData, String>((ref, tripId) {
-  return ref.watch(tripsRepositoryProvider).getGraph(tripId);
+final tripGraphProvider = Provider.family<GroupGraphData, ({String tripId, bool simplified})>((ref, arg) {
+  final trip = ref.watch(tripDetailProvider(arg.tripId)).maybeWhen(
+    data: (t) => t,
+    orElse: () => ref.watch(tripsRepositoryProvider).getTripByIdSync(arg.tripId) ?? TripModel(id: arg.tripId, name: 'Trip', creatorUserId: 'usr_arhaam', isAdmin: true, budgetPaise: 0, totalSpentPaise: 0, myNetPaise: 0, isCompleted: false, membersCount: 0, startDate: '', endDate: '', members: const [], createdAt: ''),
+  );
+  final allExpenses = ref.watch(expensesNotifierProvider).maybeWhen(
+    data: (list) => list,
+    orElse: () => <ExpenseModel>[],
+  );
+  final tripExpenses = allExpenses.where((e) => e.ledgerId == arg.tripId && e.deletedAt == null).toList();
+  return ref.watch(tripsRepositoryProvider).computeGraph(trip, tripExpenses, simplified: arg.simplified);
 });

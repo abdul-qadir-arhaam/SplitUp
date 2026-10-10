@@ -580,40 +580,60 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         // Category Donut Chart
-        GlassCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Spending by Category',
-                style: SplitUpTypography.title(color: colors.textPrimary),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 160,
-                child: PieChart(
-                  PieChartData(
-                    sectionsSpace: 3,
-                    centerSpaceRadius: 40,
-                    sections: dashboard.categories.asMap().entries.map((entry) {
-                      final i = entry.key;
-                      final c = entry.value;
-                      final chartColors = [colors.accentReceive, colors.accentBrass, colors.statusInfo, colors.accentOwe];
-                      return PieChartSectionData(
-                        value: c.percentage.toDouble(),
-                        color: chartColors[i % chartColors.length],
-                        title: '${c.category} (${c.percentage}%)',
-                        titleStyle: SplitUpTypography.caption(color: Colors.white).copyWith(fontSize: 10),
-                        radius: 36,
-                      );
-                    }).toList(),
+        if (dashboard.categories.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: colors.surfaceFlat,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.divider),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.pie_chart_outline_rounded, size: 40, color: colors.textMuted),
+                const SizedBox(height: 10),
+                Text('No category data yet', style: SplitUpTypography.title(color: colors.textPrimary)),
+                const SizedBox(height: 4),
+                Text('Add expenses to see category breakdown', style: SplitUpTypography.caption(color: colors.textMuted)),
+              ],
+            ),
+          )
+        else
+          GlassCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Spending by Category',
+                  style: SplitUpTypography.title(color: colors.textPrimary),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 160,
+                  child: PieChart(
+                    PieChartData(
+                      sectionsSpace: 3,
+                      centerSpaceRadius: 40,
+                      sections: dashboard.categories.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final c = entry.value;
+                        final chartColors = [colors.accentReceive, colors.accentBrass, colors.statusInfo, colors.accentOwe];
+                        return PieChartSectionData(
+                          value: c.percentage.toDouble(),
+                          color: chartColors[i % chartColors.length],
+                          title: '${c.category} (${c.percentage}%)',
+                          titleStyle: SplitUpTypography.caption(color: Colors.white).copyWith(fontSize: 10),
+                          radius: 36,
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         const SizedBox(height: 20),
 
         // Member Spending & Share comparative bars
@@ -827,83 +847,112 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
         ),
         const SizedBox(height: 12),
 
-        // Rahul Settlement Row: The user owes Rahul in this group
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colors.surfaceFlat,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.divider),
-          ),
-          child: Row(
-            children: [
-              Avatar(name: 'Rahul', size: 40),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Pay Rahul Sharma', style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
-                    Text('Simplified debt: ₹1,200', style: SplitUpTypography.caption(color: colors.textMuted)),
-                  ],
-                ),
-              ),
-              // Rule: Settle button is shown ONLY for rows where user pays!
-              SettleButton(
-                amountPaise: 120000,
-                compact: true,
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (ctx) => SettleSheet(
-                      friendId: 'usr_rahul',
-                      friendName: 'Rahul Sharma',
-                      ledgerId: group.id,
-                      amountPaise: 120000,
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
+        Builder(
+          builder: (context) {
+            final graph = ref.watch(groupGraphProvider((groupId: group.id, simplified: true)));
+            final links = graph.links;
 
-        // Amit to Priya Row: Settle between two OTHER members (User does NOT pay)
-        // Rule: NO Settle button here!
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colors.surfaceFlat,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.divider),
-          ),
-          child: Row(
-            children: [
-              Avatar(name: 'Amit', size: 40),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Amit owes Priya', style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
-                    Text('Simplified debt: ₹1,500', style: SplitUpTypography.caption(color: colors.textMuted)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            if (links.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: colors.surfaceFlatRaised,
-                  borderRadius: BorderRadius.circular(10),
+                  color: colors.surfaceFlat,
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: colors.divider),
                 ),
-                child: Text('Between Members', style: SplitUpTypography.caption(color: colors.textMuted)),
-              ),
-            ],
-          ),
+                child: Column(
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded, size: 40, color: colors.accentReceive),
+                    const SizedBox(height: 10),
+                    Text('All settled up!', style: SplitUpTypography.title(color: colors.textPrimary)),
+                    const SizedBox(height: 4),
+                    Text('No one owes anything in this group.', style: SplitUpTypography.caption(color: colors.textMuted)),
+                  ],
+                ),
+              );
+            }
+
+            return Column(
+              children: links.map((link) {
+                final fromMember = group.members.firstWhere(
+                  (m) => m.userId == link.fromUserId,
+                  orElse: () => GroupMember(userId: link.fromUserId, name: link.fromUserId, phoneE164: '', role: 'MEMBER', netPaise: 0, isAppUser: true),
+                );
+                final toMember = group.members.firstWhere(
+                  (m) => m.userId == link.toUserId,
+                  orElse: () => GroupMember(userId: link.toUserId, name: link.toUserId, phoneE164: '', role: 'MEMBER', netPaise: 0, isAppUser: true),
+                );
+                final fromName = link.fromUserId == 'usr_arhaam' ? 'You' : fromMember.name;
+                final toName = link.toUserId == 'usr_arhaam' ? 'You' : toMember.name;
+                final isUserPaying = link.fromUserId == 'usr_arhaam';
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceFlat,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.divider),
+                  ),
+                  child: Row(
+                    children: [
+                      Avatar(name: isUserPaying ? toName : fromName, size: 40),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isUserPaying
+                                  ? 'Pay $toName'
+                                  : (link.toUserId == 'usr_arhaam'
+                                      ? '$fromName owes you'
+                                      : '$fromName owes $toName'),
+                              style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
+                            ),
+                            Text(
+                              'Simplified debt: ${formatPaise(link.amountPaise)}',
+                              style: SplitUpTypography.caption(color: colors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (isUserPaying)
+                        SettleButton(
+                          amountPaise: link.amountPaise,
+                          compact: true,
+                          onPressed: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (ctx) => SettleSheet(
+                                friendId: link.toUserId,
+                                friendName: toName,
+                                ledgerId: group.id,
+                                amountPaise: link.amountPaise,
+                              ),
+                            );
+                          },
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: colors.surfaceFlatRaised,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            formatPaise(link.amountPaise),
+                            style: SplitUpTypography.caption(color: colors.textMuted).copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            );
+          },
         ),
         const SizedBox(height: 80),
       ],

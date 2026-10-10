@@ -1,11 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/money/paise.dart';
+import '../../../core/names/display_name.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../friends/data/friends_repository.dart';
+import '../../friends/domain/friend_model.dart';
+import '../../groups/data/groups_repository.dart';
+import '../../groups/domain/group_model.dart';
+import '../../trips/data/trips_repository.dart';
+import '../../trips/domain/trip_model.dart';
 import '../data/expenses_repository.dart';
 import '../domain/expense_model.dart';
+import 'add_expense_screen.dart';
 
 class ExpenseDetailSheet extends ConsumerWidget {
   final ExpenseModel expense;
@@ -29,6 +37,46 @@ class ExpenseDetailSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+
+    String resolveName(String userId) {
+      if (userId == 'usr_arhaam') return 'You';
+      final friends = ref.watch(friendsNotifierProvider).maybeWhen(
+            data: (list) => list,
+            orElse: () => <FriendModel>[],
+          );
+      for (final f in friends) {
+        if (f.id == userId) {
+          return displayNameFor(
+            nickname: f.nickname,
+            contactName: f.contactName,
+            profileName: f.name,
+          );
+        }
+      }
+      final groups = ref.watch(groupsNotifierProvider).maybeWhen(
+            data: (list) => list,
+            orElse: () => <GroupModel>[],
+          );
+      for (final g in groups) {
+        for (final m in g.members) {
+          if (m.userId == userId) {
+            return displayNameFor(profileName: m.name);
+          }
+        }
+      }
+      final trips = ref.watch(tripsNotifierProvider).maybeWhen(
+            data: (list) => list,
+            orElse: () => <TripModel>[],
+          );
+      for (final t in trips) {
+        for (final m in t.members) {
+          if (m.userId == userId) {
+            return displayNameFor(profileName: m.name);
+          }
+        }
+      }
+      return userId;
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -133,17 +181,51 @@ class ExpenseDetailSheet extends ConsumerWidget {
                 border: Border.all(color: colors.divider),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Paid by', style: SplitUpTypography.body(color: colors.textSecondary)),
-                      Text(
-                        expense.payers.map((p) => p.userId == 'usr_arhaam' ? 'You' : 'Friend').join(', '),
-                        style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 14),
-                      ),
-                    ],
-                  ),
+                  if (expense.payers.length <= 1)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Paid by', style: SplitUpTypography.body(color: colors.textSecondary)),
+                        Text(
+                          expense.payers.isNotEmpty ? resolveName(expense.payers.first.userId) : 'Unknown',
+                          style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 14),
+                        ),
+                      ],
+                    )
+                  else ...[
+                    Text(
+                      'Paid by (${expense.payers.length} people)',
+                      style: SplitUpTypography.body(color: colors.textSecondary),
+                    ),
+                    const SizedBox(height: 8),
+                    ...expense.payers.map((p) {
+                      final name = resolveName(p.userId);
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Avatar(name: name, size: 22),
+                                const SizedBox(width: 8),
+                                Text(
+                                  name,
+                                  style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 13),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              formatPaise(p.paidPaise),
+                              style: SplitUpTypography.title(color: colors.accentBrass).copyWith(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
                   const Divider(height: 18),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -173,10 +255,36 @@ class ExpenseDetailSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
-            // Action Buttons: Dispute and Delete
+            // Action Buttons: Edit, Dispute, and Delete
             Row(
               children: [
-                if (!expense.isDisputed)
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colors.accentReceive,
+                      side: BorderSide(color: colors.accentReceive.withValues(alpha: 0.5)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Edit'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (ctx) => AddExpenseScreen(
+                            existingExpense: expense,
+                            initialLedgerId: expense.ledgerId,
+                            friendId: friendId,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if (!expense.isDisputed) ...[
+                  const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -198,7 +306,8 @@ class ExpenseDetailSheet extends ConsumerWidget {
                       },
                     ),
                   ),
-                if (!expense.isDisputed) const SizedBox(width: 12),
+                ],
+                const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(

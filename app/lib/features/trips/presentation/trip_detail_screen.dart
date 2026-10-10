@@ -11,6 +11,7 @@ import '../../notifications/data/notifications_repository.dart';
 import '../../expenses/presentation/add_expense_screen.dart';
 import '../../expenses/data/expenses_repository.dart';
 import '../../expenses/domain/expense_model.dart';
+import '../../settlements/presentation/settle_sheet.dart';
 
 class TripDetailScreen extends ConsumerStatefulWidget {
   final String tripId;
@@ -298,6 +299,8 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
                 onSelected: (val) {
                   if (val == 'view_members') {
                     _showMembersSheet(trip);
+                  } else if (val == 'settle_graph') {
+                    context.push('/trips/${trip.id}/graph');
                   } else if (val == 'budget') {
                     _showEditBudgetDialog(trip);
                   } else if (val == 'complete') {
@@ -312,6 +315,16 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
                         Icon(Icons.people_alt_outlined, size: 18, color: colors.textPrimary),
                         const SizedBox(width: 10),
                         Text('View Members', style: TextStyle(color: colors.textPrimary)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'settle_graph',
+                    child: Row(
+                      children: [
+                        Icon(Icons.hub_outlined, size: 18, color: colors.textPrimary),
+                        const SizedBox(width: 10),
+                        Text('Settlement Graph', style: TextStyle(color: colors.textPrimary)),
                       ],
                     ),
                   ),
@@ -416,18 +429,24 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Icon(Icons.calendar_today_rounded, size: 14, color: colors.accentBrass),
-                const SizedBox(width: 6),
-                Text(
-                  trip.startDate != null && trip.endDate != null
-                      ? '${trip.startDate} – ${trip.endDate}'
-                      : 'Time-boxed Trip Ledger',
-                  style: SplitUpTypography.label(color: colors.textSecondary),
-                ),
-              ],
+            Expanded(
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_today_rounded, size: 14, color: colors.accentBrass),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      trip.startDate != null && trip.endDate != null
+                          ? '${trip.startDate} – ${trip.endDate}'
+                          : 'Time-boxed Trip Ledger',
+                      style: SplitUpTypography.label(color: colors.textSecondary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             StatusChip(status: trip.isCompleted ? 'COMPLETED' : 'ACTIVE'),
           ],
         ),
@@ -519,17 +538,26 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
                     children: [
                       Icon(Icons.trending_up_rounded, size: 16, color: colors.accentBrass),
                       const SizedBox(width: 8),
-                      Text(
-                        'Remaining per day: ',
-                        style: SplitUpTypography.caption(color: colors.textMuted),
+                      Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'Per day: ',
+                                style: SplitUpTypography.caption(color: colors.textMuted),
+                              ),
+                              TextSpan(
+                                text: '${formatPaise(meter.remainingPerDayPaise!)}/day',
+                                style: SplitUpTypography.caption(color: colors.textPrimary).copyWith(fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
-                        '${formatPaise(meter.remainingPerDayPaise!)} / day',
-                        style: SplitUpTypography.caption(color: colors.textPrimary).copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${meter.daysRemaining} days left',
+                        '${meter.daysRemaining}d left',
                         style: SplitUpTypography.caption(color: colors.accentBrass),
                       ),
                     ],
@@ -556,7 +584,14 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Adjust Budget (Creator Only)', style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
+                    Expanded(
+                      child: Text(
+                        'Adjust Budget (Creator Only)',
+                        style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     TextButton(
                       onPressed: () => _showEditBudgetDialog(trip),
                       child: Text('Edit Amount', style: SplitUpTypography.label(color: colors.accentReceive)),
@@ -582,95 +617,116 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
         ],
 
         // Daily Spending Bars
-        Text('Daily Spending', style: SplitUpTypography.title(color: colors.textPrimary)),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colors.surfaceFlat,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.divider),
-          ),
-          child: Column(
-            children: dashboard.dailySpending.map((day) {
-              final double barWidthRatio = (day.totalPaise / 2000000).clamp(0.05, 1.0);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 100,
-                      child: Text(
-                        day.dayLabel,
-                        style: SplitUpTypography.caption(color: colors.textMuted),
-                      ),
-                    ),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: barWidthRatio,
-                          backgroundColor: colors.surfaceFlatRaised,
-                          color: colors.accentReceive,
-                          minHeight: 10,
+        if (dashboard.dailySpending.isNotEmpty) ...[
+          Text('Daily Spending', style: SplitUpTypography.title(color: colors.textPrimary)),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.surfaceFlat,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.divider),
+            ),
+            child: Column(
+              children: dashboard.dailySpending.map((day) {
+                final double barWidthRatio = (day.totalPaise / 2000000).clamp(0.05, 1.0);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 100,
+                        child: Text(
+                          day.dayLabel,
+                          style: SplitUpTypography.caption(color: colors.textMuted),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      formatPaise(day.totalPaise),
-                      style: SplitUpTypography.label(color: colors.textPrimary),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: barWidthRatio,
+                            backgroundColor: colors.surfaceFlatRaised,
+                            color: colors.accentReceive,
+                            minHeight: 10,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        formatPaise(day.totalPaise),
+                        style: SplitUpTypography.label(color: colors.textPrimary),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
           ),
-        ),
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
+        ],
 
         // Category Breakdown
         Text('Category Breakdown', style: SplitUpTypography.title(color: colors.textPrimary)),
         const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: colors.surfaceFlat,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colors.divider),
-          ),
-          child: Column(
-            children: dashboard.categoryBreakdown.map((cat) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    Icon(
-                      cat.category == 'food'
-                          ? Icons.restaurant_rounded
-                          : (cat.category == 'stay'
-                              ? Icons.hotel_rounded
-                              : (cat.category == 'travel' ? Icons.directions_car_rounded : Icons.receipt_long_rounded)),
-                      size: 20,
-                      color: colors.accentBrass,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        cat.category.toUpperCase(),
-                        style: SplitUpTypography.label(color: colors.textPrimary),
+        if (dashboard.categoryBreakdown.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: colors.surfaceFlat,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.divider),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.pie_chart_outline_rounded, size: 40, color: colors.textMuted),
+                const SizedBox(height: 10),
+                Text('No category data yet', style: SplitUpTypography.title(color: colors.textPrimary)),
+                const SizedBox(height: 4),
+                Text('Add expenses to see category breakdown', style: SplitUpTypography.caption(color: colors.textMuted)),
+              ],
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.surfaceFlat,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: colors.divider),
+            ),
+            child: Column(
+              children: dashboard.categoryBreakdown.map((cat) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Icon(
+                        cat.category == 'food'
+                            ? Icons.restaurant_rounded
+                            : (cat.category == 'stay'
+                                ? Icons.hotel_rounded
+                                : (cat.category == 'travel' ? Icons.directions_car_rounded : Icons.receipt_long_rounded)),
+                        size: 20,
+                        color: colors.accentBrass,
                       ),
-                    ),
-                    Text(
-                      '${cat.percentage}% · ${formatPaise(cat.totalPaise)}',
-                      style: SplitUpTypography.caption(color: colors.textSecondary),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          cat.category.toUpperCase(),
+                          style: SplitUpTypography.label(color: colors.textPrimary),
+                        ),
+                      ),
+                      Text(
+                        '${cat.percentage}% · ${formatPaise(cat.totalPaise)}',
+                        style: SplitUpTypography.caption(color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
           ),
-        ),
         const SizedBox(height: 24),
 
         if (trip.isAdmin && !trip.isCompleted) ...[
@@ -687,15 +743,16 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
 
   Widget _buildExpensesTab(TripModel trip, SplitUpColors colors, TripDashboardData dashboard) {
     final asyncExpenses = ref.watch(expensesNotifierProvider);
-    final dynamicTripExpenses = asyncExpenses.maybeWhen(
-      data: (list) => list.where((e) => e.ledgerId == trip.id).toList(),
-      orElse: () => <ExpenseModel>[],
+    final allExpenses = asyncExpenses.maybeWhen(
+      data: (list) {
+        final tripExpenses = list.where((e) => e.ledgerId == trip.id && e.deletedAt == null).toList();
+        if (tripExpenses.isEmpty && trip.id == 'trp_goa_2026') {
+          return dashboard.expenses;
+        }
+        return tripExpenses;
+      },
+      orElse: () => trip.id == 'trp_goa_2026' ? dashboard.expenses : <ExpenseModel>[],
     );
-    final existingIds = dynamicTripExpenses.map((e) => e.id).toSet();
-    final allExpenses = [
-      ...dynamicTripExpenses,
-      ...dashboard.expenses.where((e) => !existingIds.contains(e.id)),
-    ];
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -776,7 +833,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
   }
 
   Widget _buildSettleTab(TripModel trip, SplitUpColors colors) {
-    final graph = ref.watch(tripGraphProvider(trip.id));
+    final graph = ref.watch(tripGraphProvider((tripId: trip.id, simplified: true)));
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -804,49 +861,125 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
         ),
         const SizedBox(height: 16),
 
-        Text('Trip Settlement Graph', style: SplitUpTypography.title(color: colors.textPrimary)),
-        const SizedBox(height: 10),
+        // Settle Graph CTA Card
+        GlassCard(
+          strong: true,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Icon(Icons.hub_rounded, size: 48, color: colors.accentBrass),
+              const SizedBox(height: 12),
+              Text(
+                'Settlement Node Graph',
+                style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 18),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'View visual diagram showing who pays whom on this trip with simplified or pairwise debts.',
+                textAlign: TextAlign.center,
+                style: SplitUpTypography.body(color: colors.textMuted).copyWith(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              PrimaryButton(
+                label: 'Open Settlement Graph',
+                icon: Icons.hub_outlined,
+                onPressed: () => context.push('/trips/${trip.id}/graph'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text('Direct Settlement Options', style: SplitUpTypography.title(color: colors.textPrimary)),
+        const SizedBox(height: 12),
 
         // Transfers List
-        ...graph.links.map((link) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(16),
+        if (graph.links.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: colors.surfaceFlat,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: colors.divider),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Avatar(name: link.fromUserId, size: 36),
-                const SizedBox(width: 10),
-                Icon(Icons.arrow_forward_rounded, size: 16, color: colors.textMuted),
-                const SizedBox(width: 10),
-                Avatar(name: link.toUserId, size: 36),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '${link.fromUserId} pays ${link.toUserId}',
-                    style: SplitUpTypography.body(color: colors.textPrimary),
-                  ),
-                ),
-                MoneyText(link.amountPaise, variant: MoneyVariant.body, colored: false),
+                Icon(Icons.check_circle_outline_rounded, size: 40, color: colors.accentReceive),
+                const SizedBox(height: 10),
+                Text('All settled up!', style: SplitUpTypography.title(color: colors.textPrimary)),
+                const SizedBox(height: 4),
+                Text('No one owes anything on this trip.', style: SplitUpTypography.caption(color: colors.textMuted)),
               ],
             ),
-          );
-        }),
-        const SizedBox(height: 16),
-
-        PrimaryButton(
-          label: 'Settle Debt Directly',
-          icon: Icons.payments_outlined,
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Settlement request recorded in Trip ledger.')),
+          )
+        else
+          ...graph.links.map((link) {
+            final fromMember = trip.members.firstWhere(
+              (m) => m.userId == link.fromUserId,
+              orElse: () => TripMember(userId: link.fromUserId, name: link.fromUserId, phoneE164: '', role: 'MEMBER', netPaise: 0, isAppUser: true),
             );
-          },
-        ),
+            final toMember = trip.members.firstWhere(
+              (m) => m.userId == link.toUserId,
+              orElse: () => TripMember(userId: link.toUserId, name: link.toUserId, phoneE164: '', role: 'MEMBER', netPaise: 0, isAppUser: true),
+            );
+            final fromName = link.fromUserId == 'usr_arhaam' ? 'You' : fromMember.name;
+            final toName = link.toUserId == 'usr_arhaam' ? 'You' : toMember.name;
+            final isUserPaying = link.fromUserId == 'usr_arhaam';
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colors.surfaceFlat,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.divider),
+              ),
+              child: Row(
+                children: [
+                  Avatar(name: isUserPaying ? toName : fromName, size: 40),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isUserPaying
+                              ? 'Pay $toName'
+                              : (link.toUserId == 'usr_arhaam'
+                                  ? '$fromName owes you'
+                                  : '$fromName owes $toName'),
+                          style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),
+                        ),
+                        Text(
+                          'Trip debt: ${formatPaise(link.amountPaise)}',
+                          style: SplitUpTypography.caption(color: colors.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isUserPaying)
+                    SettleButton(
+                      amountPaise: link.amountPaise,
+                      compact: true,
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (ctx) => SettleSheet(
+                            friendId: link.toUserId,
+                            friendName: toName,
+                            ledgerId: trip.id,
+                            amountPaise: link.amountPaise,
+                          ),
+                        );
+                      },
+                    )
+                  else
+                    MoneyText(link.amountPaise, variant: MoneyVariant.body, colored: false),
+                ],
+              ),
+            );
+          }),
         const SizedBox(height: 80),
       ],
     );
