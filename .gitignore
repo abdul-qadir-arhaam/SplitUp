@@ -1,0 +1,22 @@
+# Node & Backend
+node_modules/
+backend/node_modules/
+dist/
+backend/dist/
+.env
+backend/.env
+*.log
+
+# Flutter / Dart
+app/.dart_tool/
+app/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+
+# IDE & OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,33 @@
+{
+  "name": "Percentages and Shares Split Vectors",
+  "percentCases": [
+    {
+      "totalPaise": 100000,
+      "splitType": "PERCENT",
+      "participants": [
+        { "userId": "A", "included": true, "splitValue": 5000 },
+        { "userId": "B", "included": true, "splitValue": 3333 },
+        { "userId": "C", "included": true, "splitValue": 1667 }
+      ],
+      "expectedSplits": [
+        { "userId": "A", "included": true, "owedPaise": 50000 },
+        { "userId": "B", "included": true, "owedPaise": 33330 },
+        { "userId": "C", "included": true, "owedPaise": 16670 }
+      ]
+    }
+  ],
+  "sharesCases": [
+    {
+      "totalPaise": 90000,
+      "splitType": "SHARES",
+      "participants": [
+        { "userId": "A", "included": true, "splitValue": 2 },
+        { "userId": "B", "included": true, "splitValue": 1 }
+      ],
+      "expectedSplits": [
+        { "userId": "A", "included": true, "owedPaise": 60000 },
+        { "userId": "B", "included": true, "owedPaise": 30000 }
+      ]
+    }
+  ]
+}

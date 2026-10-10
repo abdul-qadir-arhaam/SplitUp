@@ -1,0 +1,17 @@
+{
+  "name": "Acceptance Scenario 4: Simplification of 5 Members and Multiple Expenses",
+  "description": "5 members in a group with multiple expenses yields at most 4 simplified payments, and clearing them zeroes all balances.",
+  "netBalances": {
+    "A": 450000,
+    "B": -200000,
+    "C": -150000,
+    "D": -100000,
+    "E": 0
+  },
+  "maxPaymentsAllowed": 4,
+  "expectedSimplifiedSettlements": [
+    { "from": "B", "to": "A", "amountPaise": 200000 },
+    { "from": "C", "to": "A", "amountPaise": 150000 },
+    { "from": "D", "to": "A", "amountPaise": 100000 }
+  ]
+}

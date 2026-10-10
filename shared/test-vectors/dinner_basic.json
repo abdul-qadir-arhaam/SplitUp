@@ -1,0 +1,29 @@
+{
+  "name": "Acceptance Scenario 1: Basic Dinner Split",
+  "description": "A paid 200, B paid 600, C paid 400 on a Rs 1,200 dinner split equally. Result: only A pays B Rs 200.",
+  "totalPaise": 120000,
+  "splitType": "EQUAL",
+  "payers": [
+    { "userId": "A", "paidPaise": 20000 },
+    { "userId": "B", "paidPaise": 60000 },
+    { "userId": "C", "paidPaise": 40000 }
+  ],
+  "participants": [
+    { "userId": "A", "included": true },
+    { "userId": "B", "included": true },
+    { "userId": "C", "included": true }
+  ],
+  "expectedSplits": [
+    { "userId": "A", "included": true, "owedPaise": 40000 },
+    { "userId": "B", "included": true, "owedPaise": 40000 },
+    { "userId": "C", "included": true, "owedPaise": 40000 }
+  ],
+  "expectedNetBalances": {
+    "A": -20000,
+    "B": 20000,
+    "C": 0
+  },
+  "expectedSimplifiedSettlements": [
+    { "from": "A", "to": "B", "amountPaise": 20000 }
+  ]
+}

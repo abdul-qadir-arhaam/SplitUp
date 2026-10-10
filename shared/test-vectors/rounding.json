@@ -1,0 +1,24 @@
+{
+  "name": "Acceptance Scenario 2: Rounding Invariant",
+  "description": "Rs 1,000 split 3 ways yields shares summing exactly to 100,000 paise (33334, 33333, 33333).",
+  "totalPaise": 100000,
+  "splitType": "EQUAL",
+  "payers": [
+    { "userId": "user_1", "paidPaise": 100000 }
+  ],
+  "participants": [
+    { "userId": "user_1", "included": true },
+    { "userId": "user_2", "included": true },
+    { "userId": "user_3", "included": true }
+  ],
+  "expectedSplits": [
+    { "userId": "user_1", "included": true, "owedPaise": 33334 },
+    { "userId": "user_2", "included": true, "owedPaise": 33333 },
+    { "userId": "user_3", "included": true, "owedPaise": 33333 }
+  ],
+  "expectedNetBalances": {
+    "user_1": 66666,
+    "user_2": -33333,
+    "user_3": -33333
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "Acceptance Scenario 3: Excluded Member (Not There)",
+  "description": "Excluding a member from a Rs 900 expense among 3 yields Rs 450 each for the other two, and nothing for the excluded person.",
+  "totalPaise": 90000,
+  "splitType": "EQUAL",
+  "payers": [
+    { "userId": "A", "paidPaise": 90000 }
+  ],
+  "participants": [
+    { "userId": "A", "included": true },
+    { "userId": "B", "included": true },
+    { "userId": "C", "included": false }
+  ],
+  "expectedSplits": [
+    { "userId": "A", "included": true, "owedPaise": 45000 },
+    { "userId": "B", "included": true, "owedPaise": 45000 },
+    { "userId": "C", "included": false, "owedPaise": 0 }
+  ],
+  "expectedNetBalances": {
+    "A": 45000,
+    "B": -45000,
+    "C": 0
+  }
+}
