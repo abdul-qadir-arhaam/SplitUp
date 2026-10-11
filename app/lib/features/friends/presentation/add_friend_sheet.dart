@@ -142,14 +142,20 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
     }).toList();
 
     return GlassSheet(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          left: 20,
-          right: 20,
-          top: 12,
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
         ),
-        child: Column(
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            left: 20,
+            right: 20,
+            top: 12,
+          ),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -290,6 +296,8 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }

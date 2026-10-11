@@ -1,53 +1,91 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/expense_model.dart';
 import '../../friends/data/friends_repository.dart';
 import '../../notifications/data/notifications_repository.dart';
 
 class ExpensesRepository {
+  static const _storageKey = 'splitup_expenses_data_v2';
   final Ref _ref;
-
-  final List<ExpenseModel> _expenses = [
-    ExpenseModel(
-      id: 'exp_1',
-      ledgerId: 'ldg_usr_rahul',
-      title: 'Dinner at Wharf',
-      totalPaise: 120000,
-      category: 'food',
-      splitType: 'EQUAL',
-      expenseDate: '2026-10-10',
-      payers: const [ExpensePayer(userId: 'usr_rahul', paidPaise: 120000)],
-      splits: const [
-        ExpenseSplit(userId: 'usr_rahul', owedPaise: 60000, included: true),
-        ExpenseSplit(userId: 'usr_arhaam', owedPaise: 60000, included: true),
-      ],
-      createdBy: 'usr_rahul',
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      updatedAt: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-    ExpenseModel(
-      id: 'exp_2',
-      ledgerId: 'ldg_usr_priya',
-      title: 'Coffee & Snacks',
-      totalPaise: 50000,
-      category: 'food',
-      splitType: 'EQUAL',
-      expenseDate: '2026-10-09',
-      payers: const [ExpensePayer(userId: 'usr_arhaam', paidPaise: 50000)],
-      splits: const [
-        ExpenseSplit(userId: 'usr_arhaam', owedPaise: 25000, included: true),
-        ExpenseSplit(userId: 'usr_priya', owedPaise: 25000, included: true),
-      ],
-      createdBy: 'usr_arhaam',
-      createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      updatedAt: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-  ];
-
+  List<ExpenseModel> _expenses = [];
   final List<ExpenseActivityItem> _activities = [];
+  bool _isLoaded = false;
 
-  ExpensesRepository(this._ref);
+  ExpensesRepository(this._ref) {
+    _initDefaultExpenses();
+  }
+
+  void _initDefaultExpenses() {
+    _expenses = [
+      ExpenseModel(
+        id: 'exp_1',
+        ledgerId: 'ldg_usr_rahul',
+        title: 'Dinner at Wharf',
+        totalPaise: 120000,
+        category: 'food',
+        splitType: 'EQUAL',
+        expenseDate: '2026-10-10',
+        payers: const [ExpensePayer(userId: 'usr_rahul', paidPaise: 120000)],
+        splits: const [
+          ExpenseSplit(userId: 'usr_rahul', owedPaise: 60000, included: true),
+          ExpenseSplit(userId: 'usr_arhaam', owedPaise: 60000, included: true),
+        ],
+        createdBy: 'usr_rahul',
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+        updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+      ExpenseModel(
+        id: 'exp_2',
+        ledgerId: 'ldg_usr_priya',
+        title: 'Coffee & Snacks',
+        totalPaise: 50000,
+        category: 'food',
+        splitType: 'EQUAL',
+        expenseDate: '2026-10-09',
+        payers: const [ExpensePayer(userId: 'usr_arhaam', paidPaise: 50000)],
+        splits: const [
+          ExpenseSplit(userId: 'usr_arhaam', owedPaise: 25000, included: true),
+          ExpenseSplit(userId: 'usr_priya', owedPaise: 25000, included: true),
+        ],
+        createdBy: 'usr_arhaam',
+        createdAt: DateTime.now().subtract(const Duration(days: 2)),
+        updatedAt: DateTime.now().subtract(const Duration(days: 2)),
+      ),
+    ];
+  }
+
+  Future<void> _ensureLoaded() async {
+    if (_isLoaded) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_storageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(raw);
+        _expenses = decoded.map((e) => ExpenseModel.fromJson(e as Map<String, dynamic>)).toList();
+      } else {
+        await _saveToStorage();
+      }
+    } catch (_) {}
+    _isLoaded = true;
+  }
+
+  Future<void> _saveToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = jsonEncode(_expenses.map((e) => e.toJson()).toList());
+      await prefs.setString(_storageKey, raw);
+    } catch (_) {}
+  }
+
+  Future<List<ExpenseModel>> fetchAllExpenses() async {
+    await _ensureLoaded();
+    return _expenses.where((e) => e.deletedAt == null).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
 
   Future<List<ExpenseModel>> fetchExpensesForLedger(String ledgerId) async {
+    await _ensureLoaded();
     return _expenses
         .where((e) => e.ledgerId == ledgerId && e.deletedAt == null)
         .toList()
@@ -70,6 +108,7 @@ class ExpensesRepository {
     String? note,
     String? friendId,
   }) async {
+    await _ensureLoaded();
     final id = 'exp_${DateTime.now().millisecondsSinceEpoch}';
     final expense = ExpenseModel(
       id: id,
@@ -88,6 +127,7 @@ class ExpensesRepository {
     );
 
     _expenses.insert(0, expense);
+    await _saveToStorage();
 
     _activities.insert(
       0,
@@ -139,6 +179,7 @@ class ExpensesRepository {
     required List<ExpenseSplit> splits,
     String? friendId,
   }) async {
+    await _ensureLoaded();
     final index = _expenses.indexWhere((e) => e.id == expenseId);
     if (index == -1) throw Exception('Expense not found');
 
@@ -167,6 +208,7 @@ class ExpensesRepository {
       payers: payers,
       splits: splits,
     );
+    await _saveToStorage();
 
     _activities.insert(
       0,
@@ -181,6 +223,7 @@ class ExpensesRepository {
   }
 
   Future<void> deleteExpense(String expenseId, {String? friendId}) async {
+    await _ensureLoaded();
     final index = _expenses.indexWhere((e) => e.id == expenseId);
     if (index == -1) throw Exception('Expense not found');
 
@@ -189,13 +232,13 @@ class ExpensesRepository {
       deletedAt: DateTime.now(),
       deletedBy: 'usr_arhaam',
     );
+    await _saveToStorage();
 
     // Revert balance impact
     if (friendId != null) {
       final myPaid = old.payers.where((p) => p.userId == 'usr_arhaam').fold(0, (sum, p) => sum + p.paidPaise);
       final myShare = old.splits.where((s) => s.userId == 'usr_arhaam' && s.included).fold(0, (sum, s) => sum + s.owedPaise);
       final myNetImpact = myPaid - myShare;
-      // Reverse it: subtract myNetImpact
       _ref.read(friendsRepositoryProvider).adjustBalance(friendId, -myNetImpact);
       _ref.invalidate(friendsNotifierProvider);
     }
@@ -213,11 +256,13 @@ class ExpensesRepository {
   }
 
   Future<void> disputeExpense(String expenseId) async {
+    await _ensureLoaded();
     final index = _expenses.indexWhere((e) => e.id == expenseId);
     if (index == -1) throw Exception('Expense not found');
 
     final exp = _expenses[index];
     _expenses[index] = exp.copyWith(isDisputed: true);
+    await _saveToStorage();
 
     _activities.insert(
       0,
@@ -256,7 +301,7 @@ class ExpensesNotifier extends AsyncNotifier<List<ExpenseModel>> {
   @override
   Future<List<ExpenseModel>> build() async {
     final repo = ref.read(expensesRepositoryProvider);
-    return repo._expenses.where((e) => e.deletedAt == null).toList();
+    return repo.fetchAllExpenses();
   }
 
   Future<void> createExpense({

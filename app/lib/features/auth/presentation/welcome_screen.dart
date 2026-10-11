@@ -96,14 +96,20 @@ class WelcomeScreen extends ConsumerWidget {
 
                 // Sign-In Actions
                 PrimaryButton(
-                  label: 'Get Started with Phone',
-                  icon: Icons.phone_android_rounded,
-                  onPressed: () => context.push('/phone-otp'),
+                  label: 'Create Account (Sign Up)',
+                  icon: Icons.person_add_rounded,
+                  onPressed: () => context.push('/signup'),
                 ),
                 const SizedBox(height: 12),
                 SecondaryButton(
-                  label: 'Continue with Google',
-                  icon: Icons.g_mobiledata_rounded,
+                  label: 'Log In with Phone & Password',
+                  icon: Icons.login_rounded,
+                  onPressed: () => context.push('/login'),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  icon: Icon(Icons.g_mobiledata_rounded, color: colors.textSecondary, size: 22),
+                  label: Text('Continue with Google', style: SplitUpTypography.label(color: colors.textSecondary)),
                   onPressed: () async {
                     final res = await ref.read(authNotifierProvider.notifier).signInWithGoogle();
                     if (!context.mounted) return;

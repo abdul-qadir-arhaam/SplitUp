@@ -125,6 +125,7 @@ class GroupsRepository {
     String? photoUrl,
     String creatorUserId = 'usr_arhaam',
   }) async {
+    await _ensureLoaded();
     await Future.delayed(const Duration(milliseconds: 200));
 
     final groupId = 'grp_${DateTime.now().millisecondsSinceEpoch}';

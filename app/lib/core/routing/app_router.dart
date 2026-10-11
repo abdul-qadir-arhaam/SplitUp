@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/welcome_screen.dart';
-import '../../features/auth/presentation/phone_otp_screen.dart';
+import '../../features/auth/presentation/auth_screen.dart';
 import '../../features/auth/presentation/merge_explainer_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/friends/presentation/friend_detail_screen.dart';
@@ -98,10 +98,34 @@ GoRouter createAppRouter({
         ),
       ),
       GoRoute(
+        path: '/signup',
+        pageBuilder: (context, state) => _buildPageWithTransition(
+          state: state,
+          child: const AuthScreen(initialTab: AuthTab.signup),
+          slideUp: true,
+        ),
+      ),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (context, state) => _buildPageWithTransition(
+          state: state,
+          child: const AuthScreen(initialTab: AuthTab.login),
+          slideUp: true,
+        ),
+      ),
+      GoRoute(
+        path: '/auth',
+        pageBuilder: (context, state) => _buildPageWithTransition(
+          state: state,
+          child: const AuthScreen(),
+          slideUp: true,
+        ),
+      ),
+      GoRoute(
         path: '/phone-otp',
         pageBuilder: (context, state) => _buildPageWithTransition(
           state: state,
-          child: const PhoneOtpScreen(),
+          child: const AuthScreen(initialTab: AuthTab.signup),
           slideUp: true,
         ),
       ),

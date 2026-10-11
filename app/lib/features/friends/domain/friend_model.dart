@@ -73,4 +73,17 @@ class FriendModel {
           const [],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'phoneE164': phoneE164,
+        'photoUrl': photoUrl,
+        'isAppUser': isAppUser,
+        'nickname': nickname,
+        'contactName': contactName,
+        'individualLedgerId': individualLedgerId,
+        'netPaise': netPaise,
+        'commonGroups': commonGroups,
+      };
 }

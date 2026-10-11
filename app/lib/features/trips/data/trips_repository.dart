@@ -249,6 +249,7 @@ class TripsRepository {
     String? photoUrl,
     String creatorUserId = 'usr_arhaam',
   }) async {
+    await _ensureLoaded();
     await Future.delayed(const Duration(milliseconds: 150));
 
     final tripId = 'trp_${DateTime.now().millisecondsSinceEpoch}';

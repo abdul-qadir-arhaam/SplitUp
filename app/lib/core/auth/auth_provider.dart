@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../features/profile/data/user_profile_provider.dart';
 import 'auth_service.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
@@ -34,7 +35,6 @@ final authServiceProvider = Provider<AuthService>((ref) {
 class AuthNotifier extends Notifier<AuthState> {
   @override
   AuthState build() {
-    // Attempt session restore on startup
     _restoreSession();
     return const AuthState.initial();
   }
@@ -49,6 +49,17 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
+  void clearError() {
+    if (state.errorMessage != null) {
+      state = AuthState(
+        status: state.user != null ? AuthStatus.authenticated : AuthStatus.unauthenticated,
+        user: state.user,
+        mergeSummary: state.mergeSummary,
+        errorMessage: null,
+      );
+    }
+  }
+
   Future<void> sendOtp(String phone) async {
     state = const AuthState.loading();
     try {
@@ -56,7 +67,20 @@ class AuthNotifier extends Notifier<AuthState> {
       await service.sendOtp(phone);
       state = const AuthState.unauthenticated();
     } catch (e) {
-      state = AuthState.error(e.toString());
+      final msg = e is AuthException ? e.message : e.toString();
+      state = AuthState.error(msg);
+      rethrow;
+    }
+  }
+
+  Future<bool> verifyOtpOnly(String phone, String otp) async {
+    try {
+      final service = ref.read(authServiceProvider);
+      return await service.verifyOtpOnly(phone, otp);
+    } catch (e) {
+      final msg = e is AuthException ? e.message : e.toString();
+      state = AuthState.error(msg);
+      rethrow;
     }
   }
 
@@ -66,10 +90,55 @@ class AuthNotifier extends Notifier<AuthState> {
       final service = ref.read(authServiceProvider);
       final result = await service.verifyOtp(phone, otp);
       state = AuthState.authenticated(result.user, result.mergeSummary);
+      _syncProfile(result.user);
       return result;
     } catch (e) {
-      state = AuthState.error(e.toString());
+      final msg = e is AuthException ? e.message : e.toString();
+      state = AuthState.error(msg);
       return null;
+    }
+  }
+
+  Future<AuthUserProfile> register({
+    required String name,
+    required String phone,
+    String? email,
+    required String password,
+  }) async {
+    state = const AuthState.loading();
+    try {
+      final service = ref.read(authServiceProvider);
+      final user = await service.register(
+        name: name,
+        phone: phone,
+        email: email,
+        password: password,
+      );
+      state = AuthState.authenticated(user);
+      _syncProfile(user);
+      return user;
+    } catch (e) {
+      final msg = e is AuthException ? e.message : e.toString();
+      state = AuthState.error(msg);
+      rethrow;
+    }
+  }
+
+  Future<AuthUserProfile> login({
+    required String phone,
+    required String password,
+  }) async {
+    state = const AuthState.loading();
+    try {
+      final service = ref.read(authServiceProvider);
+      final user = await service.login(phone: phone, password: password);
+      state = AuthState.authenticated(user);
+      _syncProfile(user);
+      return user;
+    } catch (e) {
+      final msg = e is AuthException ? e.message : e.toString();
+      state = AuthState.error(msg);
+      rethrow;
     }
   }
 
@@ -79,9 +148,11 @@ class AuthNotifier extends Notifier<AuthState> {
       final service = ref.read(authServiceProvider);
       final result = await service.signInWithGoogle();
       state = AuthState.authenticated(result.user, result.mergeSummary);
+      _syncProfile(result.user);
       return result;
     } catch (e) {
-      state = AuthState.error(e.toString());
+      final msg = e is AuthException ? e.message : e.toString();
+      state = AuthState.error(msg);
       return null;
     }
   }
@@ -95,6 +166,17 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (e) {
       state = AuthState.error(e.toString());
     }
+  }
+
+  void _syncProfile(AuthUserProfile user) {
+    try {
+      ref.read(userProfileProvider.notifier).updateProfile(
+            name: user.name,
+            phone: user.phoneE164,
+            email: user.email,
+            photoUrl: user.photoUrl,
+          );
+    } catch (_) {}
   }
 }
 

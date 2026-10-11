@@ -69,6 +69,9 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
         decoration: BoxDecoration(
           color: colors.surfaceFlatRaised,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -76,7 +79,9 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: SafeArea(
           top: false,
-          child: Column(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -196,6 +201,7 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

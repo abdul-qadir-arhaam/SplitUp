@@ -123,4 +123,54 @@ class ExpenseModel {
       isDisputed: isDisputed ?? this.isDisputed,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'ledgerId': ledgerId,
+        'title': title,
+        'totalPaise': totalPaise,
+        'category': category,
+        'splitType': splitType,
+        'expenseDate': expenseDate,
+        'note': note,
+        'payers': payers.map((p) => p.toJson()).toList(),
+        'splits': splits.map((s) => s.toJson()).toList(),
+        'createdBy': createdBy,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'deletedAt': deletedAt?.toIso8601String(),
+        'deletedBy': deletedBy,
+        'isDisputed': isDisputed,
+      };
+
+  factory ExpenseModel.fromJson(Map<String, dynamic> json) => ExpenseModel(
+        id: json['id'] as String,
+        ledgerId: json['ledgerId'] as String,
+        title: json['title'] as String,
+        totalPaise: (json['totalPaise'] as num).toInt(),
+        category: json['category'] as String,
+        splitType: json['splitType'] as String? ?? 'EQUAL',
+        expenseDate: json['expenseDate'] as String,
+        note: json['note'] as String?,
+        payers: (json['payers'] as List<dynamic>?)
+                ?.map((p) => ExpensePayer.fromJson(p as Map<String, dynamic>))
+                .toList() ??
+            const [],
+        splits: (json['splits'] as List<dynamic>?)
+                ?.map((s) => ExpenseSplit.fromJson(s as Map<String, dynamic>))
+                .toList() ??
+            const [],
+        createdBy: json['createdBy'] as String? ?? '',
+        createdAt: json['createdAt'] != null
+            ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        updatedAt: json['updatedAt'] != null
+            ? DateTime.tryParse(json['updatedAt'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        deletedAt: json['deletedAt'] != null
+            ? DateTime.tryParse(json['deletedAt'] as String)
+            : null,
+        deletedBy: json['deletedBy'] as String?,
+        isDisputed: json['isDisputed'] as bool? ?? false,
+      );
 }

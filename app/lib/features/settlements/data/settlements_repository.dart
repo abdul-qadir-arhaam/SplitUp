@@ -1,31 +1,71 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/settlement_model.dart';
 import '../../friends/data/friends_repository.dart';
 import '../../notifications/data/notifications_repository.dart';
 
 class SettlementsRepository {
+  static const _storageKey = 'splitup_settlements_data_v2';
   final Ref _ref;
-  final List<SettlementModel> _settlements = [
-    SettlementModel(
-      id: 'stl_sample_rahul',
-      ledgerId: 'ldg_usr_rahul',
-      fromUserId: 'usr_rahul',
-      toUserId: 'usr_arhaam',
-      amountPaise: 85000,
-      method: 'UPI',
-      status: 'PENDING',
-      createdBy: 'usr_rahul',
-      createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
-    ),
-  ];
+  List<SettlementModel> _settlements = [];
+  bool _isLoaded = false;
 
-  SettlementsRepository(this._ref);
+  SettlementsRepository(this._ref) {
+    _initDefaultSettlements();
+  }
+
+  void _initDefaultSettlements() {
+    _settlements = [
+      SettlementModel(
+        id: 'stl_sample_rahul',
+        ledgerId: 'ldg_usr_rahul',
+        fromUserId: 'usr_rahul',
+        toUserId: 'usr_arhaam',
+        amountPaise: 85000,
+        method: 'UPI',
+        status: 'PENDING',
+        createdBy: 'usr_rahul',
+        createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
+      ),
+    ];
+  }
+
+  Future<void> _ensureLoaded() async {
+    if (_isLoaded) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_storageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(raw);
+        _settlements = decoded.map((s) => SettlementModel.fromJson(s as Map<String, dynamic>)).toList();
+      } else {
+        await _saveToStorage();
+      }
+    } catch (_) {}
+    _isLoaded = true;
+  }
+
+  Future<void> _saveToStorage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = jsonEncode(_settlements.map((s) => s.toJson()).toList());
+      await prefs.setString(_storageKey, raw);
+    } catch (_) {}
+  }
+
+  Future<List<SettlementModel>> fetchAllSettlements() async {
+    await _ensureLoaded();
+    return List.unmodifiable(_settlements);
+  }
 
   Future<List<SettlementModel>> fetchSettlementsForLedger(String ledgerId) async {
+    await _ensureLoaded();
     return _settlements.where((s) => s.ledgerId == ledgerId).toList();
   }
 
   Future<SettlementModel?> getSettlementById(String id) async {
+    await _ensureLoaded();
     final matches = _settlements.where((s) => s.id == id);
     return matches.isEmpty ? null : matches.first;
   }
@@ -37,6 +77,7 @@ class SettlementsRepository {
     String method = 'CASH',
     bool isPlaceholderReceiver = false,
   }) async {
+    await _ensureLoaded();
     final id = 'stl_${DateTime.now().millisecondsSinceEpoch}';
     final isConfirmed = isPlaceholderReceiver;
 
@@ -56,6 +97,7 @@ class SettlementsRepository {
     );
 
     _settlements.insert(0, settlement);
+    await _saveToStorage();
 
     if (isConfirmed) {
       // Self-confirmed for placeholder: update friend balance
@@ -87,6 +129,7 @@ class SettlementsRepository {
   }
 
   Future<SettlementModel> confirmSettlement(String settlementId) async {
+    await _ensureLoaded();
     final index = _settlements.indexWhere((s) => s.id == settlementId);
     if (index == -1) {
       throw Exception('Settlement not found');
@@ -99,6 +142,7 @@ class SettlementsRepository {
       respondedAt: DateTime.now(),
     );
     _settlements[index] = updated;
+    await _saveToStorage();
 
     // Apply to friend balance
     final friendId = old.fromUserId == 'usr_arhaam' ? old.toUserId : old.fromUserId;
@@ -117,6 +161,7 @@ class SettlementsRepository {
   }
 
   Future<SettlementModel> rejectSettlement(String settlementId) async {
+    await _ensureLoaded();
     final index = _settlements.indexWhere((s) => s.id == settlementId);
     if (index == -1) {
       throw Exception('Settlement not found');
@@ -129,6 +174,7 @@ class SettlementsRepository {
       respondedAt: DateTime.now(),
     );
     _settlements[index] = updated;
+    await _saveToStorage();
 
     _ref.read(notificationsRepositoryProvider).updateSettlementAction(
           settlementId,
@@ -141,6 +187,7 @@ class SettlementsRepository {
   }
 
   Future<SettlementModel> cancelSettlement(String settlementId) async {
+    await _ensureLoaded();
     final index = _settlements.indexWhere((s) => s.id == settlementId);
     if (index == -1) {
       throw Exception('Settlement not found');
@@ -152,6 +199,7 @@ class SettlementsRepository {
       respondedAt: DateTime.now(),
     );
     _settlements[index] = updated;
+    await _saveToStorage();
 
     _ref.read(notificationsRepositoryProvider).updateSettlementAction(
           settlementId,
@@ -163,6 +211,7 @@ class SettlementsRepository {
   }
 
   Future<SettlementModel> resubmitSettlement(String settlementId, {int? newAmountPaise}) async {
+    await _ensureLoaded();
     final index = _settlements.indexWhere((s) => s.id == settlementId);
     if (index == -1) {
       throw Exception('Settlement not found');
@@ -179,6 +228,7 @@ class SettlementsRepository {
     );
 
     _settlements[index] = old.copyWith(replacedById: newSettlement.id);
+    await _saveToStorage();
     return newSettlement;
   }
 }
@@ -191,7 +241,7 @@ class SettlementsNotifier extends AsyncNotifier<List<SettlementModel>> {
   @override
   Future<List<SettlementModel>> build() async {
     final repo = ref.read(settlementsRepositoryProvider);
-    return repo._settlements;
+    return repo.fetchAllSettlements();
   }
 
   Future<SettlementModel> createSettlement({

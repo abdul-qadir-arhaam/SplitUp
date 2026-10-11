@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
@@ -12,6 +11,7 @@ import '../../friends/presentation/add_friend_sheet.dart';
 import '../../friends/presentation/select_friends_sheet.dart';
 import '../../expenses/presentation/add_expense_screen.dart';
 import '../../notifications/data/notifications_repository.dart';
+import '../../profile/data/user_profile_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -21,6 +21,7 @@ class HomeScreen extends ConsumerWidget {
     final colors = context.colors;
     final asyncFriends = ref.watch(friendsNotifierProvider);
     final unreadCount = ref.watch(unreadNotificationsCountProvider);
+    final userProfile = ref.watch(userProfileProvider);
 
     final friends = asyncFriends.maybeWhen(
       data: (items) => items,
@@ -67,7 +68,7 @@ class HomeScreen extends ConsumerWidget {
                                 style: SplitUpTypography.headline(color: colors.textPrimary),
                               ),
                               Text(
-                                'Hey, ${MockDataRepository.currentUser.name}',
+                                'Hey, ${userProfile.name}',
                                 style: SplitUpTypography.label(color: colors.textSecondary),
                               ),
                             ],

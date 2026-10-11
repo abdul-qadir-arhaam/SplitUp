@@ -58,4 +58,40 @@ class SettlementModel {
       respondedAt: respondedAt ?? this.respondedAt,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'ledgerId': ledgerId,
+        'fromUserId': fromUserId,
+        'toUserId': toUserId,
+        'amountPaise': amountPaise,
+        'method': method,
+        'status': status,
+        'confirmedOnBehalf': confirmedOnBehalf,
+        'replacedById': replacedById,
+        'createdBy': createdBy,
+        'respondedBy': respondedBy,
+        'createdAt': createdAt.toIso8601String(),
+        'respondedAt': respondedAt?.toIso8601String(),
+      };
+
+  factory SettlementModel.fromJson(Map<String, dynamic> json) => SettlementModel(
+        id: json['id'] as String,
+        ledgerId: json['ledgerId'] as String,
+        fromUserId: json['fromUserId'] as String,
+        toUserId: json['toUserId'] as String,
+        amountPaise: (json['amountPaise'] as num).toInt(),
+        method: json['method'] as String? ?? 'CASH',
+        status: json['status'] as String? ?? 'PENDING',
+        confirmedOnBehalf: json['confirmedOnBehalf'] as bool? ?? false,
+        replacedById: json['replacedById'] as String?,
+        createdBy: json['createdBy'] as String? ?? '',
+        respondedBy: json['respondedBy'] as String?,
+        createdAt: json['createdAt'] != null
+            ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now(),
+        respondedAt: json['respondedAt'] != null
+            ? DateTime.tryParse(json['respondedAt'] as String)
+            : null,
+      );
 }

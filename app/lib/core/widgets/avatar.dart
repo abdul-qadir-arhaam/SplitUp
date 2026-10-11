@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
@@ -5,6 +7,7 @@ import '../theme/typography.dart';
 class Avatar extends StatelessWidget {
   final String name;
   final String? photoUrl;
+  final Uint8List? imageBytes;
   final double size;
   final bool isPlaceholder;
 
@@ -12,6 +15,7 @@ class Avatar extends StatelessWidget {
     super.key,
     required this.name,
     this.photoUrl,
+    this.imageBytes,
     this.size = 40,
     this.isPlaceholder = false,
   });
@@ -27,10 +31,28 @@ class Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.colors;
 
-    if (photoUrl != null && photoUrl!.isNotEmpty) {
+    ImageProvider? imageProvider;
+    if (imageBytes != null && imageBytes!.isNotEmpty) {
+      imageProvider = MemoryImage(imageBytes!);
+    } else if (photoUrl != null && photoUrl!.isNotEmpty) {
+      if (photoUrl!.startsWith('data:image')) {
+        try {
+          final commaIndex = photoUrl!.indexOf(',');
+          final base64Data = commaIndex != -1 ? photoUrl!.substring(commaIndex + 1) : photoUrl!;
+          imageProvider = MemoryImage(base64Decode(base64Data));
+        } catch (_) {
+          imageProvider = null;
+        }
+      } else {
+        imageProvider = NetworkImage(photoUrl!);
+      }
+    }
+
+    if (imageProvider != null) {
       return CircleAvatar(
         radius: size / 2,
-        backgroundImage: NetworkImage(photoUrl!),
+        backgroundImage: imageProvider,
+        onBackgroundImageError: (exception, stackTrace) {},
       );
     }
 
