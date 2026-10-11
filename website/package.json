@@ -1,0 +1,12 @@
+{
+  "name": "splitup-website",
+  "version": "1.0.0",
+  "description": "SplitUp download and landing page",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

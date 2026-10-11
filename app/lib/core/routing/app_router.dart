@@ -18,6 +18,7 @@ import '../../features/trips/presentation/trip_settle_graph_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../theme/colors.dart';
+import '../widgets/app_status_banner.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -336,26 +337,33 @@ class ScaffoldWithBottomNavBar extends StatelessWidget {
     final selectedIndex = _calculateSelectedIndex(context);
 
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 260),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (tabChild, animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0.0, 0.035),
-                end: Offset.zero,
-              ).animate(animation),
-              child: tabChild,
+      body: Column(
+        children: [
+          const AppStatusBanner(),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (tabChild, animation) {
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0.0, 0.035),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: tabChild,
+                  ),
+                );
+              },
+              child: KeyedSubtree(
+                key: ValueKey(selectedIndex),
+                child: child,
+              ),
             ),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey(selectedIndex),
-          child: child,
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

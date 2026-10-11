@@ -46,21 +46,18 @@ class GroupsScreen extends ConsumerWidget {
             data: (groups) {
               if (groups.isEmpty) {
                 return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.group_outlined, size: 64, color: colors.textMuted),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No groups yet',
-                        style: SplitUpTypography.title(color: colors.textPrimary),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: EmptyState(
+                      icon: Icons.group_outlined,
+                      title: 'No groups yet',
+                      message: 'Create a group for your flatmates, trip, or dinner squad to split shared expenses.',
+                      action: PrimaryButton(
+                        label: 'Create your first group',
+                        icon: Icons.group_add_rounded,
+                        onPressed: () => context.push('/groups/create'),
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Create a group for your flatmates or friends',
-                        style: SplitUpTypography.caption(color: colors.textMuted),
-                      ),
-                    ],
+                    ),
                   ),
                 );
               }

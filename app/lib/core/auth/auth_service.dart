@@ -275,6 +275,14 @@ class StubAuthService implements AuthService {
       accounts[existingIndex] = newAccount;
     } else {
       accounts.insert(0, newAccount);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('splitup_friends_${newAccount.id}', '[]');
+        await prefs.setString('splitup_groups_${newAccount.id}', '[]');
+        await prefs.setString('splitup_trips_${newAccount.id}', '[]');
+        await prefs.setString('splitup_expenses_${newAccount.id}', '[]');
+        await prefs.setString('splitup_settlements_${newAccount.id}', '[]');
+      } catch (_) {}
     }
     await _saveAccounts(accounts);
 

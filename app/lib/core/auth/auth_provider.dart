@@ -1,5 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/profile/data/user_profile_provider.dart';
+import '../../features/friends/data/friends_repository.dart';
+import '../../features/groups/data/groups_repository.dart';
+import '../../features/trips/data/trips_repository.dart';
 import 'auth_service.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
@@ -162,10 +165,19 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final service = ref.read(authServiceProvider);
       await service.signOut();
+      _invalidateUserData();
       state = const AuthState.unauthenticated();
     } catch (e) {
       state = AuthState.error(e.toString());
     }
+  }
+
+  void _invalidateUserData() {
+    try {
+      ref.invalidate(friendsNotifierProvider);
+      ref.invalidate(groupsNotifierProvider);
+      ref.invalidate(tripsNotifierProvider);
+    } catch (_) {}
   }
 
   void _syncProfile(AuthUserProfile user) {
@@ -176,6 +188,7 @@ class AuthNotifier extends Notifier<AuthState> {
             email: user.email,
             photoUrl: user.photoUrl,
           );
+      _invalidateUserData();
     } catch (_) {}
   }
 }

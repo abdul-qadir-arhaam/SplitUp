@@ -5,7 +5,7 @@ import '../domain/friend_model.dart';
 import '../../../core/mock/mock_data.dart';
 
 class FriendsRepository {
-  static const _storageKey = 'splitup_friends_data_v2';
+  static const _defaultStorageKey = 'splitup_friends_data_v2';
   List<FriendModel> _friends = [];
   bool _isLoaded = false;
 
@@ -30,15 +30,35 @@ class FriendsRepository {
     }).toList();
   }
 
+  Future<String> _getStorageKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserId = prefs.getString('splitup_user_id');
+      if (currentUserId != null && currentUserId != 'usr_arhaam') {
+        return 'splitup_friends_$currentUserId';
+      }
+    } catch (_) {}
+    return _defaultStorageKey;
+  }
+
   Future<void> _ensureLoaded() async {
     if (_isLoaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_storageKey);
+      final currentUserId = prefs.getString('splitup_user_id');
+      final isNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
+      final key = await _getStorageKey();
+
+      final raw = prefs.getString(key);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(raw);
         _friends = decoded.map((f) => FriendModel.fromJson(f as Map<String, dynamic>)).toList();
       } else {
+        if (isNewUser) {
+          _friends = [];
+        } else {
+          _initDefaultFriends();
+        }
         await _saveToStorage();
       }
     } catch (_) {}
@@ -48,8 +68,9 @@ class FriendsRepository {
   Future<void> _saveToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final key = await _getStorageKey();
       final raw = jsonEncode(_friends.map((f) => f.toJson()).toList());
-      await prefs.setString(_storageKey, raw);
+      await prefs.setString(key, raw);
     } catch (_) {}
   }
 

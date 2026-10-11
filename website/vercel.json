@@ -1,0 +1,17 @@
+{
+  "rewrites": [
+    { "source": "/app/version", "destination": "/api/version" },
+    { "source": "/version", "destination": "/api/version" }
+  ],
+  "headers": [
+    {
+      "source": "/downloads/(.*)",
+      "headers": [
+        {
+          "key": "Content-Disposition",
+          "value": "attachment"
+        }
+      ]
+    }
+  ]
+}

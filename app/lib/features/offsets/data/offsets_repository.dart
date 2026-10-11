@@ -85,7 +85,7 @@ class OffsetsRepository {
     }
 
     // Atomically update both ledgers
-    _ref.read(groupsRepositoryProvider).updateGroupBalances(
+    await _ref.read(groupsRepositoryProvider).updateGroupBalances(
           offset.groupLedgerId,
           offset.toUserId,
           offset.amountPaise,

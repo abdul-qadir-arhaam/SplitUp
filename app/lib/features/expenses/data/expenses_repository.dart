@@ -55,15 +55,35 @@ class ExpensesRepository {
     ];
   }
 
+  Future<String> _getStorageKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserId = prefs.getString('splitup_user_id');
+      if (currentUserId != null && currentUserId != 'usr_arhaam') {
+        return 'splitup_expenses_$currentUserId';
+      }
+    } catch (_) {}
+    return _storageKey;
+  }
+
   Future<void> _ensureLoaded() async {
     if (_isLoaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_storageKey);
+      final currentUserId = prefs.getString('splitup_user_id');
+      final isNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
+      final key = await _getStorageKey();
+
+      final raw = prefs.getString(key);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(raw);
         _expenses = decoded.map((e) => ExpenseModel.fromJson(e as Map<String, dynamic>)).toList();
       } else {
+        if (isNewUser) {
+          _expenses = [];
+        } else {
+          _initDefaultExpenses();
+        }
         await _saveToStorage();
       }
     } catch (_) {}
@@ -73,8 +93,9 @@ class ExpensesRepository {
   Future<void> _saveToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final key = await _getStorageKey();
       final raw = jsonEncode(_expenses.map((e) => e.toJson()).toList());
-      await prefs.setString(_storageKey, raw);
+      await prefs.setString(key, raw);
     } catch (_) {}
   }
 

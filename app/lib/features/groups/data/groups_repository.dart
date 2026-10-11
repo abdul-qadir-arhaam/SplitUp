@@ -75,14 +75,36 @@ class GroupsRepository {
     }).toList();
   }
 
+  Future<String> _getStorageKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserId = prefs.getString('splitup_user_id');
+      if (currentUserId != null && currentUserId != 'usr_arhaam') {
+        return 'splitup_groups_$currentUserId';
+      }
+    } catch (_) {}
+    return _storageKey;
+  }
+
   Future<void> _ensureLoaded() async {
     if (_isLoaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_storageKey);
+      final currentUserId = prefs.getString('splitup_user_id');
+      final isNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
+      final key = await _getStorageKey();
+
+      final raw = prefs.getString(key);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(raw);
         _groups = decoded.map((g) => GroupModel.fromJson(g as Map<String, dynamic>)).toList();
+      } else {
+        if (isNewUser) {
+          _groups = [];
+        } else {
+          _initDefaultGroups();
+        }
+        await _saveToStorage();
       }
     } catch (_) {}
     _isLoaded = true;
@@ -91,8 +113,9 @@ class GroupsRepository {
   Future<void> _saveToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final key = await _getStorageKey();
       final raw = jsonEncode(_groups.map((g) => g.toJson()).toList());
-      await prefs.setString(_storageKey, raw);
+      await prefs.setString(key, raw);
     } catch (_) {}
   }
 
@@ -771,7 +794,8 @@ class GroupsRepository {
     );
   }
 
-  void updateGroupBalances(String groupId, String memberId, int settledPaise) {
+  Future<void> updateGroupBalances(String groupId, String memberId, int settledPaise) async {
+    await _ensureLoaded();
     final index = _groups.indexWhere((g) => g.id == groupId);
     if (index != -1) {
       final g = _groups[index];
@@ -790,6 +814,7 @@ class GroupsRepository {
         lastActivity: 'Settlement confirmed',
         createdAt: g.createdAt,
       );
+      await _saveToStorage();
     }
   }
 }

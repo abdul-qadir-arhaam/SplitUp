@@ -18,14 +18,36 @@ class TripsRepository {
     _initDefaultTrips();
   }
 
+  Future<String> _getStorageKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserId = prefs.getString('splitup_user_id');
+      if (currentUserId != null && currentUserId != 'usr_arhaam') {
+        return 'splitup_trips_$currentUserId';
+      }
+    } catch (_) {}
+    return _storageKey;
+  }
+
   Future<void> _ensureLoaded() async {
     if (_isLoaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_storageKey);
+      final currentUserId = prefs.getString('splitup_user_id');
+      final isNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
+      final key = await _getStorageKey();
+
+      final raw = prefs.getString(key);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(raw);
         _trips = decoded.map((t) => TripModel.fromJson(t as Map<String, dynamic>)).toList();
+      } else {
+        if (isNewUser) {
+          _trips = [];
+        } else {
+          _initDefaultTrips();
+        }
+        await _saveToStorage();
       }
     } catch (_) {}
     _isLoaded = true;
@@ -34,8 +56,9 @@ class TripsRepository {
   Future<void> _saveToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final key = await _getStorageKey();
       final raw = jsonEncode(_trips.map((t) => t.toJson()).toList());
-      await prefs.setString(_storageKey, raw);
+      await prefs.setString(key, raw);
     } catch (_) {}
   }
 

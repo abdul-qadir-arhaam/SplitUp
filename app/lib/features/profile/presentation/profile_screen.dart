@@ -60,6 +60,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  void _confirmDeleteAccount(BuildContext context, SplitUpColors colors) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surfaceFlatRaised,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Delete Account', style: SplitUpTypography.title(color: colors.accentOwe)),
+        content: Text(
+          'Are you sure you want to delete your account? Your personal details will be anonymized ("Deleted user") while preserving mathematical ledger history for your friends.',
+          style: SplitUpTypography.body(color: colors.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: TextStyle(color: colors.textMuted)),
+          ),
+          PrimaryButton(
+            label: 'Delete & Anonymize',
+            height: 40,
+            icon: Icons.delete_forever_rounded,
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await ref.read(authNotifierProvider.notifier).signOut();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Your account has been deleted and anonymized.'),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: colors.surfaceFlatRaised,
+                  ),
+                );
+                context.go('/welcome');
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
@@ -322,6 +363,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       title: 'Privacy Policy & Terms',
                       colors: colors,
                       onTap: () => _PrivacyTermsSheet.show(context),
+                    ),
+                    _SettingsTile(
+                      icon: Icons.help_outline_rounded,
+                      title: 'Help & Feedback',
+                      colors: colors,
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: colors.surfaceFlatRaised,
+                            behavior: SnackBarBehavior.floating,
+                            content: Text(
+                              'For assistance or feedback, email us at support@splitup.app',
+                              style: SplitUpTypography.body(color: colors.textPrimary),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    _SettingsTile(
+                      icon: Icons.person_remove_outlined,
+                      title: 'Delete Account',
+                      trailingText: 'Anonymize',
+                      colors: colors,
+                      onTap: () => _confirmDeleteAccount(context, colors),
                     ),
                   ],
                 ),

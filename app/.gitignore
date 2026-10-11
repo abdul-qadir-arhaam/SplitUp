@@ -46,3 +46,10 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Secrets & Credentials
+*google-services.json
+**/google-services.json
+*.keystore
+*.jks
+key.properties
