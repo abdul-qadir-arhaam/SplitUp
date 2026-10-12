@@ -84,13 +84,14 @@ class FriendsRepository {
     required String phone,
     String? name,
     String? contactName,
+    bool? isAppUser,
   }) async {
     await _ensureLoaded();
     await Future.delayed(const Duration(milliseconds: 250));
     final cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
     final phoneE164 = cleaned.startsWith('91') ? '+$cleaned' : '+91$cleaned';
 
-    bool isKnownAppUser = cleaned.endsWith('1') || cleaned.endsWith('2') || cleaned.endsWith('3');
+    bool isKnownAppUser = isAppUser ?? false;
     String friendName = name ?? 'Friend';
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -200,9 +201,15 @@ class FriendsNotifier extends AsyncNotifier<List<FriendModel>> {
     required String phone,
     String? name,
     String? contactName,
+    bool? isAppUser,
   }) async {
     final repo = ref.read(friendsRepositoryProvider);
-    final friend = await repo.addFriend(phone: phone, name: name, contactName: contactName);
+    final friend = await repo.addFriend(
+      phone: phone,
+      name: name,
+      contactName: contactName,
+      isAppUser: isAppUser,
+    );
     ref.invalidateSelf();
     return friend;
   }
