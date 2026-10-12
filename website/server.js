@@ -54,7 +54,15 @@ const server = http.createServer((req, res) => {
     reqPath = '/index.html';
   }
 
-  const filePath = path.join(__dirname, reqPath);
+  let filePath = path.join(__dirname, reqPath);
+  if (!fs.existsSync(filePath)) {
+    const cwdPath = path.join(process.cwd(), reqPath);
+    if (fs.existsSync(cwdPath)) filePath = cwdPath;
+    else {
+      const websiteCwdPath = path.join(process.cwd(), 'website', reqPath);
+      if (fs.existsSync(websiteCwdPath)) filePath = websiteCwdPath;
+    }
+  }
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
