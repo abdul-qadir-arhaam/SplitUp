@@ -4,6 +4,7 @@
   "description": "SplitUp download and landing page",
   "type": "module",
   "scripts": {
-    "dev": "node dev-server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   }
 }
