@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
+const GITHUB_APK_URL = 'https://github.com/abdul-qadir-arhaam/SplitUp/releases/download/v1.0.0.apk/splitup-v1.0.0.apk';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -21,6 +22,7 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
   let reqPath = req.url.split('?')[0];
+
   if (reqPath === '/app/version' || reqPath === '/version') {
     res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
@@ -30,10 +32,21 @@ const server = http.createServer((req, res) => {
       currentVersion: '1.0.0',
       buildNumber: 1,
       minSupportedVersion: '1.0.0',
-      downloadUrl: process.env.APK_DOWNLOAD_URL || '/downloads/splitup-v1.0.0.apk',
+      downloadUrl: process.env.APK_DOWNLOAD_URL || GITHUB_APK_URL,
       releaseNotes: 'SplitUp v1.0.0: Two-party confirmed settlements, node-graph simplification, and offline-first storage.',
     }, null, 2));
     return;
+  }
+
+  if (reqPath.startsWith('/downloads/') || reqPath.endsWith('.apk')) {
+    const filePath = path.join(__dirname, reqPath);
+    if (!fs.existsSync(filePath)) {
+      res.writeHead(302, {
+        'Location': process.env.APK_DOWNLOAD_URL || GITHUB_APK_URL,
+      });
+      res.end();
+      return;
+    }
   }
 
   if (reqPath === '/' || reqPath === '') {
