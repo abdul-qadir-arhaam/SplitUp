@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3000;
-const GITHUB_APK_URL = 'https://github.com/abdul-qadir-arhaam/SplitUp/releases/download/v1.0.0.apk/splitup-v1.0.0.apk';
+const GITHUB_APK_URL = 'https://github.com/abdul-qadir-arhaam/SplitUp/releases/download/v1.0.2/splitup-v1.0.2.apk';
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -29,11 +29,11 @@ const server = http.createServer((req, res) => {
       'Access-Control-Allow-Origin': '*',
     });
     res.end(JSON.stringify({
-      currentVersion: '1.0.0',
-      buildNumber: 1,
+      currentVersion: '1.0.2',
+      buildNumber: 3,
       minSupportedVersion: '1.0.0',
       downloadUrl: process.env.APK_DOWNLOAD_URL || GITHUB_APK_URL,
-      releaseNotes: 'SplitUp v1.0.0: Two-party confirmed settlements, node-graph simplification, and offline-first storage.',
+      releaseNotes: 'SplitUp v1.0.2: Brand logo system, adaptive launcher icon, splash screens, and connected database authentication.',
     }, null, 2));
     return;
   }
