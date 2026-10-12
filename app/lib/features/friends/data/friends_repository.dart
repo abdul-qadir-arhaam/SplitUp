@@ -46,7 +46,8 @@ class FriendsRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final currentUserId = prefs.getString('splitup_user_id');
-      final isNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
+      final isDemoUser = currentUserId == 'usr_arhaam';
+      final isRealNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
       final key = await _getStorageKey();
 
       final raw = prefs.getString(key);
@@ -54,12 +55,12 @@ class FriendsRepository {
         final List<dynamic> decoded = jsonDecode(raw);
         _friends = decoded.map((f) => FriendModel.fromJson(f as Map<String, dynamic>)).toList();
       } else {
-        if (isNewUser) {
+        if (isRealNewUser) {
           _friends = [];
-        } else {
+          await _saveToStorage();
+        } else if (isDemoUser) {
           _initDefaultFriends();
         }
-        await _saveToStorage();
       }
     } catch (_) {}
     _isLoaded = true;
@@ -89,12 +90,37 @@ class FriendsRepository {
     final cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
     final phoneE164 = cleaned.startsWith('91') ? '+$cleaned' : '+91$cleaned';
 
-    final isKnownAppUser = cleaned.endsWith('1') || cleaned.endsWith('2') || cleaned.endsWith('3');
+    bool isKnownAppUser = cleaned.endsWith('1') || cleaned.endsWith('2') || cleaned.endsWith('3');
+    String friendName = name ?? 'Friend';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('splitup_registered_users_v2');
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw) as List<dynamic>;
+        for (final item in decoded) {
+          final p = item['phone']?.toString().replaceAll(RegExp(r'[^\d]'), '');
+          if (p == cleaned) {
+            isKnownAppUser = true;
+            if (name == null || name.isEmpty) {
+              friendName = item['name']?.toString() ?? friendName;
+            }
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+
     final friendId = 'usr_${cleaned.length >= 6 ? cleaned.substring(cleaned.length - 6) : cleaned}';
+
+    // If friend already exists in list, return existing
+    final existingIdx = _friends.indexWhere((f) => f.id == friendId || f.phoneE164 == phoneE164);
+    if (existingIdx != -1) {
+      return _friends[existingIdx];
+    }
 
     final friend = FriendModel(
       id: friendId,
-      name: name ?? (isKnownAppUser ? 'App User' : 'New Contact'),
+      name: friendName,
       phoneE164: phoneE164,
       isAppUser: isKnownAppUser,
       contactName: contactName,

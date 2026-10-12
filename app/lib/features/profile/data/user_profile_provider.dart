@@ -45,29 +45,32 @@ class UserProfileNotifier extends Notifier<UserProfile> {
   @override
   UserProfile build() {
     _loadProfile();
-    return UserProfile(
-      name: MockDataRepository.currentUser.name,
-      phone: MockDataRepository.currentUser.phone,
-      upiId: 'arhaam@okhdfcbank',
-      photoUrl: MockDataRepository.currentUser.photoUrl,
+    return const UserProfile(
+      name: 'User',
+      phone: '',
+      upiId: '',
+      photoUrl: null,
     );
   }
 
   Future<void> _loadProfile() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final name = prefs.getString(_kProfileNameKey);
-      final phone = prefs.getString(_kProfilePhoneKey);
-      final email = prefs.getString(_kProfileEmailKey);
+      final currentUserId = prefs.getString('splitup_user_id');
+      final isDemoUser = currentUserId == 'usr_arhaam';
+
+      final name = prefs.getString(_kProfileNameKey) ?? prefs.getString('splitup_user_name');
+      final phone = prefs.getString(_kProfilePhoneKey) ?? prefs.getString('splitup_user_phone');
+      final email = prefs.getString(_kProfileEmailKey) ?? prefs.getString('splitup_user_email');
       final upi = prefs.getString(_kProfileUpiKey);
       final photo = prefs.getString(_kProfilePhotoKey);
 
       state = UserProfile(
-        name: name ?? state.name,
-        phone: phone ?? state.phone,
-        email: email ?? state.email,
-        upiId: upi ?? state.upiId,
-        photoUrl: photo ?? state.photoUrl,
+        name: name ?? (isDemoUser ? 'Arhaam' : 'User'),
+        phone: phone ?? (isDemoUser ? '+919876543210' : ''),
+        email: email ?? (isDemoUser ? 'arhaam@splitup.app' : null),
+        upiId: upi ?? (isDemoUser ? 'arhaam@okhdfcbank' : ''),
+        photoUrl: photo ?? (isDemoUser ? MockDataRepository.currentUser.photoUrl : null),
       );
     } catch (_) {}
   }

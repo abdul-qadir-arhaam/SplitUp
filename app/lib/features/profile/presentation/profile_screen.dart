@@ -51,7 +51,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               Navigator.of(ctx).pop();
               await ref.read(authNotifierProvider.notifier).signOut();
               if (context.mounted) {
-                context.go('/welcome');
+                context.go('/login');
               }
             },
           ),
@@ -92,7 +92,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     backgroundColor: colors.surfaceFlatRaised,
                   ),
                 );
-                context.go('/welcome');
+                context.go('/login');
               }
             },
           ),

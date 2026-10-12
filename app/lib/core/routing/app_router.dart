@@ -19,6 +19,7 @@ import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../theme/colors.dart';
 import '../widgets/app_status_banner.dart';
+import '../auth/auth_provider.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<NavigatorState> _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -84,10 +85,33 @@ Page<dynamic> _buildPageWithTransition({
 GoRouter createAppRouter({
   required ThemeMode currentThemeMode,
   required ValueChanged<ThemeMode> onThemeModeChanged,
+  AuthState? authState,
 }) {
+  final isAuthenticated = authState?.isAuthenticated ?? false;
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/home',
+    initialLocation: isAuthenticated ? '/home' : '/login',
+    redirect: (context, state) {
+      final isAuth = authState?.isAuthenticated ?? false;
+      final loc = state.matchedLocation;
+      final isAuthRoute = loc == '/login' ||
+          loc == '/signup' ||
+          loc == '/welcome' ||
+          loc == '/auth' ||
+          loc == '/phone-otp';
+
+      // If user is unauthenticated and attempting to access an internal app route, redirect to /login
+      if (!isAuth && !isAuthRoute) {
+        return '/login';
+      }
+
+      // If user is authenticated and is on an auth route, redirect to /home
+      if (isAuth && isAuthRoute) {
+        return '/home';
+      }
+
+      return null;
+    },
     routes: [
       // Auth routes (outside shell)
       GoRoute(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/auth/auth_provider.dart';
+import '../../../core/auth/auth_service.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
@@ -23,46 +25,115 @@ class AddFriendSheet extends ConsumerStatefulWidget {
 }
 
 class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
-  final _searchController = TextEditingController();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  bool _isManualEntry = false;
   bool _isLoading = false;
+  List<StoredUserAccount> _otherRegisteredUsers = [];
+  StoredUserAccount? _detectedAppUser;
 
-  final List<Map<String, dynamic>> _contacts = [
-    {'name': 'Aarav Sharma', 'phone': '9876543211', 'isOnApp': true},
-    {'name': 'Bhavna Patel', 'phone': '9876543212', 'isOnApp': true},
-    {'name': 'Chetan Verma', 'phone': '9876543215', 'isOnApp': false},
-    {'name': 'Divya Reddy', 'phone': '9876543216', 'isOnApp': false},
-    {'name': 'Farhan Khan', 'phone': '9876543217', 'isOnApp': false},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadRegisteredUsers();
+  }
+
+  Future<void> _loadRegisteredUsers() async {
+    try {
+      final currentUserId = ref.read(authNotifierProvider).user?.id;
+      final accounts = await ref.read(authServiceProvider).getStoredAccounts();
+      final friends = ref.read(friendsNotifierProvider).asData?.value ?? [];
+      final friendPhones = friends
+          .map((f) => f.phoneE164.replaceAll(RegExp(r'[^\d]'), ''))
+          .toSet();
+
+      // Only show real registered accounts (excluding current user and existing friends)
+      final others = accounts.where((a) {
+        if (a.id == currentUserId || a.id == 'usr_arhaam') return false;
+        final clean = a.phone.replaceAll(RegExp(r'[^\d]'), '');
+        return !friendPhones.contains(clean);
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _otherRegisteredUsers = others;
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
-    _searchController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleAddFriend({required String phone, String? name, required bool isAppUser}) async {
+  void _onPhoneChanged(String val) {
+    final cleaned = val.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleaned.length >= 10) {
+      final match = _otherRegisteredUsers.cast<StoredUserAccount?>().firstWhere(
+        (a) => a?.phone == cleaned,
+        orElse: () => null,
+      );
+      if (match != null) {
+        setState(() {
+          _detectedAppUser = match;
+          if (_nameController.text.trim().isEmpty) {
+            _nameController.text = match.name;
+          }
+        });
+        return;
+      }
+    }
+    if (_detectedAppUser != null) {
+      setState(() => _detectedAppUser = null);
+    }
+  }
+
+  Future<void> _handleAddFriend({
+    required String phone,
+    String? name,
+    required bool isAppUser,
+  }) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (cleanPhone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter a valid 10-digit mobile number'),
+          backgroundColor: context.colors.accentOwe,
+        ),
+      );
+      return;
+    }
+
+    final trimmedName = name?.trim();
+    if (trimmedName == null || trimmedName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("Please enter your friend's name"),
+          backgroundColor: context.colors.accentOwe,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       await ref.read(friendsNotifierProvider.notifier).addFriend(
-            phone: phone,
-            name: name,
-            contactName: name,
+            phone: cleanPhone,
+            name: trimmedName,
+            contactName: trimmedName,
           );
 
       if (!mounted) return;
       Navigator.of(context).pop();
 
       if (!isAppUser) {
-        _showInviteSmsDialog(name: name ?? phone, phone: phone);
+        _showInviteSmsDialog(name: trimmedName, phone: cleanPhone);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Added $name as friend! In-app notification sent.'),
+            content: Text('Added $trimmedName as friend!'),
             backgroundColor: context.colors.accentReceive,
           ),
         );
@@ -95,12 +166,12 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$name is not on SplitUp yet. You can still record expenses together, and they will merge automatically when they join.',
+                '$name is added to your friend ledger. You can split bills immediately.',
                 style: SplitUpTypography.body(color: colors.textSecondary),
               ),
               const SizedBox(height: 12),
               Text(
-                'Send an SMS invite with the link?',
+                'Send an SMS invite so they can download SplitUp and track expenses too?',
                 style: SplitUpTypography.caption(color: colors.textMuted),
               ),
             ],
@@ -120,7 +191,9 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
               label: const Text('Invite via SMS'),
               onPressed: () async {
                 Navigator.of(ctx).pop();
-                final uri = Uri.parse('sms:$phone?body=Hey! I added you on SplitUp to track our shared expenses. Download the app: https://splitup.app/download');
+                final uri = Uri.parse(
+                  'sms:$phone?body=Hey! I added you on SplitUp to track our shared expenses. Download the app: https://splitup.app/download',
+                );
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri);
                 }
@@ -135,11 +208,6 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final filteredContacts = _contacts.where((c) {
-      final q = _searchController.text.toLowerCase();
-      return c['name'].toString().toLowerCase().contains(q) ||
-          c['phone'].toString().contains(q);
-    }).toList();
 
     return GlassSheet(
       child: Container(
@@ -151,153 +219,209 @@ class _AddFriendSheetState extends ConsumerState<AddFriendSheet> {
             bottom: MediaQuery.of(context).viewInsets.bottom + 20,
             left: 20,
             right: 20,
-            top: 12,
+            top: 16,
           ),
           child: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Add Friend',
-                  style: SplitUpTypography.headline(color: colors.textPrimary).copyWith(fontSize: 22),
-                ),
-                TextButton(
-                  onPressed: () => setState(() => _isManualEntry = !_isManualEntry),
-                  child: Text(
-                    _isManualEntry ? 'From Contacts' : 'Manual Entry',
-                    style: TextStyle(color: colors.accentReceive),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            if (!_isManualEntry) ...[
-              // Search Field
-              TextField(
-                controller: _searchController,
-                onChanged: (_) => setState(() {}),
-                style: SplitUpTypography.body(color: colors.textPrimary),
-                decoration: InputDecoration(
-                  hintText: 'Search contacts or enter phone...',
-                  hintStyle: TextStyle(color: colors.textMuted),
-                  prefixIcon: Icon(Icons.search_rounded, color: colors.textMuted),
-                  filled: true,
-                  fillColor: colors.glassFill,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide(color: colors.glassBorder),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Contacts List
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 280),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: filteredContacts.length,
-                  separatorBuilder: (_, _) => Divider(color: colors.divider, height: 1),
-                  itemBuilder: (context, index) {
-                    final c = filteredContacts[index];
-                    final isOnApp = c['isOnApp'] as bool;
-
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Avatar(name: c['name'] as String, size: 40),
-                      title: Text(c['name'] as String, style: SplitUpTypography.title(color: colors.textPrimary)),
-                      subtitle: Text(
-                        '+91 ${c['phone']}',
-                        style: SplitUpTypography.caption(color: colors.textMuted),
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colors.accentReceive.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      trailing: isOnApp
-                          ? ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: colors.accentReceive,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              ),
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => _handleAddFriend(
-                                        phone: c['phone'] as String,
-                                        name: c['name'] as String,
-                                        isAppUser: true,
-                                      ),
-                              child: const Text('Add'),
-                            )
-                          : OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(color: colors.accentReceive),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              ),
-                              onPressed: _isLoading
-                                  ? null
-                                  : () => _handleAddFriend(
-                                        phone: c['phone'] as String,
-                                        name: c['name'] as String,
-                                        isAppUser: false,
-                                      ),
-                              child: Text('Invite', style: TextStyle(color: colors.accentReceive)),
+                      child: Icon(Icons.person_add_rounded, color: colors.accentReceive, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Add Friend',
+                            style: SplitUpTypography.headline(color: colors.textPrimary).copyWith(fontSize: 20),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Add by mobile number to start splitting bills',
+                            style: SplitUpTypography.caption(color: colors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+
+                // Mobile Number Field
+                Text(
+                  'Mobile Number *',
+                  style: SplitUpTypography.label(color: colors.textSecondary),
+                ),
+                const SizedBox(height: 6),
+                GlassCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  child: Row(
+                    children: [
+                      Text(
+                        '🇮🇳 +91',
+                        style: SplitUpTypography.title(color: colors.textPrimary),
+                      ),
+                      const SizedBox(width: 10),
+                      Container(width: 1, height: 24, color: colors.divider),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          onChanged: _onPhoneChanged,
+                          style: SplitUpTypography.title(color: colors.textPrimary),
+                          decoration: InputDecoration(
+                            hintText: '10-digit mobile number',
+                            hintStyle: SplitUpTypography.title(color: colors.textMuted),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Live status badge if member detected
+                if (_detectedAppUser != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: colors.accentReceive.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: colors.accentReceive.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.verified_rounded, size: 16, color: colors.accentReceive),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'SplitUp Member: ${_detectedAppUser!.name}',
+                            style: SplitUpTypography.caption(color: colors.accentReceive).copyWith(
+                              fontWeight: FontWeight.w600,
                             ),
-                    );
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 14),
+
+                // Friend Name Field
+                Text(
+                  "Friend's Name *",
+                  style: SplitUpTypography.label(color: colors.textSecondary),
+                ),
+                const SizedBox(height: 6),
+                GlassCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  child: TextField(
+                    controller: _nameController,
+                    textCapitalization: TextCapitalization.words,
+                    style: SplitUpTypography.title(color: colors.textPrimary),
+                    decoration: InputDecoration(
+                      icon: Icon(Icons.person_outline_rounded, color: colors.textMuted, size: 20),
+                      hintText: 'e.g. Aditi Sharma, Rohan',
+                      hintStyle: SplitUpTypography.title(color: colors.textMuted),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Save Friend Button
+                PrimaryButton(
+                  label: 'Add to Friends',
+                  icon: Icons.person_add_rounded,
+                  isLoading: _isLoading,
+                  onPressed: () {
+                    final phone = _phoneController.text.trim();
+                    final name = _nameController.text.trim();
+                    final isAppUser = _detectedAppUser != null;
+                    _handleAddFriend(phone: phone, name: name, isAppUser: isAppUser);
                   },
                 ),
-              ),
-            ] else ...[
-              // Manual Entry Form
-              TextField(
-                controller: _nameController,
-                style: SplitUpTypography.body(color: colors.textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Friend Name',
-                  labelStyle: TextStyle(color: colors.textSecondary),
-                  filled: true,
-                  fillColor: colors.glassFill,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                style: SplitUpTypography.body(color: colors.textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Phone Number (10 digits)',
-                  prefixText: '+91 ',
-                  labelStyle: TextStyle(color: colors.textSecondary),
-                  filled: true,
-                  fillColor: colors.glassFill,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-              ),
-              const SizedBox(height: 20),
-              PrimaryButton(
-                label: 'Save Friend',
-                icon: Icons.person_add_rounded,
-                isLoading: _isLoading,
-                onPressed: () {
-                  final phone = _phoneController.text.trim();
-                  final name = _nameController.text.trim();
-                  if (phone.isEmpty) return;
-                  _handleAddFriend(phone: phone, name: name.isEmpty ? null : name, isAppUser: false);
-                },
-              ),
-            ],
-          ],
+
+                // Discovered Registered Users (if other real users registered on this device/app)
+                if (_otherRegisteredUsers.isNotEmpty) ...[
+                  const SizedBox(height: 28),
+                  Row(
+                    children: [
+                      Text(
+                        'Registered Users on SplitUp',
+                        style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 14),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colors.accentReceive.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${_otherRegisteredUsers.length}',
+                          style: TextStyle(fontSize: 11, color: colors.accentReceive, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _otherRegisteredUsers.length,
+                    separatorBuilder: (_, _) => Divider(color: colors.divider, height: 1),
+                    itemBuilder: (context, index) {
+                      final u = _otherRegisteredUsers[index];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Avatar(name: u.name, size: 36),
+                        title: Text(u.name, style: SplitUpTypography.title(color: colors.textPrimary)),
+                        subtitle: Text(
+                          '+91 ${u.phone}',
+                          style: SplitUpTypography.caption(color: colors.textMuted),
+                        ),
+                        trailing: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colors.accentReceive,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          ),
+                          onPressed: _isLoading
+                              ? null
+                              : () => _handleAddFriend(
+                                    phone: u.phone,
+                                    name: u.name,
+                                    isAppUser: true,
+                                  ),
+                          child: const Text('Add'),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 }

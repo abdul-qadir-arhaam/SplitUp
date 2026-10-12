@@ -47,6 +47,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   @override
+  void didUpdateWidget(AuthScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTab != widget.initialTab) {
+      setState(() {
+        _currentTab = widget.initialTab;
+        _errorMessage = null;
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _signupNameController.dispose();
     _signupPhoneController.dispose();
@@ -211,16 +222,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/welcome');
-            }
-          },
-        ),
+        leading: context.canPop()
+            ? IconButton(
+                icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
+                onPressed: () => context.pop(),
+              )
+            : null,
       ),
       body: AppBackground(
         child: SafeArea(
@@ -474,8 +481,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         Center(
           child: GestureDetector(
             onTap: () => _switchTab(AuthTab.login),
-            child: RichText(
-              text: TextSpan(
+            child: Text.rich(
+              TextSpan(
                 text: 'Already have an account? ',
                 style: SplitUpTypography.body(color: colors.textSecondary),
                 children: [
@@ -599,8 +606,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         Center(
           child: GestureDetector(
             onTap: () => _switchTab(AuthTab.signup),
-            child: RichText(
-              text: TextSpan(
+            child: Text.rich(
+              TextSpan(
                 text: "Don't have an account? ",
                 style: SplitUpTypography.body(color: colors.textSecondary),
                 children: [

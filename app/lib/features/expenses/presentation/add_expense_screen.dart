@@ -14,6 +14,7 @@ import '../../trips/data/trips_repository.dart';
 import '../../trips/domain/trip_model.dart';
 import '../data/expenses_repository.dart';
 import '../domain/expense_model.dart';
+import '../../../core/auth/auth_provider.dart';
 
 class AddExpenseScreen extends ConsumerStatefulWidget {
   final String? initialLedgerId;
@@ -235,6 +236,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     }
 
     // 5. Construct member list based on context
+    final myUserId = ref.watch(authNotifierProvider).user?.id ?? 'usr_arhaam';
     List<Map<String, dynamic>> members = [];
     String screenTitle = widget.existingExpense != null ? 'Edit Expense' : 'Add Expense';
 
@@ -252,7 +254,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         screenTitle = 'Add Expense • ${matchedGroup.name}';
       }
       members = matchedGroup.members.map((m) {
-        final isMe = m.userId == 'usr_arhaam';
+        final isMe = m.userId == myUserId || m.userId == 'usr_arhaam';
         return {
           'id': m.userId,
           'name': isMe ? 'You' : displayNameFor(profileName: m.name),
@@ -264,7 +266,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         screenTitle = 'Add Expense • ${matchedTrip.name}';
       }
       members = matchedTrip.members.map((m) {
-        final isMe = m.userId == 'usr_arhaam';
+        final isMe = m.userId == myUserId || m.userId == 'usr_arhaam';
         return {
           'id': m.userId,
           'name': isMe ? 'You' : displayNameFor(profileName: m.name),
@@ -276,7 +278,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         screenTitle = 'Add Expense with ${selectedFriends.length} ${selectedFriends.length == 1 ? 'friend' : 'friends'}';
       }
       members = [
-        {'id': 'usr_arhaam', 'name': 'You', 'isMe': true},
+        {'id': myUserId, 'name': 'You', 'isMe': true},
         ...selectedFriends.map((f) => {
               'id': f.id,
               'name': displayNameFor(
@@ -297,7 +299,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         screenTitle = 'Add Expense with $fName';
       }
       members = [
-        {'id': 'usr_arhaam', 'name': 'You', 'isMe': true},
+        {'id': myUserId, 'name': 'You', 'isMe': true},
         {'id': targetFriend.id, 'name': fName, 'isMe': false},
       ];
     } else {
@@ -306,7 +308,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         orElse: () => <FriendModel>[],
       );
       members = [
-        {'id': 'usr_arhaam', 'name': 'You', 'isMe': true},
+        {'id': myUserId, 'name': 'You', 'isMe': true},
         ...allFriends.take(3).map((f) => {
               'id': f.id,
               'name': displayNameFor(

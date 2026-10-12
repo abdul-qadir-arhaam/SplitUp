@@ -71,7 +71,8 @@ class ExpensesRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final currentUserId = prefs.getString('splitup_user_id');
-      final isNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
+      final isDemoUser = currentUserId == 'usr_arhaam';
+      final isRealNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
       final key = await _getStorageKey();
 
       final raw = prefs.getString(key);
@@ -79,12 +80,12 @@ class ExpensesRepository {
         final List<dynamic> decoded = jsonDecode(raw);
         _expenses = decoded.map((e) => ExpenseModel.fromJson(e as Map<String, dynamic>)).toList();
       } else {
-        if (isNewUser) {
+        if (isRealNewUser) {
           _expenses = [];
-        } else {
+          await _saveToStorage();
+        } else if (isDemoUser) {
           _initDefaultExpenses();
         }
-        await _saveToStorage();
       }
     } catch (_) {}
     _isLoaded = true;

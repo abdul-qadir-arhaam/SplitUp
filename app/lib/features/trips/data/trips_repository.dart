@@ -34,7 +34,8 @@ class TripsRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final currentUserId = prefs.getString('splitup_user_id');
-      final isNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
+      final isDemoUser = currentUserId == 'usr_arhaam';
+      final isRealNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
       final key = await _getStorageKey();
 
       final raw = prefs.getString(key);
@@ -42,12 +43,12 @@ class TripsRepository {
         final List<dynamic> decoded = jsonDecode(raw);
         _trips = decoded.map((t) => TripModel.fromJson(t as Map<String, dynamic>)).toList();
       } else {
-        if (isNewUser) {
+        if (isRealNewUser) {
           _trips = [];
-        } else {
+          await _saveToStorage();
+        } else if (isDemoUser) {
           _initDefaultTrips();
         }
-        await _saveToStorage();
       }
     } catch (_) {}
     _isLoaded = true;
@@ -692,6 +693,9 @@ class TripsRepository {
   }
 
   TripDashboardData getDashboard(String tripId) {
+    if (_trips.isEmpty) {
+      _initDefaultTrips();
+    }
     final trip = _trips.firstWhere(
       (t) => t.id == tripId,
       orElse: () => _trips.first,

@@ -8,6 +8,7 @@ import '../../../core/widgets/widgets.dart';
 import '../../friends/data/friends_repository.dart';
 import '../../groups/data/groups_repository.dart';
 import '../data/trips_repository.dart';
+import '../../../core/auth/auth_provider.dart';
 
 class CreateTripScreen extends ConsumerStatefulWidget {
   const CreateTripScreen({super.key});
@@ -18,12 +19,8 @@ class CreateTripScreen extends ConsumerStatefulWidget {
 
 class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _nameController = TextEditingController();
-  final _budgetController = TextEditingController(text: '50000');
-  final Set<String> _selectedFriendIds = {
-    MockDataRepository.userRahul.id,
-    MockDataRepository.userPriya.id,
-    MockDataRepository.userSneha.id,
-  };
+  final _budgetController = TextEditingController();
+  final Set<String> _selectedFriendIds = {};
 
   DateTime? _startDate = DateTime.now().add(const Duration(days: 2));
   DateTime? _endDate = DateTime.now().add(const Duration(days: 6));
@@ -302,8 +299,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                             labelStyle: SplitUpTypography.caption(color: colors.textPrimary),
                             onPressed: () {
                               setState(() {
+                                final myId = ref.read(authNotifierProvider).user?.id ?? MockDataRepository.currentUser.id;
                                 for (final m in g.members) {
-                                  if (m.userId != MockDataRepository.currentUser.id) {
+                                  if (m.userId != myId) {
                                     _selectedFriendIds.add(m.userId);
                                   }
                                 }

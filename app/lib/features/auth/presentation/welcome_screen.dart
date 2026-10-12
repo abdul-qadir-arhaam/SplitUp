@@ -17,21 +17,22 @@ class WelcomeScreen extends ConsumerWidget {
     return Scaffold(
       body: AppBackground(
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Spacer(flex: 2),
+                const SizedBox(height: 16),
 
                 // Hero Logo & Tagline
                 Center(
                   child: Container(
-                    width: 80,
-                    height: 80,
+                    width: 72,
+                    height: 72,
                     decoration: BoxDecoration(
                       color: colors.glassFillStrong,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(22),
                       border: Border.all(color: colors.glassBorder, width: 1.5),
                     ),
                     alignment: Alignment.center,
@@ -39,33 +40,33 @@ class WelcomeScreen extends ConsumerWidget {
                       'S',
                       style: SplitUpTypography.displayAmount(
                         color: colors.accentReceive,
-                      ).copyWith(fontSize: 48, fontWeight: FontWeight.w700),
+                      ).copyWith(fontSize: 42, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 18),
                 Text(
                   'SplitUp',
                   textAlign: TextAlign.center,
                   style: SplitUpTypography.headline(color: colors.textPrimary).copyWith(
-                    fontSize: 34,
+                    fontSize: 32,
                     letterSpacing: -0.5,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   'Split up the bill, not the friendship.',
                   textAlign: TextAlign.center,
                   style: SplitUpTypography.body(color: colors.textSecondary).copyWith(
-                    fontSize: 16,
+                    fontSize: 15,
                   ),
                 ),
 
-                const Spacer(flex: 3),
+                const SizedBox(height: 24),
 
                 // Features Card Preview
                 GlassCard(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(18),
                   child: Column(
                     children: [
                       _FeatureRow(
@@ -74,14 +75,14 @@ class WelcomeScreen extends ConsumerWidget {
                         subtitle: 'Log shared expenses with real-time Indian split math.',
                         colors: colors,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       _FeatureRow(
                         icon: Icons.verified_user_rounded,
                         title: 'Two-Party Settlement',
                         subtitle: 'Confirmations by both friends avoid any payment dispute.',
                         colors: colors,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       _FeatureRow(
                         icon: Icons.hub_rounded,
                         title: 'Smart Simplification',
@@ -92,7 +93,7 @@ class WelcomeScreen extends ConsumerWidget {
                   ),
                 ),
 
-                const Spacer(flex: 2),
+                const SizedBox(height: 24),
 
                 // Sign-In Actions
                 PrimaryButton(
@@ -132,6 +133,7 @@ class WelcomeScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                   style: SplitUpTypography.caption(color: colors.textMuted),
                 ),
+                const SizedBox(height: 12),
               ],
             ),
           ),
