@@ -26,22 +26,9 @@ class WelcomeScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
 
                 // Hero Logo & Tagline
-                Center(
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: colors.glassFillStrong,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: colors.glassBorder, width: 1.5),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      'S',
-                      style: SplitUpTypography.displayAmount(
-                        color: colors.accentReceive,
-                      ).copyWith(fontSize: 42, fontWeight: FontWeight.w700),
-                    ),
+                const Center(
+                  child: AppLogo.symbol(
+                    size: 84,
                   ),
                 ),
                 const SizedBox(height: 18),

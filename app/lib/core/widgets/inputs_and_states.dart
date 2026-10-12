@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/colors.dart';
 import '../theme/typography.dart';
+import 'app_logo.dart';
 
 class AmountInput extends StatelessWidget {
   final TextEditingController controller;
@@ -121,14 +122,18 @@ class StatusChip extends StatelessWidget {
 }
 
 class EmptyState extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final Widget? customIcon;
+  final bool showBrandWatermark;
   final String title;
   final String message;
   final Widget? action;
 
   const EmptyState({
     super.key,
-    required this.icon,
+    this.icon,
+    this.customIcon,
+    this.showBrandWatermark = true,
     required this.title,
     required this.message,
     this.action,
@@ -144,14 +149,30 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: colors.glassFill,
-                shape: BoxShape.circle,
-                border: Border.all(color: colors.glassBorder, width: 1),
-              ),
-              child: Icon(icon, size: 40, color: colors.textSecondary),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                if (showBrandWatermark)
+                  const Opacity(
+                    opacity: 0.08,
+                    child: AppLogo.symbol(
+                      size: 96,
+                      mono: true,
+                    ),
+                  ),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: colors.glassFill,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.glassBorder, width: 1),
+                  ),
+                  child: customIcon ??
+                      (icon != null
+                          ? Icon(icon, size: 40, color: colors.textSecondary)
+                          : const AppLogo.symbol(size: 40)),
+                ),
+              ],
             ),
             const SizedBox(height: 18),
             Text(

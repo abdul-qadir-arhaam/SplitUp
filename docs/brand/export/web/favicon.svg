@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <style>
+    .left-half { fill: #1FA67A; }
+    .right-half { fill: #C9A961; }
+    @media (prefers-color-scheme: light) {
+      .left-half { fill: #0F7F5C; }
+      .right-half { fill: #9A7B2F; }
+    }
+  </style>
+  <path class="left-half" d="M 339.39 49.03 A 205 205 0 0 0 172.63 423.58 Z" />
+  <path class="right-half" d="M 339.37 88.42 A 205 205 0 0 1 172.61 462.97 Z" />
+</svg>

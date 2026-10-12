@@ -60,16 +60,22 @@ class HomeScreen extends ConsumerWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Text(
-                                'SplitUp',
-                                style: SplitUpTypography.headline(color: colors.textPrimary),
-                              ),
-                              Text(
-                                'Hey, ${userProfile.name}',
-                                style: SplitUpTypography.label(color: colors.textSecondary),
+                              const AppLogo.symbol(size: 30),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'SplitUp',
+                                    style: SplitUpTypography.headline(color: colors.textPrimary),
+                                  ),
+                                  Text(
+                                    'Hey, ${userProfile.name}',
+                                    style: SplitUpTypography.label(color: colors.textSecondary),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

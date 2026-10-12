@@ -8,3 +8,4 @@ export 'inputs_and_states.dart';
 export 'members_sheet.dart';
 export 'loading_animation.dart';
 export 'entrance_animation.dart';
+export 'app_logo.dart';

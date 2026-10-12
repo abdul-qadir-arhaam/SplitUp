@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SplitUp Brand Vector Review & Comparison</title>
+  <style>
+    body {
+      background: #111C18;
+      color: #F3F1EA;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 40px;
+    }
+    h1, h2 { color: #1FA67A; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    .card {
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .card.dark { background: #0A1411; }
+    .card.light { background: #F5F2EA; color: #14201C; }
+    .card.sheet { background: #16241F; grid-column: 1 / -1; }
+    .symbol-box {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .scale-row {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    img.sheet-preview {
+      max-width: 100%;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+  <h1>SplitUp Brand Identity: Vector Recreation Review</h1>
+  <p>Comparing clean geometric vector SVGs against reference raster sheet.</p>
+
+  <h2>Step 1 Vector Outputs</h2>
+  <div class="grid">
+    <div class="card dark">
+      <h3>symbol_dark.svg</h3>
+      <div class="symbol-box">
+        <img src="svg/symbol_dark.svg" width="180" height="180" alt="Dark Symbol" />
+      </div>
+      <p>Emerald #1FA67A + Brass #C9A961 on #0A1411</p>
+    </div>
+
+    <div class="card light">
+      <h3>symbol_light.svg</h3>
+      <div class="symbol-box">
+        <img src="svg/symbol_light.svg" width="180" height="180" alt="Light Symbol" />
+      </div>
+      <p>Emerald #0F7F5C + Brass #9A7B2F on #F5F2EA</p>
+    </div>
+
+    <div class="card dark">
+      <h3>symbol_mono_white.svg</h3>
+      <div class="symbol-box">
+        <img src="svg/symbol_mono_white.svg" width="180" height="180" alt="Mono White" />
+      </div>
+      <p>Solid #FFFFFF on #0A1411</p>
+    </div>
+
+    <div class="card light">
+      <h3>symbol_mono_dark.svg</h3>
+      <div class="symbol-box">
+        <img src="svg/symbol_mono_dark.svg" width="180" height="180" alt="Mono Dark" />
+      </div>
+      <p>Solid #14201C on #F5F2EA</p>
+    </div>
+  </div>
+
+  <h2>Scale Check (128px, 64px, 32px, 16px)</h2>
+  <div class="card dark">
+    <div class="scale-row">
+      <img src="svg/symbol_dark.svg" width="128" height="128" title="128px" />
+      <img src="svg/symbol_dark.svg" width="64" height="64" title="64px" />
+      <img src="svg/symbol_dark.svg" width="32" height="32" title="32px" />
+      <img src="svg/symbol_dark.svg" width="16" height="16" title="16px" />
+    </div>
+    <p>Gap remains clearly visible and defined down to 16px favicon scale.</p>
+  </div>
+
+  <h2>Original Reference Sheet (docs/brand/logo_sheet.png)</h2>
+  <div class="card sheet">
+    <img src="logo_sheet.png" class="sheet-preview" alt="Reference Sheet" />
+  </div>
+</body>
+</html>

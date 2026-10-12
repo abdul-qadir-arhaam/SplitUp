@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 120" width="100%" height="100%">
+  <!-- SplitUp Symbol Light -->
+  <g transform="translate(10, 10) scale(0.1953125)">
+    <path fill="#0F7F5C" d="M 339.39 49.03 A 205 205 0 0 0 172.63 423.58 Z" />
+    <path fill="#9A7B2F" d="M 339.37 88.42 A 205 205 0 0 1 172.61 462.97 Z" />
+  </g>
+  <text x="130" y="76" font-family="'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-weight="800" font-size="64" letter-spacing="-1.5">
+    <tspan fill="#14201C">Split</tspan><tspan fill="#0F7F5C">Up</tspan>
+  </text>
+</svg>
