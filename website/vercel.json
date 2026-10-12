@@ -1,4 +1,5 @@
 {
+  "cleanUrls": true,
   "rewrites": [
     { "source": "/app/version", "destination": "/api/version" },
     { "source": "/version", "destination": "/api/version" }
