@@ -1,10 +1,23 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { inMemoryUsers, findUserById, findUserByPhone, createUser, updateUser, mergePlaceholder } from './store.js';
+import {
+  inMemoryUsers,
+  findUserById,
+  findUserByPhone,
+  findUserByIdAsync,
+  findUserByPhoneAsync,
+  createUser,
+  createUserAsync,
+  updateUser,
+  updateUserAsync,
+  mergePlaceholder,
+  hashPassword,
+  verifyPassword,
+} from './store.js';
 import { normalizePhoneE164 } from './phone.js';
 import { inMemoryLedgers } from '../ledgers/routes.js';
 import { calculateNetBalances } from '../balances/index.js';
-import { NotFoundError, ValidationError } from '../../lib/errors.js';
+import { NotFoundError, ValidationError, ConflictError } from '../../lib/errors.js';
 
 export const usersRouter = Router();
 
@@ -15,9 +28,9 @@ const updateMeSchema = z.object({
 });
 
 // GET /v1/users/me
-usersRouter.get('/users/me', (req, res) => {
+usersRouter.get('/users/me', async (req, res) => {
   const callerId = req.user?.id || 'usr_arhaam';
-  const user = findUserById(callerId);
+  const user = await findUserByIdAsync(callerId);
   if (!user) {
     throw new NotFoundError(`User ${callerId} not found`);
   }
@@ -37,11 +50,11 @@ usersRouter.get('/users/me', (req, res) => {
 });
 
 // PATCH /v1/users/me
-usersRouter.patch('/users/me', (req, res) => {
+usersRouter.patch('/users/me', async (req, res) => {
   const callerId = req.user?.id || 'usr_arhaam';
   const body = updateMeSchema.parse(req.body);
 
-  const updated = updateUser(callerId, body);
+  const updated = await updateUserAsync(callerId, body);
   if (!updated) {
     throw new NotFoundError(`User ${callerId} not found`);
   }
@@ -88,24 +101,123 @@ usersRouter.get('/users/me/totals', (req, res) => {
   });
 });
 
+const registerAuthSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  phone: z.string().min(10, 'Valid phone number is required'),
+  email: z.string().email().max(254).nullable().optional(),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+
+// POST /v1/users/auth/register (Phone + Password registration saved permanently to MySQL)
+usersRouter.post('/users/auth/register', async (req, res) => {
+  const body = registerAuthSchema.parse(req.body);
+  const normalizedPhone = normalizePhoneE164(body.phone);
+  const passwordHash = hashPassword(body.password);
+
+  let user = await findUserByPhoneAsync(normalizedPhone);
+  let mergeSummary = null;
+
+  if (user && !user.isPlaceholder) {
+    throw new ConflictError('A user with this mobile number already exists. Please log in.');
+  }
+
+  if (user && user.isPlaceholder) {
+    const placeholder = user;
+    const realUser = await createUserAsync({
+      phoneE164: normalizedPhone,
+      name: body.name.trim(),
+      email: body.email?.trim() || null,
+      passwordHash,
+      isPlaceholder: false,
+      status: 'ACTIVE',
+    });
+
+    mergeSummary = mergePlaceholder(placeholder, realUser);
+    user = realUser;
+  } else {
+    user = await createUserAsync({
+      phoneE164: normalizedPhone,
+      name: body.name.trim(),
+      email: body.email?.trim() || null,
+      passwordHash,
+      isPlaceholder: false,
+      status: 'ACTIVE',
+    });
+  }
+
+  res.json({
+    data: {
+      user: {
+        id: user.id,
+        name: user.name,
+        phoneE164: user.phoneE164,
+        email: user.email,
+        photoUrl: user.photoUrl,
+        isPlaceholder: user.isPlaceholder,
+      },
+      token: `Bearer user:${user.id}`,
+      mergeSummary,
+    },
+  });
+});
+
+const loginAuthSchema = z.object({
+  phone: z.string().min(10, 'Valid phone number is required'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+// POST /v1/users/auth/login (Phone + Password login checked against MySQL)
+usersRouter.post('/users/auth/login', async (req, res) => {
+  const body = loginAuthSchema.parse(req.body);
+  const normalizedPhone = normalizePhoneE164(body.phone);
+
+  const user = await findUserByPhoneAsync(normalizedPhone);
+  if (!user || user.isPlaceholder) {
+    throw new NotFoundError('No account found for this mobile number. Please sign up first.');
+  }
+
+  if (user.passwordHash) {
+    const isValid = verifyPassword(body.password, user.passwordHash);
+    if (!isValid) {
+      throw new ValidationError('Incorrect password. Please try again.');
+    }
+  } else {
+    // Legacy/stub user without password hash: set the password now
+    await updateUserAsync(user.id, { passwordHash: hashPassword(body.password) });
+  }
+
+  res.json({
+    data: {
+      user: {
+        id: user.id,
+        name: user.name,
+        phoneE164: user.phoneE164,
+        email: user.email,
+        photoUrl: user.photoUrl,
+        isPlaceholder: user.isPlaceholder,
+      },
+      token: `Bearer user:${user.id}`,
+    },
+  });
+});
+
 const verifyAuthSchema = z.object({
   phone: z.string(),
   name: z.string().optional(),
   firebaseUid: z.string().optional(),
 });
 
-// POST /v1/users/auth/verify (Used for phone sign-in & placeholder merge trigger)
-usersRouter.post('/users/auth/verify', (req, res) => {
+// POST /v1/users/auth/verify (Used for phone OTP sign-in & placeholder merge trigger)
+usersRouter.post('/users/auth/verify', async (req, res) => {
   const body = verifyAuthSchema.parse(req.body);
   const normalizedPhone = normalizePhoneE164(body.phone);
 
-  let user = findUserByPhone(normalizedPhone);
+  let user = await findUserByPhoneAsync(normalizedPhone);
   let mergeSummary = null;
 
   if (user && user.isPlaceholder) {
-    // A placeholder already existed with this phone! Create/promote to real user and merge
     const placeholder = user;
-    const realUser = createUser({
+    const realUser = await createUserAsync({
       phoneE164: normalizedPhone,
       name: body.name || placeholder.name || 'New User',
       firebaseUid: body.firebaseUid || null,
@@ -116,8 +228,7 @@ usersRouter.post('/users/auth/verify', (req, res) => {
     mergeSummary = mergePlaceholder(placeholder, realUser);
     user = realUser;
   } else if (!user) {
-    // New registration
-    user = createUser({
+    user = await createUserAsync({
       phoneE164: normalizedPhone,
       name: body.name || 'New User',
       firebaseUid: body.firebaseUid || null,
@@ -125,12 +236,11 @@ usersRouter.post('/users/auth/verify', (req, res) => {
       status: 'ACTIVE',
     });
   } else {
-    // Existing real user
     if (body.firebaseUid && !user.firebaseUid) {
-      updateUser(user.id, { firebaseUid: body.firebaseUid });
+      await updateUserAsync(user.id, { firebaseUid: body.firebaseUid });
     }
     if (body.name && user.name === 'New User') {
-      updateUser(user.id, { name: body.name });
+      await updateUserAsync(user.id, { name: body.name });
     }
   }
 
@@ -144,6 +254,7 @@ usersRouter.post('/users/auth/verify', (req, res) => {
         photoUrl: user.photoUrl,
         isPlaceholder: user.isPlaceholder,
       },
+      token: `Bearer user:${user.id}`,
       mergeSummary,
     },
   });

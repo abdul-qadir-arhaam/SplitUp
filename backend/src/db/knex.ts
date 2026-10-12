@@ -9,12 +9,14 @@ export const db = knex({
     user: config.DB_USER,
     password: config.DB_PASSWORD,
     database: config.DB_NAME,
-    timezone: 'UTC',
     charset: 'utf8mb4',
+    connectTimeout: 30000,
+    ssl: config.DB_SSL ? { minVersion: 'TLSv1.2' } : undefined,
   },
   pool: {
-    min: 2,
+    min: 0,
     max: 10,
+    acquireTimeoutMillis: 30000,
   },
   migrations: {
     directory: './dist/db/migrations',

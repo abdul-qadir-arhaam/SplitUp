@@ -4,6 +4,7 @@ import '../../features/friends/data/friends_repository.dart';
 import '../../features/groups/data/groups_repository.dart';
 import '../../features/trips/data/trips_repository.dart';
 import 'auth_service.dart';
+import 'api_auth_service.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
@@ -32,7 +33,7 @@ class AuthState {
 }
 
 final authServiceProvider = Provider<AuthService>((ref) {
-  return StubAuthService();
+  return ApiAuthService();
 });
 
 class AuthNotifier extends Notifier<AuthState> {

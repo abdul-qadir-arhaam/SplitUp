@@ -54,7 +54,11 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  if (req.path === '/users/auth/verify') {
+  if (
+    req.path === '/users/auth/verify' ||
+    req.path === '/users/auth/login' ||
+    req.path === '/users/auth/register'
+  ) {
     next();
     return;
   }

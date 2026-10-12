@@ -12,6 +12,7 @@ const envSchema = z.object({
   DB_USER: z.string().default('splitup'),
   DB_PASSWORD: z.string().default('splitup_secret'),
   DB_NAME: z.string().default('splitup'),
+  DB_SSL: z.coerce.boolean().default(false),
   AUTH_STUB_MODE: z.coerce.boolean().default(true), // Dev/Test stub
 });
 

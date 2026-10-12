@@ -5,6 +5,7 @@ export interface User {
   name: string;
   email?: string | null;
   photoUrl?: string | null;
+  passwordHash?: string | null;
   isPlaceholder: boolean;
   status: 'ACTIVE' | 'BLOCKED' | 'DELETED';
   createdBy?: string | null;
