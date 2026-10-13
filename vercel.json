@@ -14,11 +14,11 @@
     }
   ],
   "rewrites": [
-    { "source": "/v1/(.*)", "destination": "/api/index.js" },
-    { "source": "/health", "destination": "/api/index.js" },
+    { "source": "/v1/:path*", "destination": "/api/index" },
+    { "source": "/health", "destination": "/api/index" },
     { "source": "/app/version", "destination": "/website/api/version" },
     { "source": "/version", "destination": "/website/api/version" },
     { "source": "/", "destination": "/website/index.html" },
-    { "source": "/(.*)", "destination": "/website/$1" }
+    { "source": "/((?!api|v1|health).*)", "destination": "/website/$1" }
   ]
 }
