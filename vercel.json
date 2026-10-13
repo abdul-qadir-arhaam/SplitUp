@@ -2,22 +2,14 @@
   "version": 2,
   "cleanUrls": true,
   "functions": {
-    "api/index.js": {
-      "includeFiles": "backend/dist/**"
-    },
     "index.js": {
-      "includeFiles": "backend/dist/**"
+      "includeFiles": "{backend/dist/**,website/**}"
     }
   },
-  "rewrites": [
-    { "source": "/downloads/splitup.apk", "destination": "/website/downloads/splitup-v1.0.2.apk" },
-    { "source": "/downloads/splitup-v1.0.2.apk", "destination": "/website/downloads/splitup-v1.0.2.apk" },
-    { "source": "/downloads/app-release.apk", "destination": "/website/downloads/splitup-v1.0.2.apk" },
-    { "source": "/v1/:path*", "destination": "/api/index.js" },
-    { "source": "/health", "destination": "/api/index.js" },
-    { "source": "/app/version", "destination": "/website/api/version.js" },
-    { "source": "/version", "destination": "/website/api/version.js" },
-    { "source": "/", "destination": "/website/index.html" },
-    { "source": "/((?!api|v1|health|downloads).*)", "destination": "/website/$1" }
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.js"
+    }
   ]
 }
