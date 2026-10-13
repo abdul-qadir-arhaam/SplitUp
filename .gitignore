@@ -30,4 +30,4 @@ key.properties
 
 # Binary APK downloads
 *.apk
-website/downloads/*.apk
+!website/downloads/*.apk
