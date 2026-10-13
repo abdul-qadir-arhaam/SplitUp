@@ -10,7 +10,7 @@ import { notificationsStore } from '../notifications/store.js';
 export const ledgersRouter = Router();
 
 // In-memory data store for Phase 1 endpoints
-interface StoredLedger {
+export interface StoredLedger {
   id: string;
   name: string;
   type: 'INDIVIDUAL' | 'GROUP' | 'TRIP';

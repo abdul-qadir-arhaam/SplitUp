@@ -1,18 +1,17 @@
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiConfig {
   static const String _kPrefBaseUrl = 'splitup_custom_api_base_url';
 
-  /// Your development machine's local Wi-Fi IP address
+  /// Production cloud backend URL on Vercel
+  static const String productionBaseUrl = 'https://split-up-two.vercel.app';
+
+  /// Your development machine's local Wi-Fi IP address (for offline local dev)
   static const String defaultHost = '192.168.1.2';
   static const int defaultPort = 4000;
 
   static String get defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:$defaultPort';
-    }
-    return 'http://$defaultHost:$defaultPort';
+    return productionBaseUrl;
   }
 
   static Future<String> getBaseUrl() async {

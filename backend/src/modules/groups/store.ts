@@ -456,7 +456,7 @@ export function getGroupGraph(
     links = plan.map((p) => ({
       fromUserId: p.from,
       toUserId: p.to,
-      amountPaise: p.amount,
+      amountPaise: p.amountPaise,
       isPending: false,
     }));
   } else {
@@ -464,7 +464,7 @@ export function getGroupGraph(
     links = debts.map((d) => ({
       fromUserId: d.from,
       toUserId: d.to,
-      amountPaise: d.amount,
+      amountPaise: d.amountPaise,
       isPending: false,
     }));
   }
