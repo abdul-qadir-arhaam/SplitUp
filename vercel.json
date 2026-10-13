@@ -1,6 +1,11 @@
 {
   "version": 2,
   "cleanUrls": true,
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "backend/dist/**"
+    }
+  },
   "redirects": [
     {
       "source": "/downloads/(.*)",
@@ -9,8 +14,8 @@
     }
   ],
   "rewrites": [
-    { "source": "/v1/(.*)", "destination": "/api/index" },
-    { "source": "/health", "destination": "/api/index" },
+    { "source": "/v1/(.*)", "destination": "/api/index.js" },
+    { "source": "/health", "destination": "/api/index.js" },
     { "source": "/app/version", "destination": "/website/api/version" },
     { "source": "/version", "destination": "/website/api/version" },
     { "source": "/", "destination": "/website/index.html" },
