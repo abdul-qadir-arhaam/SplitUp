@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'update_controller.dart';
 
 class UpdateBottomSheet extends ConsumerWidget {
@@ -218,6 +219,21 @@ class UpdateBottomSheet extends ConsumerWidget {
                 ),
                 onPressed: () {
                   ref.read(updateControllerProvider.notifier).startOtaUpdate();
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: TextButton.icon(
+                icon: Icon(Icons.open_in_browser_rounded, size: 16, color: colors.textSecondary),
+                label: Text(
+                  'Or download APK directly in browser',
+                  style: SplitUpTypography.caption(color: colors.textSecondary),
+                ),
+                onPressed: () {
+                  if (info?.downloadUrl != null) {
+                    launchUrl(Uri.parse(info!.downloadUrl), mode: LaunchMode.externalApplication);
+                  }
                 },
               ),
             ),
