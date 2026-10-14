@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/network/api_client.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../friends/data/friends_repository.dart';
@@ -13,11 +15,47 @@ import '../../expenses/presentation/add_expense_screen.dart';
 import '../../notifications/data/notifications_repository.dart';
 import '../../profile/data/user_profile_provider.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  Timer? _syncTimer;
+  int _lastKnownUnread = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    // Periodic background sync for notifications and social triggers
+    _syncTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkCloudSync());
+  }
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkCloudSync() async {
+    try {
+      final res = await ApiClient().get('/v1/notifications/unread-count');
+      if (res != null && res is Map<String, dynamic> && res.containsKey('unreadCount')) {
+        final count = (res['unreadCount'] as num).toInt();
+        if (_lastKnownUnread != -1 && count > _lastKnownUnread) {
+          // New notifications arrived: refresh providers
+          ref.invalidate(notificationsNotifierProvider);
+          ref.invalidate(friendsNotifierProvider);
+        }
+        _lastKnownUnread = count;
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final asyncFriends = ref.watch(friendsNotifierProvider);
     final unreadCount = ref.watch(unreadNotificationsCountProvider);
@@ -46,6 +84,7 @@ class HomeScreen extends ConsumerWidget {
             backgroundColor: colors.surfaceFlatRaised,
             onRefresh: () async {
               ref.invalidate(friendsNotifierProvider);
+              ref.invalidate(notificationsNotifierProvider);
               await Future.delayed(const Duration(milliseconds: 350));
             },
             child: CustomScrollView(

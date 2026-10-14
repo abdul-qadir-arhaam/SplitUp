@@ -3,6 +3,9 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { app } from './backend/dist/app.js';
 import { initUserStore } from './backend/dist/modules/users/store.js';
+import { initFriendsStore } from './backend/dist/modules/friends/store.js';
+import { initNotificationsStore } from './backend/dist/modules/notifications/store.js';
+import { initLedgersStore } from './backend/dist/modules/ledgers/db_sync.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,12 +17,17 @@ let initPromise = null;
 async function ensureInitialized() {
   if (initialized) return;
   if (!initPromise) {
-    initPromise = initUserStore()
+    initPromise = Promise.all([
+      initUserStore(),
+      initFriendsStore(),
+      initNotificationsStore(),
+      initLedgersStore(),
+    ])
       .then(() => {
         initialized = true;
       })
       .catch((err) => {
-        console.error('[Vercel Serverless] Error initializing user store from MySQL:', err);
+        console.error('[Vercel Serverless] Error initializing stores from MySQL:', err);
         initialized = true;
       });
   }
@@ -35,24 +43,24 @@ app.get('/', (req, res) => {
 });
 
 // 3. Direct APK download routes
-app.get(['/downloads/splitup-v1.0.2.apk', '/downloads/splitup.apk', '/downloads/app-release.apk'], (req, res) => {
-  const apkPath = path.join(websiteDir, 'downloads', 'splitup-v1.0.2.apk');
-  res.download(apkPath, 'SplitUp-v1.0.2.apk');
+app.get(['/downloads/splitup-v1.0.4.apk', '/downloads/splitup-v1.0.2.apk', '/downloads/splitup.apk', '/downloads/app-release.apk'], (req, res) => {
+  const apkPath = path.join(websiteDir, 'downloads', 'splitup-v1.0.4.apk');
+  res.download(apkPath, 'SplitUp-v1.0.4.apk');
 });
 
 // 4. Version check endpoints
 app.get(['/version', '/app/version'], (req, res) => {
   res.json({
-    latest_version: '1.0.3',
-    currentVersion: '1.0.3',
-    build_number: 4,
-    buildNumber: 4,
+    latest_version: '1.0.4',
+    currentVersion: '1.0.4',
+    build_number: 5,
+    buildNumber: 5,
     min_supported_build: 1,
     minSupportedVersion: '1.0.0',
-    download_url: 'https://split-up-two.vercel.app/downloads/splitup-v1.0.2.apk',
-    downloadUrl: '/downloads/splitup-v1.0.2.apk',
-    file_size_mb: 20.74,
-    release_notes: 'SplitUp v1.0.3: Fixed notification bug — removed all dummy notifications, added swipe-to-delete, and enabled smooth request handling.',
+    download_url: 'https://split-up-two.vercel.app/downloads/splitup-v1.0.4.apk',
+    downloadUrl: '/downloads/splitup-v1.0.4.apk',
+    file_size_mb: 20.80,
+    release_notes: 'SplitUp v1.0.4: 100% Cloud-synced! All friends, groups, trips, expenses, settlements, and notifications are now permanently synced to the cloud and restored across uninstalls.',
   });
 });
 

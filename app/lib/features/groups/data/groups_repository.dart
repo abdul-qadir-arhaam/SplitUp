@@ -6,6 +6,7 @@ import '../domain/group_model.dart';
 import '../../../core/mock/mock_data.dart';
 import '../../expenses/domain/expense_model.dart';
 import '../../expenses/data/expenses_repository.dart';
+import '../../../core/network/api_client.dart';
 
 class GroupsRepository {
   static const _storageKey = 'splitup_groups_data_v2';
@@ -120,13 +121,40 @@ class GroupsRepository {
     } catch (_) {}
   }
 
-  Future<List<GroupModel>> fetchGroups() async {
+  Future<List<GroupModel>> fetchGroups({bool forceRefresh = false}) async {
     await _ensureLoaded();
+
+    try {
+      final res = await ApiClient().get('/v1/groups');
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final list = res['data'] as List<dynamic>;
+        _groups = list.map((g) => GroupModel.fromJson(g as Map<String, dynamic>)).toList();
+        await _saveToStorage();
+      }
+    } catch (_) {
+      // Offline fallback: keep cached groups
+    }
+
     return List.unmodifiable(_groups);
   }
 
   Future<GroupModel> getGroupById(String groupId) async {
     await _ensureLoaded();
+    try {
+      final res = await ApiClient().get('/v1/groups/$groupId');
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final cloudGroup = GroupModel.fromJson(res['data'] as Map<String, dynamic>);
+        final idx = _groups.indexWhere((g) => g.id == groupId);
+        if (idx != -1) {
+          _groups[idx] = cloudGroup;
+        } else {
+          _groups.add(cloudGroup);
+        }
+        await _saveToStorage();
+        return cloudGroup;
+      }
+    } catch (_) {}
+
     return _groups.firstWhere(
       (g) => g.id == groupId,
       orElse: () => _groups.isNotEmpty
@@ -150,7 +178,23 @@ class GroupsRepository {
     String creatorUserId = 'usr_arhaam',
   }) async {
     await _ensureLoaded();
-    await Future.delayed(const Duration(milliseconds: 200));
+
+    try {
+      final res = await ApiClient().post('/v1/groups', {
+        'name': name.trim(),
+        'memberUserIds': memberUserIds,
+        'photoUrl': photoUrl,
+      });
+
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final cloudGroup = GroupModel.fromJson(res['data'] as Map<String, dynamic>);
+        _groups.insert(0, cloudGroup);
+        await _saveToStorage();
+        return cloudGroup;
+      }
+    } catch (_) {
+      // Offline fallback
+    }
 
     final groupId = 'grp_${DateTime.now().millisecondsSinceEpoch}';
     final allUserIds = {creatorUserId, ...memberUserIds}.toList();
@@ -232,6 +276,13 @@ class GroupsRepository {
       createdAt: group.createdAt,
     );
     await _saveToStorage();
+
+    try {
+      final body = <String, dynamic>{};
+      if (name != null) body['name'] = name.trim();
+      if (photoUrl != null) body['photoUrl'] = photoUrl;
+      await ApiClient().patch('/v1/groups/$groupId', body);
+    } catch (_) {}
   }
 
   Future<void> addMember(
@@ -289,6 +340,10 @@ class GroupsRepository {
       createdAt: group.createdAt,
     );
     await _saveToStorage();
+
+    try {
+      await ApiClient().post('/v1/groups/$groupId/members', {'userId': newUserId});
+    } catch (_) {}
   }
 
   /// Checks whether a member has any pending debts they need to pay to anyone.
@@ -385,11 +440,14 @@ class GroupsRepository {
       createdAt: group.createdAt,
     );
     await _saveToStorage();
+
+    try {
+      await ApiClient().delete('/v1/groups/$groupId/members/$targetUserId');
+    } catch (_) {}
   }
 
   Future<void> deleteGroup(String groupId, {String actorUserId = 'usr_arhaam'}) async {
     await _ensureLoaded();
-    await Future.delayed(const Duration(milliseconds: 200));
     final index = _groups.indexWhere((g) => g.id == groupId);
     if (index == -1) throw Exception('Group not found');
 
@@ -405,6 +463,10 @@ class GroupsRepository {
 
     _groups.removeAt(index);
     await _saveToStorage();
+
+    try {
+      await ApiClient().delete('/v1/groups/$groupId');
+    } catch (_) {}
   }
 
   GroupModel? getGroupByIdSync(String groupId) {

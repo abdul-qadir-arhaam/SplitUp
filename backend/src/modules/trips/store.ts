@@ -9,6 +9,7 @@ import {
   NotFoundError,
   ForbiddenError,
 } from '../../lib/errors.js';
+import { persistLedgerToDb } from '../ledgers/db_sync.js';
 
 export interface TripMemberInfo {
   userId: string;
@@ -159,6 +160,11 @@ export function createTrip(params: {
   };
 
   inMemoryLedgers.set(id, tripRecord as any);
+
+  // Persist trip to MySQL
+  persistLedgerToDb(tripRecord as any).catch((err) => {
+    console.error(`[TripsStore] Error persisting trip ${id} to MySQL:`, err);
+  });
 
   // Log activity
   activityStore.log({
@@ -337,6 +343,9 @@ export function updateTripBudget(
   const oldBudgetPaise = anyLedger.budgetPaise;
   anyLedger.budgetPaise = newBudgetPaise;
   anyLedger.updatedAt = new Date().toISOString();
+  persistLedgerToDb(ledger).catch((err) => {
+    console.error(`[TripsStore] Error updating trip budget in MySQL:`, err);
+  });
 
   // Log activity
   activityStore.log({
@@ -396,6 +405,9 @@ export function updateTrip(
   if (data.endDate !== undefined) anyLedger.endDate = data.endDate;
 
   anyLedger.updatedAt = new Date().toISOString();
+  persistLedgerToDb(ledger).catch((err) => {
+    console.error(`[TripsStore] Error updating trip in MySQL:`, err);
+  });
   return getTripDetails(tripId, actorUserId);
 }
 
@@ -412,6 +424,9 @@ export function completeTrip(tripId: string, actorUserId: string) {
 
   anyLedger.status = 'COMPLETED';
   anyLedger.updatedAt = new Date().toISOString();
+  persistLedgerToDb(ledger).catch((err) => {
+    console.error(`[TripsStore] Error updating completed trip in MySQL:`, err);
+  });
 
   activityStore.log({
     ledgerId: tripId,

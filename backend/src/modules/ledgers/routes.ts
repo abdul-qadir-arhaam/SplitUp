@@ -6,6 +6,7 @@ import { assertMember } from '../../middleware/auth.js';
 import { ValidationError, NotFoundError, ForbiddenError } from '../../lib/errors.js';
 import { activityStore } from '../activity/store.js';
 import { notificationsStore } from '../notifications/store.js';
+import { persistExpenseToDb, persistLedgerToDb } from './db_sync.js';
 
 export const ledgersRouter = Router();
 
@@ -207,6 +208,29 @@ ledgersRouter.post('/ledgers/:id/expenses', (req, res, next) => {
 
     ledger.expenses.push(expenseRecord);
 
+    // Asynchronously persist to TiDB Cloud MySQL
+    persistExpenseToDb(expenseRecord, ledgerId).catch((err) => {
+      console.error(`[LedgersRouter] Error persisting expense ${expenseRecord.id} to MySQL:`, err);
+    });
+
+    // Notify participants who owe money
+    for (const split of splits) {
+      if (split.userId !== callerId && split.owedPaise > 0) {
+        notificationsStore.create({
+          userId: split.userId,
+          type: 'EXPENSE_ADDED',
+          payload: {
+            expenseId: expenseRecord.id,
+            ledgerId,
+            title: body.title,
+            totalPaise: body.totalPaise,
+            owedPaise: split.owedPaise,
+            createdBy: callerId,
+          },
+        });
+      }
+    }
+
     // Activity log
     activityStore.log({
       ledgerId,
@@ -373,6 +397,11 @@ ledgersRouter.patch('/expenses/:id', (req, res, next) => {
       },
     });
 
+    // Asynchronously persist update to TiDB Cloud MySQL
+    persistExpenseToDb(expense, ledger.id).catch((err) => {
+      console.error(`[LedgersRouter] Error persisting updated expense ${expense.id} to MySQL:`, err);
+    });
+
     res.json({
       data: expense,
     });
@@ -395,6 +424,11 @@ ledgersRouter.delete('/expenses/:id', (req, res, next) => {
 
     expense.deletedAt = new Date().toISOString();
     expense.deletedBy = callerId;
+
+    // Asynchronously persist soft-delete to TiDB Cloud MySQL
+    persistExpenseToDb(expense, ledger.id).catch((err) => {
+      console.error(`[LedgersRouter] Error persisting deleted expense ${expense.id} to MySQL:`, err);
+    });
 
     activityStore.log({
       ledgerId: ledger.id,

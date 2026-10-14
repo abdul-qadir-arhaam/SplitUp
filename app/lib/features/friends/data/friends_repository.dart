@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/friend_model.dart';
 import '../../../core/mock/mock_data.dart';
+import '../../../core/network/api_client.dart';
 
 class FriendsRepository {
   static const _defaultStorageKey = 'splitup_friends_data_v2';
@@ -75,8 +76,21 @@ class FriendsRepository {
     } catch (_) {}
   }
 
-  Future<List<FriendModel>> fetchFriends() async {
+  Future<List<FriendModel>> fetchFriends({bool forceRefresh = false}) async {
     await _ensureLoaded();
+
+    // Query Cloud MySQL via backend API
+    try {
+      final res = await ApiClient().get('/v1/friends');
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final list = res['data'] as List<dynamic>;
+        _friends = list.map((f) => FriendModel.fromJson(f as Map<String, dynamic>)).toList();
+        await _saveToStorage();
+      }
+    } catch (_) {
+      // Offline fallback: keep cached friends
+    }
+
     return List.unmodifiable(_friends);
   }
 
@@ -87,33 +101,44 @@ class FriendsRepository {
     bool? isAppUser,
   }) async {
     await _ensureLoaded();
-    await Future.delayed(const Duration(milliseconds: 250));
     final cleaned = phone.replaceAll(RegExp(r'[^\d]'), '');
     final phoneE164 = cleaned.startsWith('91') ? '+$cleaned' : '+91$cleaned';
 
-    bool isKnownAppUser = isAppUser ?? false;
-    String friendName = name ?? 'Friend';
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('splitup_registered_users_v2');
-      if (raw != null && raw.isNotEmpty) {
-        final decoded = jsonDecode(raw) as List<dynamic>;
-        for (final item in decoded) {
-          final p = item['phone']?.toString().replaceAll(RegExp(r'[^\d]'), '');
-          if (p == cleaned) {
-            isKnownAppUser = true;
-            if (name == null || name.isEmpty) {
-              friendName = item['name']?.toString() ?? friendName;
-            }
-            break;
-          }
+      final res = await ApiClient().post('/v1/friends', {
+        'phone': phoneE164,
+        'name': name,
+        'contactName': contactName,
+      });
+
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final data = res['data'] as Map<String, dynamic>;
+        final friendMap = (data['friend'] as Map<String, dynamic>?) ?? data;
+        final newFriend = FriendModel(
+          id: (data['friendId'] ?? friendMap['id'] ?? 'usr_$cleaned').toString(),
+          name: friendMap['name']?.toString() ?? name ?? 'Friend',
+          phoneE164: friendMap['phoneE164']?.toString() ?? phoneE164,
+          photoUrl: friendMap['photoUrl']?.toString(),
+          isAppUser: data['isAppUser'] == true || friendMap['isAppUser'] == true,
+          contactName: contactName,
+          individualLedgerId: (data['ledgerId'] ?? 'ldg_${data['friendId']}').toString(),
+          netPaise: 0,
+        );
+
+        final existingIdx = _friends.indexWhere((f) => f.id == newFriend.id || f.phoneE164 == newFriend.phoneE164);
+        if (existingIdx != -1) {
+          _friends[existingIdx] = newFriend;
+        } else {
+          _friends.insert(0, newFriend);
         }
+        await _saveToStorage();
+        return newFriend;
       }
-    } catch (_) {}
+    } catch (_) {
+      // Offline fallback: save locally
+    }
 
     final friendId = 'usr_${cleaned.length >= 6 ? cleaned.substring(cleaned.length - 6) : cleaned}';
-
-    // If friend already exists in list, return existing
     final existingIdx = _friends.indexWhere((f) => f.id == friendId || f.phoneE164 == phoneE164);
     if (existingIdx != -1) {
       return _friends[existingIdx];
@@ -121,9 +146,9 @@ class FriendsRepository {
 
     final friend = FriendModel(
       id: friendId,
-      name: friendName,
+      name: name ?? 'Friend',
       phoneE164: phoneE164,
-      isAppUser: isKnownAppUser,
+      isAppUser: isAppUser ?? false,
       contactName: contactName,
       individualLedgerId: 'ldg_$friendId',
       netPaise: 0,
@@ -136,23 +161,27 @@ class FriendsRepository {
 
   Future<void> updateNickname(String friendId, String? nickname) async {
     await _ensureLoaded();
-    await Future.delayed(const Duration(milliseconds: 150));
     final index = _friends.indexWhere((f) => f.id == friendId);
     if (index != -1) {
       _friends[index] = _friends[index].copyWith(nickname: nickname);
       await _saveToStorage();
     }
+    try {
+      await ApiClient().patch('/v1/friends/$friendId/nickname', {'nickname': nickname});
+    } catch (_) {}
   }
 
   Future<void> removeFriend(String friendId) async {
     await _ensureLoaded();
-    await Future.delayed(const Duration(milliseconds: 200));
     final friend = _friends.firstWhere((f) => f.id == friendId, orElse: () => throw Exception('Friend not found'));
     if (friend.netPaise != 0) {
       throw Exception('Cannot unfriend while balance is unsettled (balance: ₹${(friend.netPaise / 100).toStringAsFixed(2)})');
     }
     _friends.removeWhere((f) => f.id == friendId);
     await _saveToStorage();
+    try {
+      await ApiClient().delete('/v1/friends/$friendId');
+    } catch (_) {}
   }
 
   void applySettlement(String friendId, int settledPaise) {

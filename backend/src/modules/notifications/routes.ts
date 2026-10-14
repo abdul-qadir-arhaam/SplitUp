@@ -22,9 +22,24 @@ notificationsRouter.patch('/notifications/:id/read', (req, res) => {
   res.json({ success });
 });
 
-// POST /v1/notifications/mark-all-read
-notificationsRouter.post('/notifications/mark-all-read', (req, res) => {
+// GET /v1/notifications/unread-count
+notificationsRouter.get('/notifications/unread-count', (req, res) => {
   const userId = req.user?.id || 'usr_arhaam';
-  notificationsStore.markAllRead(userId);
+  const unreadCount = notificationsStore.getUnreadCount(userId);
+  res.json({ unreadCount });
+});
+
+// DELETE /v1/notifications/:id (Dismiss single notification)
+notificationsRouter.delete('/notifications/:id', (req, res) => {
+  const userId = req.user?.id || 'usr_arhaam';
+  const success = notificationsStore.dismiss(req.params.id, userId);
+  res.json({ success });
+});
+
+// DELETE /v1/notifications (Dismiss all notifications for caller)
+notificationsRouter.delete('/notifications', (req, res) => {
+  const userId = req.user?.id || 'usr_arhaam';
+  notificationsStore.dismissAll(userId);
   res.json({ success: true });
 });
+

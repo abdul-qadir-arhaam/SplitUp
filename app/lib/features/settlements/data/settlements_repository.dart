@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/settlement_model.dart';
 import '../../friends/data/friends_repository.dart';
 import '../../notifications/data/notifications_repository.dart';
+import '../../../core/network/api_client.dart';
 
 class SettlementsRepository {
   static const _storageKey = 'splitup_settlements_data_v2';
@@ -118,6 +119,15 @@ class SettlementsRepository {
     _settlements.insert(0, settlement);
     await _saveToStorage();
 
+    try {
+      await ApiClient().post('/v1/settlements', {
+        'ledgerId': ledgerId,
+        'toUserId': toUserId,
+        'amountPaise': amountPaise,
+        'method': method,
+      });
+    } catch (_) {}
+
     if (isConfirmed) {
       // Self-confirmed for placeholder: update friend balance
       _ref.read(friendsRepositoryProvider).applySettlement(toUserId, amountPaise);
@@ -178,6 +188,10 @@ class SettlementsRepository {
     _settlements[index] = updated;
     await _saveToStorage();
 
+    try {
+      await ApiClient().post('/v1/settlements/$settlementId/confirm');
+    } catch (_) {}
+
     // Apply to friend balance
     final friendId = old.fromUserId == 'usr_arhaam' ? old.toUserId : old.fromUserId;
     _ref.read(friendsRepositoryProvider).applySettlement(friendId, old.amountPaise);
@@ -225,6 +239,10 @@ class SettlementsRepository {
     _settlements[index] = updated;
     await _saveToStorage();
 
+    try {
+      await ApiClient().post('/v1/settlements/$settlementId/reject');
+    } catch (_) {}
+
     _ref.read(notificationsRepositoryProvider).updateSettlementAction(
           settlementId,
           'DONE',
@@ -249,6 +267,10 @@ class SettlementsRepository {
     );
     _settlements[index] = updated;
     await _saveToStorage();
+
+    try {
+      await ApiClient().post('/v1/settlements/$settlementId/cancel');
+    } catch (_) {}
 
     _ref.read(notificationsRepositoryProvider).updateSettlementAction(
           settlementId,

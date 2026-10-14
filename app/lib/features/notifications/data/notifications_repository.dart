@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/network/api_client.dart';
 
 class NotificationModel {
   final String id;
@@ -26,16 +27,75 @@ class NotificationModel {
   });
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
+    final type = (json['type'] ?? 'GENERAL').toString();
+    final payload = json['payload'] is Map ? (json['payload'] as Map<String, dynamic>) : <String, dynamic>{};
+
+    String title = json['title']?.toString() ?? '';
+    String body = json['body']?.toString() ?? '';
+
+    if (title.isEmpty) {
+      switch (type) {
+        case 'FRIEND_ADDED':
+          final adderName = payload['adderName'] ?? 'A friend';
+          title = 'Friend Added';
+          body = '$adderName added you to their friends list.';
+          break;
+        case 'FRIEND_JOINED':
+          final friendName = payload['friendName'] ?? 'Your friend';
+          title = 'Friend Joined SplitUp!';
+          body = '$friendName just joined SplitUp. Start sharing expenses!';
+          break;
+        case 'ADDED_TO_GROUP':
+          final groupName = payload['groupName'] ?? 'a group';
+          title = 'Added to Group';
+          body = 'You were added to the group "$groupName".';
+          break;
+        case 'ADDED_TO_TRIP':
+          final tripName = payload['tripName'] ?? 'a trip';
+          title = 'Added to Trip';
+          body = 'You were added to the trip "$tripName".';
+          break;
+        case 'EXPENSE_ADDED':
+          final expTitle = payload['title'] ?? 'an expense';
+          final owed = payload['owedPaise'] != null ? '₹${((payload['owedPaise'] as num) / 100).toStringAsFixed(0)}' : '';
+          title = 'New Expense Split';
+          body = 'New expense "$expTitle" was added. ${owed.isNotEmpty ? "Your share: $owed" : ""}';
+          break;
+        case 'SETTLEMENT_REQUESTED':
+          final amt = payload['amountPaise'] != null ? '₹${((payload['amountPaise'] as num) / 100).toStringAsFixed(0)}' : '';
+          title = 'Settlement Payment';
+          body = 'A payment of $amt was recorded. Tap to confirm or decline.';
+          break;
+        case 'SETTLEMENT_CONFIRMED':
+          title = 'Payment Confirmed';
+          body = 'Your payment has been confirmed.';
+          break;
+        case 'SETTLEMENT_REJECTED':
+          title = 'Payment Declined';
+          body = 'Your payment was declined by the recipient.';
+          break;
+        case 'SETTLEMENT_OUTDATED':
+          title = 'Settlement Outdated';
+          body = 'The balance changed before settlement was confirmed.';
+          break;
+        default:
+          title = 'SplitUp Notification';
+          body = 'You have a new update.';
+      }
+    }
+
+    final isRead = json['isRead'] as bool? ?? (json['readAt'] != null || json['read_at'] != null);
+
     return NotificationModel(
       id: json['id'] as String,
-      type: json['type'] as String,
-      title: json['title'] as String,
-      body: json['body'] as String,
-      isRead: json['isRead'] as bool? ?? false,
-      actionState: json['actionState'] as String?,
-      actionResult: json['actionResult'] as String?,
-      payload: json['payload'] as Map<String, dynamic>?,
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+      type: type,
+      title: title,
+      body: body,
+      isRead: isRead,
+      actionState: json['actionState'] as String? ?? json['action_state'] as String?,
+      actionResult: json['actionResult'] as String? ?? json['action_result'] as String?,
+      payload: payload,
+      createdAt: DateTime.tryParse((json['createdAt'] ?? json['created_at']) as String? ?? '') ?? DateTime.now(),
     );
   }
 
@@ -134,8 +194,21 @@ class NotificationsRepository {
     } catch (_) {}
   }
 
-  Future<List<NotificationModel>> fetchNotifications() async {
+  Future<List<NotificationModel>> fetchNotifications({bool forceRefresh = false}) async {
     await _ensureLoaded();
+
+    try {
+      final res = await ApiClient().get('/v1/notifications');
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final list = res['data'] as List<dynamic>;
+        _items.clear();
+        _items.addAll(list.map((n) => NotificationModel.fromJson(n as Map<String, dynamic>)));
+        await _saveToStorage();
+      }
+    } catch (_) {
+      // Offline fallback: keep cached items
+    }
+
     return List.unmodifiable(_items);
   }
 
@@ -152,6 +225,9 @@ class NotificationsRepository {
       _items[index] = _items[index].copyWith(isRead: true);
       await _saveToStorage();
     }
+    try {
+      await ApiClient().patch('/v1/notifications/$id/read');
+    } catch (_) {}
   }
 
   Future<void> markAllRead() async {
@@ -160,18 +236,27 @@ class NotificationsRepository {
       _items[i] = _items[i].copyWith(isRead: true);
     }
     await _saveToStorage();
+    try {
+      await ApiClient().post('/v1/notifications/mark-all-read');
+    } catch (_) {}
   }
 
   Future<void> deleteNotification(String id) async {
     await _ensureLoaded();
     _items.removeWhere((n) => n.id == id);
     await _saveToStorage();
+    try {
+      await ApiClient().delete('/v1/notifications/$id');
+    } catch (_) {}
   }
 
   Future<void> clearAll() async {
     await _ensureLoaded();
     _items.clear();
     await _saveToStorage();
+    try {
+      await ApiClient().delete('/v1/notifications');
+    } catch (_) {}
   }
 
   Future<void> updateActionState(String id, String actionState, {String? actionResult}) async {

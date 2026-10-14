@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/expense_model.dart';
 import '../../friends/data/friends_repository.dart';
 import '../../notifications/data/notifications_repository.dart';
+import '../../../core/network/api_client.dart';
 
 class ExpensesRepository {
   static const _storageKey = 'splitup_expenses_data_v2';
@@ -108,6 +109,24 @@ class ExpensesRepository {
 
   Future<List<ExpenseModel>> fetchExpensesForLedger(String ledgerId) async {
     await _ensureLoaded();
+
+    try {
+      final res = await ApiClient().get('/v1/ledgers/$ledgerId/expenses');
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final list = res['data'] as List<dynamic>;
+        final cloudExpenses = list.map((e) => ExpenseModel.fromJson(e as Map<String, dynamic>)).toList();
+        for (final ce in cloudExpenses) {
+          final idx = _expenses.indexWhere((e) => e.id == ce.id);
+          if (idx != -1) {
+            _expenses[idx] = ce;
+          } else {
+            _expenses.add(ce);
+          }
+        }
+        await _saveToStorage();
+      }
+    } catch (_) {}
+
     return _expenses
         .where((e) => e.ledgerId == ledgerId && e.deletedAt == null)
         .toList()
@@ -131,6 +150,33 @@ class ExpensesRepository {
     String? friendId,
   }) async {
     await _ensureLoaded();
+
+    // Attempt cloud creation
+    try {
+      final res = await ApiClient().post('/v1/ledgers/$ledgerId/expenses', {
+        'title': title,
+        'totalPaise': totalPaise,
+        'category': category.toLowerCase(),
+        'splitType': splitType,
+        'payers': payers.map((p) => {'userId': p.userId, 'paidPaise': p.paidPaise}).toList(),
+        'participants': splits.map((s) => {
+          'userId': s.userId,
+          'included': s.included,
+          'splitValue': s.owedPaise,
+        }).toList(),
+        'note': note,
+      });
+
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final cloudExpense = ExpenseModel.fromJson(res['data'] as Map<String, dynamic>);
+        _expenses.insert(0, cloudExpense);
+        await _saveToStorage();
+        return cloudExpense;
+      }
+    } catch (_) {
+      // Offline fallback
+    }
+
     final id = 'exp_${DateTime.now().millisecondsSinceEpoch}';
     final expense = ExpenseModel(
       id: id,
@@ -232,6 +278,21 @@ class ExpensesRepository {
     );
     await _saveToStorage();
 
+    try {
+      await ApiClient().patch('/v1/expenses/$expenseId', {
+        'title': title,
+        'totalPaise': totalPaise,
+        'category': category.toLowerCase(),
+        'splitType': splitType,
+        'payers': payers.map((p) => {'userId': p.userId, 'paidPaise': p.paidPaise}).toList(),
+        'participants': splits.map((s) => {
+          'userId': s.userId,
+          'included': s.included,
+          'splitValue': s.owedPaise,
+        }).toList(),
+      });
+    } catch (_) {}
+
     _activities.insert(
       0,
       ExpenseActivityItem(
@@ -255,6 +316,10 @@ class ExpensesRepository {
       deletedBy: 'usr_arhaam',
     );
     await _saveToStorage();
+
+    try {
+      await ApiClient().delete('/v1/expenses/$expenseId');
+    } catch (_) {}
 
     // Revert balance impact
     if (friendId != null) {

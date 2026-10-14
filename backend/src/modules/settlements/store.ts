@@ -12,6 +12,7 @@ import {
   SettlementOutdatedError,
   NothingDueError,
 } from '../../lib/errors.js';
+import { persistSettlementToDb } from '../ledgers/db_sync.js';
 
 export interface Settlement {
   id: string;
@@ -161,6 +162,11 @@ export function createSettlement(params: {
   inMemorySettlements.set(id, settlement);
   ledger.settlements.push(settlement);
 
+  // Persist settlement to MySQL
+  persistSettlementToDb(settlement).catch((err) => {
+    console.error(`[SettlementsStore] Error persisting settlement ${id} to MySQL:`, err);
+  });
+
   // Audit event
   const event: SettlementEvent = {
     id: `sev_${ulid()}`,
@@ -247,6 +253,11 @@ export function getSettlement(id: string): Settlement {
 
       // Update receiver's notification action state
       notificationsStore.updateSettlementNotification(id, 'EXPIRED');
+
+      // Persist outdated settlement to MySQL
+      persistSettlementToDb(settlement).catch((err) => {
+        console.error(`[SettlementsStore] Error persisting outdated settlement ${id} to MySQL:`, err);
+      });
 
       // Notify sender
       notificationsStore.create({
@@ -343,6 +354,11 @@ export function confirmSettlement(id: string, actorUserId: string): Settlement {
       settlement.confirmedOnBehalf = true;
     }
 
+    // Persist confirmed status to MySQL
+    persistSettlementToDb(settlement).catch((err) => {
+      console.error(`[SettlementsStore] Error persisting confirmed settlement ${id} to MySQL:`, err);
+    });
+
     // Audit event
     inMemorySettlementEvents.push({
       id: `sev_${ulid()}`,
@@ -406,6 +422,11 @@ export function rejectSettlement(id: string, actorUserId: string): Settlement {
   settlement.respondedBy = actorUserId;
   settlement.respondedAt = new Date().toISOString();
 
+  // Persist rejected status to MySQL
+  persistSettlementToDb(settlement).catch((err) => {
+    console.error(`[SettlementsStore] Error persisting rejected settlement ${id} to MySQL:`, err);
+  });
+
   inMemorySettlementEvents.push({
     id: `sev_${ulid()}`,
     settlementId: id,
@@ -456,6 +477,11 @@ export function cancelSettlement(id: string, actorUserId: string): Settlement {
   }
 
   settlement.status = 'CANCELLED';
+
+  // Persist cancelled status to MySQL
+  persistSettlementToDb(settlement).catch((err) => {
+    console.error(`[SettlementsStore] Error persisting cancelled settlement ${id} to MySQL:`, err);
+  });
 
   inMemorySettlementEvents.push({
     id: `sev_${ulid()}`,

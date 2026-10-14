@@ -11,6 +11,8 @@ import {
   ConflictError,
   UnsettledBalanceError,
 } from '../../lib/errors.js';
+import { persistLedgerToDb } from '../ledgers/db_sync.js';
+import { db } from '../../db/knex.js';
 
 export interface GroupMemberInfo {
   userId: string;
@@ -53,6 +55,11 @@ export function createGroup(params: {
   };
 
   inMemoryLedgers.set(id, groupRecord as any);
+
+  // Persist group to MySQL
+  persistLedgerToDb(groupRecord as any).catch((err) => {
+    console.error(`[GroupsStore] Error persisting group ${id} to MySQL:`, err);
+  });
 
   // Log activity
   activityStore.log({
@@ -219,6 +226,9 @@ export function updateGroup(
   }
 
   anyLedger.updatedAt = new Date().toISOString();
+  persistLedgerToDb(ledger).catch((err) => {
+    console.error(`[GroupsStore] Error updating group ${groupId} in MySQL:`, err);
+  });
   return ledger;
 }
 
@@ -241,6 +251,11 @@ export function addMember(groupId: string, actorUserId: string, newUserId: strin
   ledger.memberIds.push(newUserId);
   anyLedger.updatedAt = new Date().toISOString();
 
+  // Persist updated membership to MySQL
+  persistLedgerToDb(ledger).catch((err) => {
+    console.error(`[GroupsStore] Error persisting new member in group ${groupId} to MySQL:`, err);
+  });
+
   activityStore.log({
     ledgerId: groupId,
     actorUserId,
@@ -253,7 +268,7 @@ export function addMember(groupId: string, actorUserId: string, newUserId: strin
   if (user && !user.isPlaceholder) {
     notificationsStore.create({
       userId: newUserId,
-      type: 'ADDED_TO_GROUP' as any,
+      type: 'ADDED_TO_GROUP',
       payload: {
         groupId,
         groupName: ledger.name,
@@ -311,6 +326,15 @@ export function removeMember(
   anyLedger.adminUserIds = adminUserIds.filter((id) => id !== targetUserId);
   anyLedger.updatedAt = new Date().toISOString();
 
+  // Persist updated membership & mark left in MySQL
+  persistLedgerToDb(ledger).catch((err) => {
+    console.error(`[GroupsStore] Error persisting removed member in group ${groupId} to MySQL:`, err);
+  });
+  db('ledger_members')
+    .where({ ledger_id: groupId, user_id: targetUserId })
+    .update({ left_at: new Date() })
+    .catch((err) => console.error('[GroupsStore] Error marking left_at in MySQL:', err));
+
   activityStore.log({
     ledgerId: groupId,
     actorUserId,
@@ -354,6 +378,13 @@ export function deleteGroup(groupId: string, actorUserId: string) {
   }
 
   inMemoryLedgers.delete(groupId);
+
+  // Soft delete in MySQL
+  db('ledgers')
+    .where({ id: groupId })
+    .update({ status: 'DELETED', updated_at: new Date() })
+    .catch((err) => console.error('[GroupsStore] Error deleting group from MySQL:', err));
+
   return { success: true };
 }
 

@@ -8,6 +8,7 @@ import '../../groups/data/groups_repository.dart';
 import '../../expenses/domain/expense_model.dart';
 import '../../expenses/data/expenses_repository.dart';
 import '../domain/trip_model.dart';
+import '../../../core/network/api_client.dart';
 
 class TripsRepository {
   static const _storageKey = 'splitup_trips_data_v1';
@@ -237,13 +238,40 @@ class TripsRepository {
     );
   }
 
-  Future<List<TripModel>> fetchTrips() async {
+  Future<List<TripModel>> fetchTrips({bool forceRefresh = false}) async {
     await _ensureLoaded();
+
+    try {
+      final res = await ApiClient().get('/v1/trips');
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final list = res['data'] as List<dynamic>;
+        _trips = list.map((t) => TripModel.fromJson(t as Map<String, dynamic>)).toList();
+        await _saveToStorage();
+      }
+    } catch (_) {
+      // Offline fallback: keep cached trips
+    }
+
     return List.unmodifiable(_trips);
   }
 
   Future<TripModel> getTripById(String tripId) async {
     await _ensureLoaded();
+    try {
+      final res = await ApiClient().get('/v1/trips/$tripId');
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final cloudTrip = TripModel.fromJson(res['data'] as Map<String, dynamic>);
+        final idx = _trips.indexWhere((t) => t.id == tripId);
+        if (idx != -1) {
+          _trips[idx] = cloudTrip;
+        } else {
+          _trips.add(cloudTrip);
+        }
+        await _saveToStorage();
+        return cloudTrip;
+      }
+    } catch (_) {}
+
     return _trips.firstWhere(
       (t) => t.id == tripId,
       orElse: () => _trips.isNotEmpty
@@ -274,7 +302,27 @@ class TripsRepository {
     String creatorUserId = 'usr_arhaam',
   }) async {
     await _ensureLoaded();
-    await Future.delayed(const Duration(milliseconds: 150));
+
+    try {
+      final res = await ApiClient().post('/v1/trips', {
+        'name': name.trim(),
+        'budgetPaise': budgetPaise,
+        'startDate': startDate,
+        'endDate': endDate,
+        'memberUserIds': memberUserIds,
+        'sourceGroupId': sourceGroupId,
+        'photoUrl': photoUrl,
+      });
+
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final cloudTrip = TripModel.fromJson(res['data'] as Map<String, dynamic>);
+        _trips.insert(0, cloudTrip);
+        await _saveToStorage();
+        return cloudTrip;
+      }
+    } catch (_) {
+      // Offline fallback
+    }
 
     final tripId = 'trp_${DateTime.now().millisecondsSinceEpoch}';
     final Set<String> memberSet = {creatorUserId, ...memberUserIds};

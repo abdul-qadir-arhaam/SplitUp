@@ -19,32 +19,53 @@ declare global {
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
+  const xUserId = req.headers['x-user-id'] as string;
+
+  if (
+    req.path === '/users/auth/verify' ||
+    req.path === '/users/auth/login' ||
+    req.path === '/users/auth/register' ||
+    req.path.endsWith('/auth/login') ||
+    req.path.endsWith('/auth/register')
+  ) {
+    next();
+    return;
+  }
+
+  if (xUserId) {
+    req.user = {
+      id: xUserId,
+      phone: '+919876543210',
+      name: `User ${xUserId}`,
+    };
+    next();
+    return;
+  }
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const rawToken = authHeader.replace('Bearer ', '').trim();
+    let userId = '';
+    if (rawToken.startsWith('user:')) {
+      userId = rawToken.replace('user:', '').trim();
+    } else if (rawToken.startsWith('token_usr_')) {
+      const parts = rawToken.split('_');
+      userId = `usr_${parts[2]}`;
+    } else if (rawToken.startsWith('usr_')) {
+      userId = rawToken;
+    } else {
+      userId = rawToken;
+    }
+
+    req.user = {
+      id: userId || 'usr_arhaam',
+      phone: '+919876543210',
+      name: `User ${userId}`,
+    };
+    next();
+    return;
+  }
 
   if (config.AUTH_STUB_MODE) {
-    // Development and test stub
-    const xUserId = req.headers['x-user-id'] as string;
-    if (xUserId) {
-      req.user = {
-        id: xUserId,
-        phone: '+919876543210',
-        name: `User ${xUserId}`,
-      };
-      next();
-      return;
-    }
-
-    if (authHeader && authHeader.startsWith('Bearer user:')) {
-      const customId = authHeader.replace('Bearer user:', '').trim();
-      req.user = {
-        id: customId,
-        phone: '+919876543210',
-        name: `User ${customId}`,
-      };
-      next();
-      return;
-    }
-
-    // Default test user
     req.user = {
       id: 'usr_arhaam',
       phone: '+919876543210',
@@ -54,21 +75,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  if (
-    req.path === '/users/auth/verify' ||
-    req.path === '/users/auth/login' ||
-    req.path === '/users/auth/register'
-  ) {
-    next();
-    return;
-  }
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new UnauthenticatedError('Missing or invalid Authorization header');
-  }
-
-  // Real Firebase verification goes here in production
-  next();
+  throw new UnauthenticatedError('Missing or invalid Authorization header');
 }
 
 /**

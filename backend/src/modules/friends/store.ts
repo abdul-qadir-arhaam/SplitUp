@@ -1,4 +1,5 @@
 import { ulid } from 'ulidx';
+import { db } from '../../db/knex.js';
 import { inMemoryUsers, findUserById, findUserByPhone, createUser, registerMergeHook } from '../users/store.js';
 import { normalizePhoneE164 } from '../users/phone.js';
 import { inMemoryLedgers } from '../ledgers/routes.js';
@@ -24,6 +25,25 @@ function key(ownerId: string, friendId: string): string {
   return `${ownerId}:${friendId}`;
 }
 
+async function persistFriendshipToDb(f: Friendship): Promise<void> {
+  try {
+    await db('friendships')
+      .insert({
+        owner_user_id: f.ownerUserId,
+        friend_user_id: f.friendUserId,
+        individual_ledger_id: f.individualLedgerId,
+        nickname: f.nickname || null,
+        contact_name: f.contactName || null,
+        created_at: new Date(f.createdAt),
+        removed_at: f.removedAt ? new Date(f.removedAt) : null,
+      })
+      .onConflict(['owner_user_id', 'friend_user_id'])
+      .merge();
+  } catch (err) {
+    console.error('[FriendsStore] Error persisting friendship to MySQL:', err);
+  }
+}
+
 /**
  * Creates or retrieves the single authoritative individual ledger for two users.
  * Respects DATABASE.md pair_low_user_id and pair_high_user_id constraints.
@@ -31,7 +51,7 @@ function key(ownerId: string, friendId: string): string {
 export function getOrCreateIndividualLedger(userA: string, userB: string, createdBy: string): string {
   const [low, high] = [userA, userB].sort();
 
-  // Search existing individual ledger
+  // Search existing individual ledger in memory
   for (const ledger of inMemoryLedgers.values()) {
     const anyLedger = ledger as any;
     if (
@@ -57,6 +77,29 @@ export function getOrCreateIndividualLedger(userA: string, userB: string, create
     settlements: [],
     ...( { pair_low_user_id: low, pair_high_user_id: high, created_by: createdBy } as any ),
   });
+
+  // Asynchronously persist ledger to MySQL
+  db('ledgers')
+    .insert({
+      id,
+      type: 'INDIVIDUAL',
+      name: `${userAName} & ${userBName}`,
+      status: 'ACTIVE',
+      pair_low_user_id: low,
+      pair_high_user_id: high,
+      created_by: createdBy,
+      created_at: new Date(),
+      updated_at: new Date(),
+    })
+    .onConflict('id')
+    .ignore()
+    .then(() => {
+      return db('ledger_members').insert([
+        { ledger_id: id, user_id: low, role: 'MEMBER', joined_at: new Date() },
+        { ledger_id: id, user_id: high, role: 'MEMBER', joined_at: new Date() },
+      ]).onConflict(['ledger_id', 'user_id']).ignore();
+    })
+    .catch((err) => console.error('[FriendsStore] Error creating individual ledger in MySQL:', err));
 
   return id;
 }
@@ -120,7 +163,7 @@ export function addFriend(params: {
       throw new ConflictError('Friend already added');
     }
   } else {
-    // Create placeholder user
+    // Create placeholder user in memory & DB
     targetUser = createUser({
       phoneE164: normalizedPhone,
       name: name || normalizedPhone,
@@ -134,7 +177,7 @@ export function addFriend(params: {
   const now = new Date().toISOString();
 
   // Create or restore friendship for owner
-  inMemoryFriendships.set(key(ownerUserId, targetUser.id), {
+  const ownerFriendship: Friendship = {
     ownerUserId,
     friendUserId: targetUser.id,
     individualLedgerId: ledgerId,
@@ -142,11 +185,13 @@ export function addFriend(params: {
     contactName: contactName || null,
     createdAt: now,
     removedAt: null,
-  });
+  };
+  inMemoryFriendships.set(key(ownerUserId, targetUser.id), ownerFriendship);
+  persistFriendshipToDb(ownerFriendship);
 
   // If real app user, create reciprocal friendship and in-app notification
   if (isAppUser) {
-    inMemoryFriendships.set(key(targetUser.id, ownerUserId), {
+    const reciprocalFriendship: Friendship = {
       ownerUserId: targetUser.id,
       friendUserId: ownerUserId,
       individualLedgerId: ledgerId,
@@ -154,7 +199,9 @@ export function addFriend(params: {
       contactName: null,
       createdAt: now,
       removedAt: null,
-    });
+    };
+    inMemoryFriendships.set(key(targetUser.id, ownerUserId), reciprocalFriendship);
+    persistFriendshipToDb(reciprocalFriendship);
 
     notificationsStore.create({
       userId: targetUser.id,
@@ -190,17 +237,17 @@ export function updateFriendNickname(ownerUserId: string, friendUserId: string, 
   }
 
   f.nickname = nickname ? nickname.trim() : null;
+  db('friendships')
+    .where({ owner_user_id: ownerUserId, friend_user_id: friendUserId })
+    .update({ nickname: f.nickname })
+    .catch((err) => console.error('[FriendsStore] Error updating nickname in MySQL:', err));
+
   return {
     friendId: friendUserId,
     nickname: f.nickname,
   };
 }
 
-/**
- * DATABASE.md Section 6.4: Unsettled-balance guard
- * A member has unsettled balance in a ledger if their net is not 0
- * OR they have a PENDING settlement as sender or receiver.
- */
 export function removeFriend(ownerUserId: string, friendUserId: string) {
   const f = inMemoryFriendships.get(key(ownerUserId, friendUserId));
   if (!f || f.removedAt !== null) {
@@ -226,17 +273,37 @@ export function removeFriend(ownerUserId: string, friendUserId: string) {
     }
   }
 
-  f.removedAt = new Date().toISOString();
+  const now = new Date();
+  f.removedAt = now.toISOString();
+
+  db('friendships')
+    .where({ owner_user_id: ownerUserId, friend_user_id: friendUserId })
+    .update({ removed_at: now })
+    .catch((err) => console.error('[FriendsStore] Error removing friendship in MySQL:', err));
+
   return { success: true };
 }
 
 export function blockUser(blockerId: string, blockedId: string) {
   inMemoryBlocks.add(`${blockerId}:${blockedId}`);
+  db('user_blocks')
+    .insert({
+      blocker_user_id: blockerId,
+      blocked_user_id: blockedId,
+      created_at: new Date(),
+    })
+    .onConflict(['blocker_user_id', 'blocked_user_id'])
+    .ignore()
+    .catch((err) => console.error('[FriendsStore] Error blocking user in MySQL:', err));
   return { success: true };
 }
 
 export function unblockUser(blockerId: string, blockedId: string) {
   inMemoryBlocks.delete(`${blockerId}:${blockedId}`);
+  db('user_blocks')
+    .where({ blocker_user_id: blockerId, blocked_user_id: blockedId })
+    .delete()
+    .catch((err) => console.error('[FriendsStore] Error unblocking user in MySQL:', err));
   return { success: true };
 }
 
@@ -261,7 +328,6 @@ export function repointFriendshipsOnMerge(placeholderId: string, realId: string)
       const newKey = key(newOwner, newFriend);
       const existing = inMemoryFriendships.get(newKey);
       if (existing) {
-        // Keep row with more data (preserve nickname)
         if (!existing.nickname && f.nickname) {
           existing.nickname = f.nickname;
         }
@@ -269,12 +335,12 @@ export function repointFriendshipsOnMerge(placeholderId: string, realId: string)
         f.ownerUserId = newOwner;
         f.friendUserId = newFriend;
         inMemoryFriendships.set(newKey, f);
+        persistFriendshipToDb(f);
       }
 
-      // Ensure reciprocal friendship exists for real user
       const reciprocalKey = key(newFriend, newOwner);
       if (!inMemoryFriendships.has(reciprocalKey)) {
-        inMemoryFriendships.set(reciprocalKey, {
+        const recip: Friendship = {
           ownerUserId: newFriend,
           friendUserId: newOwner,
           individualLedgerId: f.individualLedgerId,
@@ -282,10 +348,38 @@ export function repointFriendshipsOnMerge(placeholderId: string, realId: string)
           contactName: null,
           createdAt: f.createdAt,
           removedAt: null,
-        });
+        };
+        inMemoryFriendships.set(reciprocalKey, recip);
+        persistFriendshipToDb(recip);
       }
     }
   }
 }
 
 registerMergeHook(repointFriendshipsOnMerge);
+
+export async function initFriendsStore(): Promise<void> {
+  try {
+    const rows = await db('friendships').whereNull('removed_at').select('*');
+    for (const r of rows) {
+      inMemoryFriendships.set(key(r.owner_user_id, r.friend_user_id), {
+        ownerUserId: r.owner_user_id,
+        friendUserId: r.friend_user_id,
+        individualLedgerId: r.individual_ledger_id,
+        nickname: r.nickname || null,
+        contactName: r.contact_name || null,
+        createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+        removedAt: r.removed_at instanceof Date ? r.removed_at.toISOString() : (r.removed_at ? String(r.removed_at) : null),
+      });
+    }
+
+    const blocks = await db('user_blocks').select('*');
+    for (const b of blocks) {
+      inMemoryBlocks.add(`${b.blocker_user_id}:${b.blocked_user_id}`);
+    }
+
+    console.log(`[FriendsStore] Loaded ${inMemoryFriendships.size} friendships and ${inMemoryBlocks.size} blocks from Cloud MySQL.`);
+  } catch (err) {
+    console.error('[FriendsStore] Error loading friendships from MySQL:', err);
+  }
+}
