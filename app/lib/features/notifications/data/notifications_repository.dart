@@ -8,8 +8,8 @@ class NotificationModel {
   final String title;
   final String body;
   final bool isRead;
-  final String? actionState; // OPEN | DONE | EXPIRED
-  final String? actionResult; // CONFIRMED | REJECTED
+  final String? actionState;
+  final String? actionResult;
   final Map<String, dynamic>? payload;
   final DateTime createdAt;
 
@@ -25,8 +25,6 @@ class NotificationModel {
     required this.createdAt,
   });
 
-  bool get isOpenActionable => actionState == 'OPEN';
-
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
       id: json['id'] as String,
@@ -37,35 +35,37 @@ class NotificationModel {
       actionState: json['actionState'] as String?,
       actionResult: json['actionResult'] as String?,
       payload: json['payload'] as Map<String, dynamic>?,
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'type': type,
-        'title': title,
-        'body': body,
-        'isRead': isRead,
-        'actionState': actionState,
-        'actionResult': actionResult,
-        'payload': payload,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'type': type,
+    'title': title,
+    'body': body,
+    'isRead': isRead,
+    'actionState': actionState,
+    'actionResult': actionResult,
+    'payload': payload,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   NotificationModel copyWith({
+    String? id,
+    String? type,
+    String? title,
+    String? body,
     bool? isRead,
     String? actionState,
     String? actionResult,
     Map<String, dynamic>? payload,
   }) {
     return NotificationModel(
-      id: id,
-      type: type,
-      title: title,
-      body: body,
+      id: id ?? this.id,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      body: body ?? this.body,
       isRead: isRead ?? this.isRead,
       actionState: actionState ?? this.actionState,
       actionResult: actionResult ?? this.actionResult,
@@ -79,50 +79,48 @@ class NotificationsRepository {
   static const _storageKey = 'splitup_notifications_data_v1';
   bool _isLoaded = false;
 
-  final List<NotificationModel> _items = [
-    NotificationModel(
-      id: 'notif_settle_sample',
-      type: 'SETTLEMENT_REQUESTED',
-      title: 'Settlement Requested',
-      body: 'Rahul sent ₹850 settlement request for Friday Gang',
-      isRead: false,
-      actionState: 'OPEN',
-      payload: {
-        'settlementId': 'stl_sample_rahul',
-        'fromUserId': 'usr_rahul',
-        'amountPaise': 85000,
-        'senderName': 'Rahul',
-      },
-      createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
-    ),
-    NotificationModel(
-      id: 'notif_1',
-      type: 'FRIEND_ADDED',
-      title: 'Priya added you as a friend',
-      body: 'You can now split shared expenses and settle dues together.',
-      isRead: false,
-      createdAt: DateTime.now().subtract(const Duration(minutes: 25)),
-    ),
-    NotificationModel(
-      id: 'notif_2',
-      type: 'EXPENSE_ADDED',
-      title: 'Dinner at Wharf added',
-      body: 'Arhaam added an expense of ₹1,200 in Friday Gang.',
-      isRead: true,
-      createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-    ),
-  ];
+  final List<NotificationModel> _items = [];
+
+  Future<String> _getStorageKey() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserId = prefs.getString('splitup_user_id');
+      if (currentUserId != null && currentUserId.isNotEmpty) {
+        return 'splitup_notifications_$currentUserId';
+      }
+    } catch (_) {}
+    return _storageKey;
+  }
 
   Future<void> _ensureLoaded() async {
     if (_isLoaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_storageKey);
+      final key = await _getStorageKey();
+      final raw = prefs.getString(key);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(raw);
         _items.clear();
         _items.addAll(decoded.map((n) => NotificationModel.fromJson(n as Map<String, dynamic>)));
+      } else {
+        _items.clear();
       }
+
+      // Purge any legacy dummy / sample notifications
+      _items.removeWhere((n) =>
+          n.id == 'notif_settle_sample' ||
+          n.id == 'notif_1' ||
+          n.id == 'notif_2' ||
+          n.id.startsWith('notif_sample') ||
+          n.payload?['settlementId'] == 'stl_sample_rahul' ||
+          n.payload?['fromUserId'] == 'usr_rahul');
+
+      // Also clean up legacy un-scoped key if present
+      if (key != _storageKey && prefs.containsKey(_storageKey)) {
+        await prefs.remove(_storageKey);
+      }
+
+      await _saveToStorage();
     } catch (_) {}
     _isLoaded = true;
   }
@@ -130,8 +128,9 @@ class NotificationsRepository {
   Future<void> _saveToStorage() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final key = await _getStorageKey();
       final raw = jsonEncode(_items.map((n) => n.toJson()).toList());
-      await prefs.setString(_storageKey, raw);
+      await prefs.setString(key, raw);
     } catch (_) {}
   }
 
@@ -160,6 +159,18 @@ class NotificationsRepository {
     for (int i = 0; i < _items.length; i++) {
       _items[i] = _items[i].copyWith(isRead: true);
     }
+    await _saveToStorage();
+  }
+
+  Future<void> deleteNotification(String id) async {
+    await _ensureLoaded();
+    _items.removeWhere((n) => n.id == id);
+    await _saveToStorage();
+  }
+
+  Future<void> clearAll() async {
+    await _ensureLoaded();
+    _items.clear();
     await _saveToStorage();
   }
 
@@ -217,6 +228,18 @@ class NotificationsNotifier extends AsyncNotifier<List<NotificationModel>> {
   Future<void> markAllRead() async {
     final repo = ref.read(notificationsRepositoryProvider);
     await repo.markAllRead();
+    ref.invalidateSelf();
+  }
+
+  Future<void> deleteNotification(String id) async {
+    final repo = ref.read(notificationsRepositoryProvider);
+    await repo.deleteNotification(id);
+    ref.invalidateSelf();
+  }
+
+  Future<void> clearAll() async {
+    final repo = ref.read(notificationsRepositoryProvider);
+    await repo.clearAll();
     ref.invalidateSelf();
   }
 

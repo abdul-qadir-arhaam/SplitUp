@@ -11,9 +11,7 @@ class SettlementsRepository {
   List<SettlementModel> _settlements = [];
   bool _isLoaded = false;
 
-  SettlementsRepository(this._ref) {
-    _initDefaultSettlements();
-  }
+  SettlementsRepository(this._ref);
 
   void _initDefaultSettlements() {
     _settlements = [
@@ -153,7 +151,22 @@ class SettlementsRepository {
     await _ensureLoaded();
     final index = _settlements.indexWhere((s) => s.id == settlementId);
     if (index == -1) {
-      throw Exception('Settlement not found');
+      _ref.read(notificationsRepositoryProvider).updateSettlementAction(
+            settlementId,
+            'DONE',
+            actionResult: 'CONFIRMED',
+          );
+      _ref.invalidate(notificationsNotifierProvider);
+      return SettlementModel(
+        id: settlementId,
+        ledgerId: '',
+        fromUserId: '',
+        toUserId: '',
+        amountPaise: 0,
+        status: 'CONFIRMED',
+        createdBy: '',
+        createdAt: DateTime.now(),
+      );
     }
 
     final old = _settlements[index];
@@ -185,7 +198,22 @@ class SettlementsRepository {
     await _ensureLoaded();
     final index = _settlements.indexWhere((s) => s.id == settlementId);
     if (index == -1) {
-      throw Exception('Settlement not found');
+      _ref.read(notificationsRepositoryProvider).updateSettlementAction(
+            settlementId,
+            'DONE',
+            actionResult: 'REJECTED',
+          );
+      _ref.invalidate(notificationsNotifierProvider);
+      return SettlementModel(
+        id: settlementId,
+        ledgerId: '',
+        fromUserId: '',
+        toUserId: '',
+        amountPaise: 0,
+        status: 'REJECTED',
+        createdBy: '',
+        createdAt: DateTime.now(),
+      );
     }
 
     final old = _settlements[index];
