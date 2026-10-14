@@ -45,6 +45,8 @@ dependencies:
   flutter_contacts: ^2.6.0
   http: ^1.6.0
   flutter_svg: ^2.0.17
+  package_info_plus: ^10.2.2
+  ota_update: ^7.1.0
 
 dev_dependencies:
   flutter_test:

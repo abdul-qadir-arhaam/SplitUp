@@ -10,6 +10,8 @@ import '../../friends/data/friends_repository.dart';
 import '../../friends/domain/friend_model.dart';
 import '../data/user_profile_provider.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../update/presentation/update_controller.dart';
+import '../../update/presentation/update_dialog.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   final ThemeMode currentThemeMode;
@@ -106,6 +108,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final colors = context.colors;
     final profile = ref.watch(userProfileProvider);
     final asyncFriends = ref.watch(friendsNotifierProvider);
+    final updateState = ref.watch(updateControllerProvider);
 
     final friends = asyncFriends.maybeWhen(
       data: (items) => items,
@@ -343,19 +346,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _SettingsTile(
                       icon: Icons.system_update_rounded,
                       title: 'App Version',
-                      trailingText: 'v1.0.0 (Build 1)',
+                      trailingWidget: updateState.isUpdateAvailable
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: colors.accentReceive.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: colors.accentReceive.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Update (v${updateState.info?.latestVersion})',
+                                    style: SplitUpTypography.caption(color: colors.accentReceive).copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(Icons.arrow_circle_up_rounded, size: 14, color: colors.accentReceive),
+                                ],
+                              ),
+                            )
+                          : Text(
+                              'v${updateState.currentVersion} (Build ${updateState.currentBuildNumber})',
+                              style: SplitUpTypography.caption(color: colors.textMuted),
+                            ),
                       colors: colors,
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: colors.surfaceFlatRaised,
-                            behavior: SnackBarBehavior.floating,
-                            content: Text(
-                              'You are running the latest version of SplitUp.',
-                              style: SplitUpTypography.body(color: colors.textPrimary),
-                            ),
-                          ),
-                        );
+                        UpdateBottomSheet.show(context);
                       },
                     ),
                     _SettingsTile(
@@ -417,6 +434,7 @@ class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? trailingText;
+  final Widget? trailingWidget;
   final SplitUpColors colors;
   final VoidCallback onTap;
 
@@ -424,12 +442,22 @@ class _SettingsTile extends StatelessWidget {
     required this.icon,
     required this.title,
     this.trailingText,
+    this.trailingWidget,
     required this.colors,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    Widget? trailing = trailingWidget;
+    if (trailing == null) {
+      if (trailingText != null) {
+        trailing = Text(trailingText!, style: SplitUpTypography.caption(color: colors.textMuted));
+      } else {
+        trailing = Icon(Icons.arrow_forward_ios_rounded, color: colors.textMuted, size: 14);
+      }
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -445,9 +473,7 @@ class _SettingsTile extends StatelessWidget {
             title,
             style: SplitUpTypography.body(color: colors.textPrimary),
           ),
-          trailing: trailingText != null
-              ? Text(trailingText!, style: SplitUpTypography.caption(color: colors.textMuted))
-              : Icon(Icons.arrow_forward_ios_rounded, color: colors.textMuted, size: 14),
+          trailing: trailing,
           onTap: onTap,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
