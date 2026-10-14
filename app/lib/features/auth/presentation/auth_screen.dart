@@ -129,8 +129,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  // --- SIGN UP & OTP FLOW ---
-  Future<void> _startSignupVerification() async {
+  // --- SIGN UP FLOW (Direct Phone + Password, No OTP) ---
+  Future<void> _handleSignup() async {
     final name = _signupNameController.text.trim();
     final rawPhone = _signupPhoneController.text.trim();
     final email = _signupEmailController.text.trim();
@@ -163,18 +163,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     });
 
     try {
-      // Send OTP to phone
-      await ref.read(authNotifierProvider.notifier).sendOtp(phone);
+      final user = await ref.read(authNotifierProvider.notifier).register(
+            name: name,
+            phone: phone,
+            email: email.isEmpty ? null : email,
+            password: password,
+          );
+
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // Open OTP Verification Dialog
-      _showOtpModal(
-        name: name,
-        phone: phone,
-        email: email.isEmpty ? null : email,
-        password: password,
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Account created! Welcome, ${user.name}!'),
+          backgroundColor: context.colors.accentReceive,
+          behavior: SnackBarBehavior.floating,
+        ),
       );
+      context.go('/home');
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -182,36 +188,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         _errorMessage = e is AuthException ? e.message : e.toString();
       });
     }
-  }
-
-  void _showOtpModal({
-    required String name,
-    required String phone,
-    String? email,
-    required String password,
-  }) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _OtpVerificationSheet(
-        name: name,
-        phone: phone,
-        email: email,
-        password: password,
-        onVerified: () {
-          Navigator.of(ctx).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Account created! Welcome, $name!'),
-              backgroundColor: context.colors.accentReceive,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          context.go('/home');
-        },
-      ),
-    );
   }
 
   @override
@@ -469,12 +445,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         ),
         const SizedBox(height: 24),
 
-        // Continue Button
+        // Create Account Button
         PrimaryButton(
-          label: 'Verify Phone & Sign Up',
-          icon: Icons.verified_user_rounded,
+          label: 'Create Account',
+          icon: Icons.person_add_rounded,
           isLoading: _isLoading,
-          onPressed: _startSignupVerification,
+          onPressed: _handleSignup,
         ),
         const SizedBox(height: 16),
 
@@ -699,14 +675,13 @@ class _TabButton extends StatelessWidget {
 class _OtpVerificationSheet extends ConsumerStatefulWidget {
   final String name;
   final String phone;
-  final String? email;
   final String password;
+
   final VoidCallback onVerified;
 
   const _OtpVerificationSheet({
     required this.name,
     required this.phone,
-    this.email,
     required this.password,
     required this.onVerified,
   });
@@ -783,7 +758,7 @@ class _OtpVerificationSheetState extends ConsumerState<_OtpVerificationSheet> {
       await ref.read(authNotifierProvider.notifier).register(
             name: widget.name,
             phone: widget.phone,
-            email: widget.email,
+            email: null,
             password: widget.password,
           );
 

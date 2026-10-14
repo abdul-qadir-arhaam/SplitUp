@@ -43,24 +43,24 @@ app.get('/', (req, res) => {
 });
 
 // 3. Direct APK download routes
-app.get(['/downloads/splitup-v1.0.4.apk', '/downloads/splitup-v1.0.2.apk', '/downloads/splitup.apk', '/downloads/app-release.apk'], (req, res) => {
-  const apkPath = path.join(websiteDir, 'downloads', 'splitup-v1.0.4.apk');
-  res.download(apkPath, 'SplitUp-v1.0.4.apk');
+app.get(['/downloads/splitup-v1.0.5.apk', '/downloads/splitup-v1.0.4.apk', '/downloads/splitup-v1.0.2.apk', '/downloads/splitup.apk', '/downloads/app-release.apk'], (req, res) => {
+  const apkPath = path.join(websiteDir, 'downloads', 'splitup-v1.0.5.apk');
+  res.download(apkPath, 'SplitUp-v1.0.5.apk');
 });
 
 // 4. Version check endpoints
 app.get(['/version', '/app/version'], (req, res) => {
   res.json({
-    latest_version: '1.0.4',
-    currentVersion: '1.0.4',
-    build_number: 5,
-    buildNumber: 5,
+    latest_version: '1.0.5',
+    currentVersion: '1.0.5',
+    build_number: 6,
+    buildNumber: 6,
     min_supported_build: 1,
     minSupportedVersion: '1.0.0',
-    download_url: 'https://split-up-two.vercel.app/downloads/splitup-v1.0.4.apk',
-    downloadUrl: '/downloads/splitup-v1.0.4.apk',
-    file_size_mb: 20.80,
-    release_notes: 'SplitUp v1.0.4: 100% Cloud-synced! All friends, groups, trips, expenses, settlements, and notifications are now permanently synced to the cloud and restored across uninstalls.',
+    download_url: 'https://split-up-two.vercel.app/downloads/splitup-v1.0.5.apk',
+    downloadUrl: '/downloads/splitup-v1.0.5.apk',
+    file_size_mb: 20.74,
+    release_notes: 'SplitUp v1.0.5: Instant onboarding — eliminated OTP verification step. Sign up directly with phone & password!',
   });
 });
 
