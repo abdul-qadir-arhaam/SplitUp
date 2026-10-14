@@ -86,7 +86,7 @@ class UpdateBottomSheet extends ConsumerWidget {
                     const SizedBox(height: 2),
                     Text(
                       info?.isUpdateAvailable == true
-                          ? 'Version ${info?.latestVersion} (Build ${info?.buildNumber})'
+                          ? 'Version ${info?.latestVersion} (Build ${info != null && info.buildNumber >= 1000 ? info.buildNumber % 1000 : info?.buildNumber})'
                           : 'You are on the latest version (${updateState.currentVersion})',
                       style: SplitUpTypography.caption(color: colors.textMuted),
                     ),

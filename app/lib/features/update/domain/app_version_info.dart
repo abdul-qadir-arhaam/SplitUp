@@ -33,7 +33,25 @@ class AppVersionInfo {
     final fileSizeMb = ((json['file_size_mb'] ?? 20.48) as num).toDouble();
     final releaseNotes = (json['release_notes'] ?? json['releaseNotes'] ?? '').toString();
 
-    final isUpdateAvailable = buildNumber > currentBuildNumber;
+    int normalize(int b) => b >= 1000 ? (b % 1000) : b;
+
+    bool isNewerSemver(String latest, String current) {
+      try {
+        final l = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+        final c = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+        for (var i = 0; i < 3; i++) {
+          final lVal = i < l.length ? l[i] : 0;
+          final cVal = i < c.length ? c[i] : 0;
+          if (lVal > cVal) return true;
+          if (lVal < cVal) return false;
+        }
+      } catch (_) {}
+      return false;
+    }
+
+    final isUpdateAvailable = isNewerSemver(latestVersion, currentVersion) ||
+        buildNumber > currentBuildNumber ||
+        normalize(buildNumber) > normalize(currentBuildNumber);
 
     return AppVersionInfo(
       latestVersion: latestVersion,

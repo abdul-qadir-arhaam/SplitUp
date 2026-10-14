@@ -367,7 +367,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                             )
                           : Text(
-                              'v${updateState.currentVersion} (Build ${updateState.currentBuildNumber})',
+                              'v${updateState.currentVersion} (Build ${updateState.currentBuildNumber >= 1000 ? updateState.currentBuildNumber % 1000 : updateState.currentBuildNumber})',
                               style: SplitUpTypography.caption(color: colors.textMuted),
                             ),
                       colors: colors,
