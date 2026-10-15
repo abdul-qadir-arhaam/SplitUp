@@ -43,6 +43,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
   String _splitType = 'EQUAL';
   String _payerUserId = 'usr_arhaam'; // Default: You paid
   final Set<String> _excludedUserIds = {};
+  bool _isSaving = false;
 
   // Multiple payers state
   bool _isMultiplePayers = false;
@@ -830,19 +831,46 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                 ),
 
               PrimaryButton(
-                label: widget.existingExpense != null
-                    ? 'Update Expense (${formatPaise(totalPaise)})'
-                    : 'Save Expense (${formatPaise(totalPaise)})',
+                label: _isSaving
+                    ? 'Saving...'
+                    : (widget.existingExpense != null
+                        ? 'Update Expense (${formatPaise(totalPaise)})'
+                        : 'Save Expense (${formatPaise(totalPaise)})'),
                 icon: Icons.check_rounded,
-                onPressed: canSave
+                onPressed: (canSave && !_isSaving)
                     ? () async {
                         final title = _titleController.text.trim().isEmpty ? 'Expense' : _titleController.text.trim();
-                        final ledgerId = widget.existingExpense?.ledgerId ??
+
+                        final String? resolvedLedgerId = widget.existingExpense?.ledgerId ??
                             widget.initialLedgerId ??
                             targetFriend?.individualLedgerId ??
-                            (selectedFriends.length == 1
-                                ? selectedFriends.first.individualLedgerId
-                                : 'ldg_shared_${DateTime.now().millisecondsSinceEpoch}');
+                            (selectedFriends.length == 1 ? selectedFriends.first.individualLedgerId : null);
+
+                        if (resolvedLedgerId == null || resolvedLedgerId.isEmpty) {
+                          if (selectedFriends.length > 1) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: colors.accentOwe,
+                                content: Text(
+                                  'Splitting an expense with multiple friends requires creating a Group. Please create a group first or select a single friend.',
+                                  style: SplitUpTypography.body(color: Colors.white),
+                                ),
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: colors.accentOwe,
+                                content: Text(
+                                  'Please select a friend or group before saving this expense.',
+                                  style: SplitUpTypography.body(color: Colors.white),
+                                ),
+                              ),
+                            );
+                          }
+                          return;
+                        }
 
                         final List<ExpensePayer> payers = _isMultiplePayers
                             ? _payerAmounts.entries
@@ -861,57 +889,79 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                           );
                         }).toList();
 
-                        if (widget.existingExpense != null) {
-                          await ref.read(expensesNotifierProvider.notifier).editExpense(
-                                widget.existingExpense!.id,
-                                title: title,
-                                totalPaise: totalPaise,
-                                category: _selectedCategory,
-                                splitType: _splitType,
-                                payers: payers,
-                                splits: splits,
-                                friendId: targetFriend?.id ?? (selectedFriends.length == 1 ? selectedFriends.first.id : null),
-                              );
-                        } else {
-                          await ref.read(expensesNotifierProvider.notifier).createExpense(
-                                ledgerId: ledgerId,
-                                title: title,
-                                totalPaise: totalPaise,
-                                category: _selectedCategory,
-                                splitType: _splitType,
-                                payers: payers,
-                                splits: splits,
-                                friendId: targetFriend?.id ?? (selectedFriends.length == 1 ? selectedFriends.first.id : null),
-                              );
-                        }
+                        setState(() => _isSaving = true);
 
-                        if (matchedGroup != null) {
-                          ref.invalidate(groupDetailProvider(matchedGroup.id));
-                          ref.invalidate(groupDashboardProvider(matchedGroup.id));
-                          ref.invalidate(groupsNotifierProvider);
-                        }
-                        if (matchedTrip != null) {
-                          ref.invalidate(tripDetailProvider(matchedTrip.id));
-                          ref.invalidate(tripDashboardProvider(matchedTrip.id));
-                          ref.invalidate(tripsNotifierProvider);
-                        }
-                        if (selectedFriends.isNotEmpty || targetFriend != null) {
+                        try {
+                          if (widget.existingExpense != null) {
+                            await ref.read(expensesNotifierProvider.notifier).editExpense(
+                                  widget.existingExpense!.id,
+                                  title: title,
+                                  totalPaise: totalPaise,
+                                  category: _selectedCategory,
+                                  splitType: _splitType,
+                                  payers: payers,
+                                  splits: splits,
+                                  friendId: targetFriend?.id ?? (selectedFriends.length == 1 ? selectedFriends.first.id : null),
+                                );
+                          } else {
+                            await ref.read(expensesNotifierProvider.notifier).createExpense(
+                                  ledgerId: resolvedLedgerId,
+                                  title: title,
+                                  totalPaise: totalPaise,
+                                  category: _selectedCategory,
+                                  splitType: _splitType,
+                                  payers: payers,
+                                  splits: splits,
+                                  friendId: targetFriend?.id ?? (selectedFriends.length == 1 ? selectedFriends.first.id : null),
+                                );
+                          }
+
+                          if (matchedGroup != null) {
+                            ref.invalidate(groupDetailProvider(matchedGroup.id));
+                            ref.invalidate(groupDashboardProvider(matchedGroup.id));
+                            ref.invalidate(groupsNotifierProvider);
+                          }
+                          if (matchedTrip != null) {
+                            ref.invalidate(tripDetailProvider(matchedTrip.id));
+                            ref.invalidate(tripDashboardProvider(matchedTrip.id));
+                            ref.invalidate(tripsNotifierProvider);
+                          }
                           ref.invalidate(friendsNotifierProvider);
-                        }
 
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: colors.surfaceFlatRaised,
-                              content: Text(
-                                widget.existingExpense != null
-                                    ? 'Expense updated successfully!'
-                                    : 'Expense added successfully!',
-                                style: SplitUpTypography.body(color: colors.textPrimary),
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: colors.surfaceFlatRaised,
+                                content: Text(
+                                  widget.existingExpense != null
+                                      ? 'Expense updated successfully!'
+                                      : 'Expense added successfully!',
+                                  style: SplitUpTypography.body(color: colors.textPrimary),
+                                ),
                               ),
-                            ),
-                          );
-                          context.pop();
+                            );
+                            context.pop();
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            final rawMsg = e.toString().replaceAll('Exception: ', '').trim();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: colors.accentOwe,
+                                content: Text(
+                                  rawMsg.isNotEmpty
+                                      ? rawMsg
+                                      : "Couldn't save. Check your connection and try again.",
+                                  style: SplitUpTypography.body(color: Colors.white),
+                                ),
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isSaving = false);
+                          }
                         }
                       }
                     : null,

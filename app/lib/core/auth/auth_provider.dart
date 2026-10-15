@@ -3,6 +3,7 @@ import '../../features/profile/data/user_profile_provider.dart';
 import '../../features/friends/data/friends_repository.dart';
 import '../../features/groups/data/groups_repository.dart';
 import '../../features/trips/data/trips_repository.dart';
+import '../../features/expenses/data/expenses_repository.dart';
 import 'auth_service.dart';
 import 'api_auth_service.dart';
 
@@ -166,6 +167,8 @@ class AuthNotifier extends Notifier<AuthState> {
     try {
       final service = ref.read(authServiceProvider);
       await service.signOut();
+      await ref.read(friendsRepositoryProvider).clearCache();
+      await ref.read(expensesRepositoryProvider).clearCache();
       _invalidateUserData();
       state = const AuthState.unauthenticated();
     } catch (e) {
@@ -178,6 +181,7 @@ class AuthNotifier extends Notifier<AuthState> {
       ref.invalidate(friendsNotifierProvider);
       ref.invalidate(groupsNotifierProvider);
       ref.invalidate(tripsNotifierProvider);
+      ref.invalidate(expensesNotifierProvider);
     } catch (_) {}
   }
 

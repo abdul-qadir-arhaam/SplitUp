@@ -107,7 +107,10 @@ class ExpensesRepository {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
-  Future<List<ExpenseModel>> fetchExpensesForLedger(String ledgerId) async {
+  /// Authoritative server-first sync: calls GET /v1/ledgers/:id/expenses
+  /// and makes the local list for that ledger an exact mirror of the server's list.
+  /// Drops local-only / phantom expenses that the server does not have.
+  Future<List<ExpenseModel>> syncExpensesForLedger(String ledgerId) async {
     await _ensureLoaded();
 
     try {
@@ -115,22 +118,39 @@ class ExpensesRepository {
       if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
         final list = res['data'] as List<dynamic>;
         final cloudExpenses = list.map((e) => ExpenseModel.fromJson(e as Map<String, dynamic>)).toList();
-        for (final ce in cloudExpenses) {
-          final idx = _expenses.indexWhere((e) => e.id == ce.id);
-          if (idx != -1) {
-            _expenses[idx] = ce;
-          } else {
-            _expenses.add(ce);
-          }
+        final cloudIds = cloudExpenses.map((e) => e.id).toSet();
+
+        // Count and log dropped local phantom expenses
+        final dropped = _expenses.where((e) => e.ledgerId == ledgerId && !cloudIds.contains(e.id)).toList();
+        if (dropped.isNotEmpty) {
+          // Clean hygiene: local-only expenses not on the server are removed by the mirror rule
+          // ignore: avoid_print
+          print('[ExpensesRepository] Dropped ${dropped.length} local-only fake expense(s) for ledger $ledgerId: ${dropped.map((d) => d.id).toList()}');
         }
+
+        // Mirror rule: keep other ledgers' expenses, mirror this ledger exactly from server
+        _expenses.removeWhere((e) => e.ledgerId == ledgerId);
+        _expenses.addAll(cloudExpenses);
         await _saveToStorage();
+
+        // Invalidate friends provider so screen gets fresh server balances
+        try {
+          await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
+          _ref.invalidate(friendsNotifierProvider);
+        } catch (_) {}
       }
-    } catch (_) {}
+    } catch (_) {
+      // On network failure retain local cache without wiping balances to zero
+    }
 
     return _expenses
         .where((e) => e.ledgerId == ledgerId && e.deletedAt == null)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  Future<List<ExpenseModel>> fetchExpensesForLedger(String ledgerId) async {
+    return syncExpensesForLedger(ledgerId);
   }
 
   Future<List<ExpenseActivityItem>> getActivityForExpense(String expenseId) async {
@@ -149,41 +169,6 @@ class ExpensesRepository {
     return 'usr_arhaam';
   }
 
-  void _adjustFriendBalances({
-    required String ledgerId,
-    required String? friendId,
-    required List<ExpensePayer> payers,
-    required List<ExpenseSplit> splits,
-    required String currentUserId,
-  }) {
-    if (ledgerId.startsWith('grp_') || ledgerId.startsWith('trip_')) return;
-
-    final myPaid = payers
-        .where((p) => p.userId == currentUserId)
-        .fold(0, (sum, p) => sum + p.paidPaise);
-    final myShare = splits
-        .where((s) => s.userId == currentUserId && s.included)
-        .fold(0, (sum, s) => sum + s.owedPaise);
-
-    if (friendId != null) {
-      final myNetImpact = myPaid - myShare;
-      _ref.read(friendsRepositoryProvider).adjustBalance(friendId, myNetImpact);
-    } else {
-      for (final s in splits) {
-        if (s.userId != currentUserId && s.included) {
-          if (payers.any((p) => p.userId == currentUserId)) {
-            _ref.read(friendsRepositoryProvider).adjustBalance(s.userId, s.owedPaise);
-          }
-        }
-      }
-      for (final p in payers) {
-        if (p.userId != currentUserId) {
-          _ref.read(friendsRepositoryProvider).adjustBalance(p.userId, -myShare);
-        }
-      }
-    }
-  }
-
   Future<ExpenseModel> createExpense({
     required String ledgerId,
     required String title,
@@ -198,83 +183,53 @@ class ExpensesRepository {
     await _ensureLoaded();
     final currentUserId = await _getCurrentUserId();
 
-    // Attempt cloud creation
-    try {
-      final res = await ApiClient().post('/v1/ledgers/$ledgerId/expenses', {
-        'title': title,
-        'totalPaise': totalPaise,
-        'category': category.toLowerCase(),
-        'splitType': splitType,
-        'payers': payers.map((p) => {'userId': p.userId, 'paidPaise': p.paidPaise}).toList(),
-        'participants': splits.map((s) => {
-          'userId': s.userId,
-          'included': s.included,
-          'splitValue': s.owedPaise,
-        }).toList(),
-        'note': note,
-      });
+    // Authoritative cloud creation: do not catch silently or fall back to fake local expenses
+    final res = await ApiClient().post('/v1/ledgers/$ledgerId/expenses', {
+      'title': title,
+      'totalPaise': totalPaise,
+      'category': category.toLowerCase(),
+      'splitType': splitType,
+      'payers': payers.map((p) => {'userId': p.userId, 'paidPaise': p.paidPaise}).toList(),
+      'participants': splits.map((s) => {
+        'userId': s.userId,
+        'included': s.included,
+        'splitValue': s.owedPaise,
+      }).toList(),
+      'note': note,
+    });
 
-      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
-        final cloudExpense = ExpenseModel.fromJson(res['data'] as Map<String, dynamic>);
+    if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+      final cloudExpense = ExpenseModel.fromJson(res['data'] as Map<String, dynamic>);
+      
+      final existingIdx = _expenses.indexWhere((e) => e.id == cloudExpense.id);
+      if (existingIdx != -1) {
+        _expenses[existingIdx] = cloudExpense;
+      } else {
         _expenses.insert(0, cloudExpense);
-        await _saveToStorage();
-
-        _adjustFriendBalances(
-          ledgerId: ledgerId,
-          friendId: friendId,
-          payers: payers,
-          splits: splits,
-          currentUserId: currentUserId,
-        );
-        _ref.invalidate(friendsNotifierProvider);
-
-        return cloudExpense;
       }
-    } catch (_) {
-      // Offline fallback
+      await _saveToStorage();
+
+      _activities.insert(
+        0,
+        ExpenseActivityItem(
+          id: 'act_${DateTime.now().millisecondsSinceEpoch}',
+          action: 'EXPENSE_CREATED',
+          actorUserId: currentUserId,
+          createdAt: DateTime.now(),
+          payload: {'expenseId': cloudExpense.id, 'title': title, 'totalPaise': totalPaise},
+        ),
+      );
+
+      // Server is the sole authority for balances. Refetch friends from server:
+      try {
+        await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
+        _ref.invalidate(friendsNotifierProvider);
+      } catch (_) {}
+
+      return cloudExpense;
     }
 
-    final id = 'exp_${DateTime.now().millisecondsSinceEpoch}';
-    final expense = ExpenseModel(
-      id: id,
-      ledgerId: ledgerId,
-      title: title,
-      totalPaise: totalPaise,
-      category: category,
-      splitType: splitType,
-      expenseDate: DateTime.now().toIso8601String().split('T')[0],
-      note: note,
-      payers: payers,
-      splits: splits,
-      createdBy: currentUserId,
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-    );
-
-    _expenses.insert(0, expense);
-    await _saveToStorage();
-
-    _activities.insert(
-      0,
-      ExpenseActivityItem(
-        id: 'act_${DateTime.now().millisecondsSinceEpoch}',
-        action: 'EXPENSE_CREATED',
-        actorUserId: currentUserId,
-        createdAt: DateTime.now(),
-        payload: {'expenseId': id, 'title': title, 'totalPaise': totalPaise},
-      ),
-    );
-
-    _adjustFriendBalances(
-      ledgerId: ledgerId,
-      friendId: friendId,
-      payers: payers,
-      splits: splits,
-      currentUserId: currentUserId,
-    );
-    _ref.invalidate(friendsNotifierProvider);
-
-    return expense;
+    throw const ApiException('Server did not return created expense data. Please try again.');
   }
 
   Future<void> editExpense(
@@ -291,25 +246,22 @@ class ExpensesRepository {
     final index = _expenses.indexWhere((e) => e.id == expenseId);
     if (index == -1) throw Exception('Expense not found');
 
-    final old = _expenses[index];
-
     final currentUserId = await _getCurrentUserId();
 
-    // Revert old balance impact if friendId provided
-    if (friendId != null) {
-      final oldMyPaid = old.payers.where((p) => p.userId == currentUserId).fold(0, (sum, p) => sum + p.paidPaise);
-      final oldMyShare = old.splits.where((s) => s.userId == currentUserId && s.included).fold(0, (sum, s) => sum + s.owedPaise);
-      final oldMyNet = oldMyPaid - oldMyShare;
+    await ApiClient().patch('/v1/expenses/$expenseId', {
+      'title': title,
+      'totalPaise': totalPaise,
+      'category': category.toLowerCase(),
+      'splitType': splitType,
+      'payers': payers.map((p) => {'userId': p.userId, 'paidPaise': p.paidPaise}).toList(),
+      'participants': splits.map((s) => {
+        'userId': s.userId,
+        'included': s.included,
+        'splitValue': s.owedPaise,
+      }).toList(),
+    });
 
-      final newMyPaid = payers.where((p) => p.userId == currentUserId).fold(0, (sum, p) => sum + p.paidPaise);
-      final newMyShare = splits.where((s) => s.userId == currentUserId && s.included).fold(0, (sum, s) => sum + s.owedPaise);
-      final newMyNet = newMyPaid - newMyShare;
-
-      final diff = newMyNet - oldMyNet;
-      _ref.read(friendsRepositoryProvider).adjustBalance(friendId, diff);
-      _ref.invalidate(friendsNotifierProvider);
-    }
-
+    final old = _expenses[index];
     _expenses[index] = old.copyWith(
       title: title,
       totalPaise: totalPaise,
@@ -321,18 +273,8 @@ class ExpensesRepository {
     await _saveToStorage();
 
     try {
-      await ApiClient().patch('/v1/expenses/$expenseId', {
-        'title': title,
-        'totalPaise': totalPaise,
-        'category': category.toLowerCase(),
-        'splitType': splitType,
-        'payers': payers.map((p) => {'userId': p.userId, 'paidPaise': p.paidPaise}).toList(),
-        'participants': splits.map((s) => {
-          'userId': s.userId,
-          'included': s.included,
-          'splitValue': s.owedPaise,
-        }).toList(),
-      });
+      await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
+      _ref.invalidate(friendsNotifierProvider);
     } catch (_) {}
 
     _activities.insert(
@@ -340,7 +282,7 @@ class ExpensesRepository {
       ExpenseActivityItem(
         id: 'act_${DateTime.now().millisecondsSinceEpoch}',
         action: 'EXPENSE_EDITED',
-        actorUserId: 'usr_arhaam',
+        actorUserId: currentUserId,
         createdAt: DateTime.now(),
         payload: {'expenseId': expenseId, 'title': title, 'totalPaise': totalPaise},
       ),
@@ -353,6 +295,9 @@ class ExpensesRepository {
     if (index == -1) throw Exception('Expense not found');
 
     final currentUserId = await _getCurrentUserId();
+
+    await ApiClient().delete('/v1/expenses/$expenseId');
+
     final old = _expenses[index];
     _expenses[index] = old.copyWith(
       deletedAt: DateTime.now(),
@@ -361,24 +306,16 @@ class ExpensesRepository {
     await _saveToStorage();
 
     try {
-      await ApiClient().delete('/v1/expenses/$expenseId');
-    } catch (_) {}
-
-    // Revert balance impact
-    if (friendId != null) {
-      final myPaid = old.payers.where((p) => p.userId == currentUserId).fold(0, (sum, p) => sum + p.paidPaise);
-      final myShare = old.splits.where((s) => s.userId == currentUserId && s.included).fold(0, (sum, s) => sum + s.owedPaise);
-      final myNetImpact = myPaid - myShare;
-      _ref.read(friendsRepositoryProvider).adjustBalance(friendId, -myNetImpact);
+      await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
       _ref.invalidate(friendsNotifierProvider);
-    }
+    } catch (_) {}
 
     _activities.insert(
       0,
       ExpenseActivityItem(
         id: 'act_${DateTime.now().millisecondsSinceEpoch}',
         action: 'EXPENSE_DELETED',
-        actorUserId: 'usr_arhaam',
+        actorUserId: currentUserId,
         createdAt: DateTime.now(),
         payload: {'expenseId': expenseId, 'title': old.title},
       ),
@@ -421,6 +358,18 @@ class ExpensesRepository {
       _ref.invalidate(notificationsNotifierProvider);
     }
   }
+
+  Future<void> clearCache() async {
+    _expenses.clear();
+    _activities.clear();
+    _isLoaded = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = await _getStorageKey();
+      await prefs.remove(key);
+      await prefs.remove(_storageKey);
+    } catch (_) {}
+  }
 }
 
 final expensesRepositoryProvider = Provider<ExpensesRepository>((ref) {
@@ -432,6 +381,12 @@ class ExpensesNotifier extends AsyncNotifier<List<ExpenseModel>> {
   Future<List<ExpenseModel>> build() async {
     final repo = ref.read(expensesRepositoryProvider);
     return repo.fetchAllExpenses();
+  }
+
+  Future<void> syncExpensesForLedger(String ledgerId) async {
+    final repo = ref.read(expensesRepositoryProvider);
+    await repo.syncExpensesForLedger(ledgerId);
+    ref.invalidateSelf();
   }
 
   Future<void> createExpense({

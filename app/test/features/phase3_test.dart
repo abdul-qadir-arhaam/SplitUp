@@ -8,6 +8,10 @@ import 'package:app/features/friends/domain/friend_model.dart';
 import 'package:app/features/friends/presentation/friend_detail_screen.dart';
 import 'package:app/features/profile/presentation/profile_screen.dart';
 import 'package:app/features/expenses/data/expenses_repository.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:app/core/network/api_client.dart';
 import 'package:app/features/expenses/domain/expense_model.dart';
 import 'package:app/features/settlements/data/settlements_repository.dart';
 
@@ -75,6 +79,52 @@ void main() {
 
       final friend = await friendsRepo.addFriend(phone: '+919999900011', name: 'Kavita');
 
+      int currentBalance = 0;
+      ApiClient.setMockClient(MockClient((request) async {
+        if (request.method == 'POST' && request.url.path.contains('/expenses')) {
+          currentBalance = 50000;
+          final expData = {
+            'id': 'exp_kavita_1',
+            'ledgerId': friend.individualLedgerId,
+            'title': 'Team Outing',
+            'totalPaise': 100000,
+            'category': 'food',
+            'splitType': 'EQUAL',
+            'expenseDate': '2026-10-15',
+            'payers': [
+              {'userId': 'usr_arhaam', 'paidPaise': 100000}
+            ],
+            'splits': [
+              {'userId': 'usr_arhaam', 'owedPaise': 50000, 'included': true},
+              {'userId': friend.id, 'owedPaise': 50000, 'included': true},
+            ],
+            'createdBy': 'usr_arhaam',
+            'createdAt': DateTime.now().toIso8601String(),
+            'updatedAt': DateTime.now().toIso8601String(),
+          };
+          return http.Response(jsonEncode({'data': expData}), 201);
+        }
+        if (request.method == 'DELETE' && request.url.path.contains('/expenses/')) {
+          currentBalance = 0;
+          return http.Response(jsonEncode({'data': {'success': true}}), 200);
+        }
+        if (request.method == 'GET' && request.url.path == '/v1/friends') {
+          return http.Response(jsonEncode({
+            'data': [
+              {
+                'id': friend.id,
+                'name': 'Kavita',
+                'phoneE164': '+919999900011',
+                'isAppUser': true,
+                'individualLedgerId': friend.individualLedgerId,
+                'netPaise': currentBalance,
+              }
+            ]
+          }), 200);
+        }
+        return http.Response(jsonEncode({'data': {}}), 200);
+      }));
+
       // Arhaam pays 100000 paise, split equally with Kavita (Kavita owes Arhaam 50000)
       final expense = await expensesRepo.createExpense(
         ledgerId: friend.individualLedgerId,
@@ -105,6 +155,7 @@ void main() {
       final friendsAfterDel = await friendsRepo.fetchFriends();
       expect(friendsAfterDel.firstWhere((f) => f.id == friend.id).netPaise, 0);
 
+      ApiClient.setMockClient(null);
       container.dispose();
     });
   });

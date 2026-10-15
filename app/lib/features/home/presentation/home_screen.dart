@@ -420,6 +420,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (ctx) => AddExpenseScreen(
+                  initialLedgerId: selectedFriends.length == 1 ? selectedFriends.first.individualLedgerId : null,
+                  friendId: selectedFriends.length == 1 ? selectedFriends.first.id : null,
                   friendIds: selectedFriends.map((f) => f.id).toList(),
                   initialMembers: [
                     {'id': myUserId, 'name': 'You', 'isMe': true},

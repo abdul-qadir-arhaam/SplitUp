@@ -23,6 +23,13 @@ class ApiClient {
   ApiClient._internal();
 
   final http.Client _client = http.Client();
+  http.Client? _mockClient;
+
+  static void setMockClient(http.Client? client) {
+    _instance._mockClient = client;
+  }
+
+  http.Client get _activeClient => _mockClient ?? _client;
   final Duration _timeout = const Duration(seconds: 12);
 
   Future<Map<String, String>> _getHeaders({Map<String, String>? extraHeaders}) async {
@@ -103,7 +110,7 @@ class ApiClient {
     final reqHeaders = await _getHeaders(extraHeaders: headers);
 
     try {
-      final response = await _client.get(uri, headers: reqHeaders).timeout(_timeout);
+      final response = await _activeClient.get(uri, headers: reqHeaders).timeout(_timeout);
       return _handleResponse(response);
     } on SocketException catch (_) {
       throw const ApiException('Unable to connect to SplitUp server. Please check your network connection.');
@@ -126,7 +133,7 @@ class ApiClient {
     final reqHeaders = await _getHeaders(extraHeaders: extra);
 
     try {
-      final response = await _client
+      final response = await _activeClient
           .post(uri, headers: reqHeaders, body: body != null ? jsonEncode(body) : null)
           .timeout(_timeout);
       return _handleResponse(response);
@@ -151,7 +158,7 @@ class ApiClient {
     final reqHeaders = await _getHeaders(extraHeaders: extra);
 
     try {
-      final response = await _client
+      final response = await _activeClient
           .patch(uri, headers: reqHeaders, body: body != null ? jsonEncode(body) : null)
           .timeout(_timeout);
       return _handleResponse(response);
@@ -176,7 +183,7 @@ class ApiClient {
     final reqHeaders = await _getHeaders(extraHeaders: extra);
 
     try {
-      final response = await _client
+      final response = await _activeClient
           .delete(uri, headers: reqHeaders, body: body != null ? jsonEncode(body) : null)
           .timeout(_timeout);
       return _handleResponse(response);

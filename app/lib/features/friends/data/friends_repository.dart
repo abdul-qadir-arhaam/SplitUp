@@ -219,6 +219,17 @@ class FriendsRepository {
       _saveToStorage();
     }
   }
+
+  Future<void> clearCache() async {
+    _friends.clear();
+    _isLoaded = false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = await _getStorageKey();
+      await prefs.remove(key);
+      await prefs.remove(_defaultStorageKey);
+    } catch (_) {}
+  }
 }
 
 final friendsRepositoryProvider = Provider<FriendsRepository>((ref) {
@@ -230,6 +241,12 @@ class FriendsNotifier extends AsyncNotifier<List<FriendModel>> {
   Future<List<FriendModel>> build() async {
     final repo = ref.read(friendsRepositoryProvider);
     return repo.fetchFriends();
+  }
+
+  Future<void> refresh() async {
+    final repo = ref.read(friendsRepositoryProvider);
+    final updated = await repo.fetchFriends(forceRefresh: true);
+    state = AsyncValue.data(updated);
   }
 
   Future<FriendModel> addFriend({

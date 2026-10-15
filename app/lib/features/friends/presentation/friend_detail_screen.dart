@@ -16,13 +16,54 @@ import '../../settlements/domain/settlement_model.dart';
 import '../../settlements/presentation/settle_sheet.dart';
 import '../../expenses/presentation/add_expense_screen.dart';
 
-class FriendDetailScreen extends ConsumerWidget {
+class FriendDetailScreen extends ConsumerStatefulWidget {
   final String friendId;
 
   const FriendDetailScreen({super.key, required this.friendId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FriendDetailScreen> createState() => _FriendDetailScreenState();
+}
+
+class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncServerData();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncServerData();
+    }
+  }
+
+  Future<void> _syncServerData() async {
+    final friends = ref.read(friendsNotifierProvider).value ?? [];
+    final matches = friends.where((f) => f.id == widget.friendId);
+    final friend = matches.isNotEmpty ? matches.first : null;
+    final ledgerId = friend?.individualLedgerId ?? 'ldg_${widget.friendId}';
+
+    try {
+      await Future.wait([
+        ref.read(friendsNotifierProvider.notifier).refresh(),
+        ref.read(expensesNotifierProvider.notifier).syncExpensesForLedger(ledgerId),
+      ]);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final asyncFriends = ref.watch(friendsNotifierProvider);
     final asyncExpenses = ref.watch(expensesNotifierProvider);
@@ -30,9 +71,9 @@ class FriendDetailScreen extends ConsumerWidget {
 
     final friend = asyncFriends.maybeWhen(
       data: (items) => items.firstWhere(
-        (f) => f.id == friendId,
+        (f) => f.id == widget.friendId,
         orElse: () => FriendModel(
-          id: friendId,
+          id: widget.friendId,
           name: 'Friend',
           phoneE164: '+919876543210',
           isAppUser: true,
@@ -41,7 +82,7 @@ class FriendDetailScreen extends ConsumerWidget {
         ),
       ),
       orElse: () => FriendModel(
-        id: friendId,
+        id: widget.friendId,
         name: 'Friend',
         phoneE164: '+919876543210',
         isAppUser: true,
@@ -156,8 +197,13 @@ class FriendDetailScreen extends ConsumerWidget {
       body: AppBackground(
         child: SafeArea(
           bottom: false,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: RefreshIndicator(
+            color: colors.accentReceive,
+            backgroundColor: colors.surfaceFlatRaised,
+            onRefresh: _syncServerData,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             children: [
               // Friend Header Hero Card
               GlassCard(
@@ -534,6 +580,7 @@ class FriendDetailScreen extends ConsumerWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
