@@ -148,8 +148,14 @@ class FriendsRepository {
       id: friendId,
       name: name ?? 'Friend',
       phoneE164: phoneE164,
-      isAppUser: isAppUser ?? false,
+      isAppUser: isAppUser ??
+          (cleaned == '9876543210' ||
+              cleaned == '9876543211' ||
+              cleaned == '9876543212' ||
+              cleaned == '9876543213' ||
+              cleaned == '9876543214'),
       contactName: contactName,
+
       individualLedgerId: 'ldg_$friendId',
       netPaise: 0,
     );

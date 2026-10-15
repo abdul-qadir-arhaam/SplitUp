@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
@@ -14,14 +16,14 @@ class ApiException implements Exception {
 }
 
 /// Unified API client that automatically manages base URL, Bearer auth headers,
-/// timeouts, and error extraction.
+/// idempotency keys, timeouts, and error extraction.
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
   ApiClient._internal();
 
   final http.Client _client = http.Client();
-  final Duration _timeout = const Duration(seconds: 10);
+  final Duration _timeout = const Duration(seconds: 12);
 
   Future<Map<String, String>> _getHeaders({Map<String, String>? extraHeaders}) async {
     final headers = <String, String>{
@@ -48,7 +50,12 @@ class ApiClient {
     return headers;
   }
 
-  String _extractErrorMessage(String responseBody, int statusCode) {
+  String _generateIdempotencyKey() {
+    final rand = math.Random().nextInt(1000000).toString().padLeft(6, '0');
+    return 'idemp_${DateTime.now().millisecondsSinceEpoch}_$rand';
+  }
+
+  String _extractErrorMessage(String responseBody, int statusCode, {String? fallback}) {
     try {
       final decoded = jsonDecode(responseBody);
       if (decoded is Map<String, dynamic>) {
@@ -59,67 +66,124 @@ class ApiClient {
         if (decoded.containsKey('message')) return decoded['message'].toString();
       }
     } catch (_) {}
-    return 'Server error (status $statusCode)';
+    return fallback ?? 'Server error (status $statusCode)';
   }
 
-  Future<dynamic> get(String endpoint) async {
-    final baseUrl = await ApiConfig.getBaseUrl();
-    final uri = Uri.parse('$baseUrl$endpoint');
-    final headers = await _getHeaders();
-
-    final response = await _client.get(uri, headers: headers).timeout(_timeout);
+  dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return null;
       return jsonDecode(response.body);
     }
-    throw ApiException(_extractErrorMessage(response.body, response.statusCode), response.statusCode);
+
+    if (response.statusCode == 401) {
+      // Clear cached auth token on 401 to prevent stale unauthorized loops
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.remove('splitup_auth_token');
+      }).catchError((_) {});
+
+      throw ApiException(
+        _extractErrorMessage(
+          response.body,
+          response.statusCode,
+          fallback: 'Session expired or unauthorized. Please log in again.',
+        ),
+        401,
+      );
+    }
+
+    throw ApiException(
+      _extractErrorMessage(response.body, response.statusCode),
+      response.statusCode,
+    );
   }
 
-  Future<dynamic> post(String endpoint, [Map<String, dynamic>? body]) async {
+  Future<dynamic> get(String endpoint, {Map<String, String>? headers}) async {
     final baseUrl = await ApiConfig.getBaseUrl();
     final uri = Uri.parse('$baseUrl$endpoint');
-    final headers = await _getHeaders();
+    final reqHeaders = await _getHeaders(extraHeaders: headers);
 
-    final response = await _client
-        .post(uri, headers: headers, body: body != null ? jsonEncode(body) : null)
-        .timeout(_timeout);
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return null;
-      return jsonDecode(response.body);
+    try {
+      final response = await _client.get(uri, headers: reqHeaders).timeout(_timeout);
+      return _handleResponse(response);
+    } on SocketException catch (_) {
+      throw const ApiException('Unable to connect to SplitUp server. Please check your network connection.');
+    } on TimeoutException catch (_) {
+      throw const ApiException('Request timed out while contacting server. Please try again.');
     }
-    throw ApiException(_extractErrorMessage(response.body, response.statusCode), response.statusCode);
   }
 
-  Future<dynamic> patch(String endpoint, [Map<String, dynamic>? body]) async {
+  Future<dynamic> post(
+    String endpoint, [
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+  ]) async {
     final baseUrl = await ApiConfig.getBaseUrl();
     final uri = Uri.parse('$baseUrl$endpoint');
-    final headers = await _getHeaders();
+    final extra = <String, String>{
+      'Idempotency-Key': _generateIdempotencyKey(),
+      ...?headers,
+    };
+    final reqHeaders = await _getHeaders(extraHeaders: extra);
 
-    final response = await _client
-        .patch(uri, headers: headers, body: body != null ? jsonEncode(body) : null)
-        .timeout(_timeout);
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return null;
-      return jsonDecode(response.body);
+    try {
+      final response = await _client
+          .post(uri, headers: reqHeaders, body: body != null ? jsonEncode(body) : null)
+          .timeout(_timeout);
+      return _handleResponse(response);
+    } on SocketException catch (_) {
+      throw const ApiException('Unable to connect to SplitUp server. Please check your network connection.');
+    } on TimeoutException catch (_) {
+      throw const ApiException('Request timed out while contacting server. Please try again.');
     }
-    throw ApiException(_extractErrorMessage(response.body, response.statusCode), response.statusCode);
   }
 
-  Future<dynamic> delete(String endpoint, [Map<String, dynamic>? body]) async {
+  Future<dynamic> patch(
+    String endpoint, [
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+  ]) async {
     final baseUrl = await ApiConfig.getBaseUrl();
     final uri = Uri.parse('$baseUrl$endpoint');
-    final headers = await _getHeaders();
+    final extra = <String, String>{
+      'Idempotency-Key': _generateIdempotencyKey(),
+      ...?headers,
+    };
+    final reqHeaders = await _getHeaders(extraHeaders: extra);
 
-    final response = await _client
-        .delete(uri, headers: headers, body: body != null ? jsonEncode(body) : null)
-        .timeout(_timeout);
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      if (response.body.isEmpty) return null;
-      return jsonDecode(response.body);
+    try {
+      final response = await _client
+          .patch(uri, headers: reqHeaders, body: body != null ? jsonEncode(body) : null)
+          .timeout(_timeout);
+      return _handleResponse(response);
+    } on SocketException catch (_) {
+      throw const ApiException('Unable to connect to SplitUp server. Please check your network connection.');
+    } on TimeoutException catch (_) {
+      throw const ApiException('Request timed out while contacting server. Please try again.');
     }
-    throw ApiException(_extractErrorMessage(response.body, response.statusCode), response.statusCode);
+  }
+
+  Future<dynamic> delete(
+    String endpoint, [
+    Map<String, dynamic>? body,
+    Map<String, String>? headers,
+  ]) async {
+    final baseUrl = await ApiConfig.getBaseUrl();
+    final uri = Uri.parse('$baseUrl$endpoint');
+    final extra = <String, String>{
+      'Idempotency-Key': _generateIdempotencyKey(),
+      ...?headers,
+    };
+    final reqHeaders = await _getHeaders(extraHeaders: extra);
+
+    try {
+      final response = await _client
+          .delete(uri, headers: reqHeaders, body: body != null ? jsonEncode(body) : null)
+          .timeout(_timeout);
+      return _handleResponse(response);
+    } on SocketException catch (_) {
+      throw const ApiException('Unable to connect to SplitUp server. Please check your network connection.');
+    } on TimeoutException catch (_) {
+      throw const ApiException('Request timed out while contacting server. Please try again.');
+    }
   }
 }
