@@ -48,7 +48,7 @@ async function persistFriendshipToDb(f: Friendship): Promise<void> {
  * Creates or retrieves the single authoritative individual ledger for two users.
  * Respects DATABASE.md pair_low_user_id and pair_high_user_id constraints.
  */
-export function getOrCreateIndividualLedger(userA: string, userB: string, createdBy: string): string {
+export async function getOrCreateIndividualLedger(userA: string, userB: string, createdBy: string): Promise<string> {
   const [low, high] = [userA, userB].sort();
 
   // Search existing individual ledger in memory
@@ -78,28 +78,30 @@ export function getOrCreateIndividualLedger(userA: string, userB: string, create
     ...( { pair_low_user_id: low, pair_high_user_id: high, created_by: createdBy } as any ),
   });
 
-  // Asynchronously persist ledger to MySQL
-  db('ledgers')
-    .insert({
-      id,
-      type: 'INDIVIDUAL',
-      name: `${userAName} & ${userBName}`,
-      status: 'ACTIVE',
-      pair_low_user_id: low,
-      pair_high_user_id: high,
-      created_by: createdBy,
-      created_at: new Date(),
-      updated_at: new Date(),
-    })
-    .onConflict('id')
-    .ignore()
-    .then(() => {
-      return db('ledger_members').insert([
-        { ledger_id: id, user_id: low, role: 'MEMBER', joined_at: new Date() },
-        { ledger_id: id, user_id: high, role: 'MEMBER', joined_at: new Date() },
-      ]).onConflict(['ledger_id', 'user_id']).ignore();
-    })
-    .catch((err) => console.error('[FriendsStore] Error creating individual ledger in MySQL:', err));
+  // Await persist ledger to MySQL
+  try {
+    await db('ledgers')
+      .insert({
+        id,
+        type: 'INDIVIDUAL',
+        name: `${userAName} & ${userBName}`,
+        status: 'ACTIVE',
+        pair_low_user_id: low,
+        pair_high_user_id: high,
+        created_by: createdBy,
+        created_at: new Date(),
+        updated_at: new Date(),
+      })
+      .onConflict('id')
+      .ignore();
+
+    await db('ledger_members').insert([
+      { ledger_id: id, user_id: low, role: 'MEMBER', joined_at: new Date() },
+      { ledger_id: id, user_id: high, role: 'MEMBER', joined_at: new Date() },
+    ]).onConflict(['ledger_id', 'user_id']).ignore();
+  } catch (err) {
+    console.error('[FriendsStore] Error creating individual ledger in MySQL:', err);
+  }
 
   return id;
 }
@@ -138,7 +140,7 @@ export function listFriends(ownerUserId: string) {
   return results;
 }
 
-export function addFriend(params: {
+export async function addFriend(params: {
   ownerUserId: string;
   phone: string;
   name?: string;
@@ -173,7 +175,7 @@ export function addFriend(params: {
     });
   }
 
-  const ledgerId = getOrCreateIndividualLedger(ownerUserId, targetUser.id, ownerUserId);
+  const ledgerId = await getOrCreateIndividualLedger(ownerUserId, targetUser.id, ownerUserId);
   const now = new Date().toISOString();
 
   // Create or restore friendship for owner
@@ -187,7 +189,7 @@ export function addFriend(params: {
     removedAt: null,
   };
   inMemoryFriendships.set(key(ownerUserId, targetUser.id), ownerFriendship);
-  persistFriendshipToDb(ownerFriendship);
+  await persistFriendshipToDb(ownerFriendship);
 
   // If real app user, create reciprocal friendship and in-app notification
   if (isAppUser) {
@@ -201,7 +203,7 @@ export function addFriend(params: {
       removedAt: null,
     };
     inMemoryFriendships.set(key(targetUser.id, ownerUserId), reciprocalFriendship);
-    persistFriendshipToDb(reciprocalFriendship);
+    await persistFriendshipToDb(reciprocalFriendship);
 
     notificationsStore.create({
       userId: targetUser.id,

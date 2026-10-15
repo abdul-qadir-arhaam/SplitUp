@@ -14,6 +14,7 @@ import '../../friends/presentation/select_friends_sheet.dart';
 import '../../expenses/presentation/add_expense_screen.dart';
 import '../../notifications/data/notifications_repository.dart';
 import '../../profile/data/user_profile_provider.dart';
+import '../../../core/auth/auth_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -415,12 +416,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onPressed: () async {
           final selectedFriends = await SelectFriendsSheet.show(context);
           if (selectedFriends != null && selectedFriends.isNotEmpty && context.mounted) {
+            final myUserId = ref.read(authNotifierProvider).user?.id ?? 'usr_arhaam';
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (ctx) => AddExpenseScreen(
                   friendIds: selectedFriends.map((f) => f.id).toList(),
                   initialMembers: [
-                    {'id': 'usr_arhaam', 'name': 'You', 'isMe': true},
+                    {'id': myUserId, 'name': 'You', 'isMe': true},
                     ...selectedFriends.map((f) => {
                           'id': f.id,
                           'name': f.resolvedName,

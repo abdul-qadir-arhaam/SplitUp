@@ -27,20 +27,24 @@ const addFriendSchema = z.object({
 });
 
 // POST /v1/friends
-friendsRouter.post('/friends', (req, res) => {
-  const callerId = req.user?.id || 'usr_arhaam';
-  const body = addFriendSchema.parse(req.body);
+friendsRouter.post('/friends', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id || 'usr_arhaam';
+    const body = addFriendSchema.parse(req.body);
 
-  const result = addFriend({
-    ownerUserId: callerId,
-    phone: body.phone,
-    name: body.name,
-    contactName: body.contactName,
-  });
+    const result = await addFriend({
+      ownerUserId: callerId,
+      phone: body.phone,
+      name: body.name,
+      contactName: body.contactName,
+    });
 
-  res.status(201).json({
-    data: result,
-  });
+    res.status(201).json({
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 const nicknameSchema = z.object({

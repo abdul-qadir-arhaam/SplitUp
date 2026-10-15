@@ -140,7 +140,7 @@ function findExpenseAndLedger(expenseId: string): { expense: any; ledger: Stored
 }
 
 // Create Expense in Ledger
-ledgersRouter.post('/ledgers/:id/expenses', (req, res, next) => {
+ledgersRouter.post('/ledgers/:id/expenses', async (req, res, next) => {
   try {
     const ledgerId = req.params.id;
     const ledger = inMemoryLedgers.get(ledgerId);
@@ -208,10 +208,12 @@ ledgersRouter.post('/ledgers/:id/expenses', (req, res, next) => {
 
     ledger.expenses.push(expenseRecord);
 
-    // Asynchronously persist to TiDB Cloud MySQL
-    persistExpenseToDb(expenseRecord, ledgerId).catch((err) => {
+    // Persist to TiDB Cloud MySQL
+    try {
+      await persistExpenseToDb(expenseRecord, ledgerId);
+    } catch (err) {
       console.error(`[LedgersRouter] Error persisting expense ${expenseRecord.id} to MySQL:`, err);
-    });
+    }
 
     // Notify participants who owe money
     for (const split of splits) {
@@ -312,7 +314,7 @@ ledgersRouter.get('/expenses/:id', (req, res, next) => {
 });
 
 // Edit Expense
-ledgersRouter.patch('/expenses/:id', (req, res, next) => {
+ledgersRouter.patch('/expenses/:id', async (req, res, next) => {
   try {
     const match = findExpenseAndLedger(req.params.id);
     if (!match) {
@@ -397,10 +399,12 @@ ledgersRouter.patch('/expenses/:id', (req, res, next) => {
       },
     });
 
-    // Asynchronously persist update to TiDB Cloud MySQL
-    persistExpenseToDb(expense, ledger.id).catch((err) => {
+    // Persist update to TiDB Cloud MySQL
+    try {
+      await persistExpenseToDb(expense, ledger.id);
+    } catch (err) {
       console.error(`[LedgersRouter] Error persisting updated expense ${expense.id} to MySQL:`, err);
-    });
+    }
 
     res.json({
       data: expense,
@@ -411,7 +415,7 @@ ledgersRouter.patch('/expenses/:id', (req, res, next) => {
 });
 
 // Delete Expense (Soft delete)
-ledgersRouter.delete('/expenses/:id', (req, res, next) => {
+ledgersRouter.delete('/expenses/:id', async (req, res, next) => {
   try {
     const match = findExpenseAndLedger(req.params.id);
     if (!match) {
@@ -425,10 +429,12 @@ ledgersRouter.delete('/expenses/:id', (req, res, next) => {
     expense.deletedAt = new Date().toISOString();
     expense.deletedBy = callerId;
 
-    // Asynchronously persist soft-delete to TiDB Cloud MySQL
-    persistExpenseToDb(expense, ledger.id).catch((err) => {
+    // Persist soft-delete to TiDB Cloud MySQL
+    try {
+      await persistExpenseToDb(expense, ledger.id);
+    } catch (err) {
       console.error(`[LedgersRouter] Error persisting deleted expense ${expense.id} to MySQL:`, err);
-    });
+    }
 
     activityStore.log({
       ledgerId: ledger.id,

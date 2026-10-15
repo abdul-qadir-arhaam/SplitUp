@@ -138,6 +138,52 @@ class ExpensesRepository {
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
+  Future<String> _getCurrentUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserId = prefs.getString('splitup_user_id');
+      if (currentUserId != null && currentUserId.isNotEmpty) {
+        return currentUserId;
+      }
+    } catch (_) {}
+    return 'usr_arhaam';
+  }
+
+  void _adjustFriendBalances({
+    required String ledgerId,
+    required String? friendId,
+    required List<ExpensePayer> payers,
+    required List<ExpenseSplit> splits,
+    required String currentUserId,
+  }) {
+    if (ledgerId.startsWith('grp_') || ledgerId.startsWith('trip_')) return;
+
+    final myPaid = payers
+        .where((p) => p.userId == currentUserId)
+        .fold(0, (sum, p) => sum + p.paidPaise);
+    final myShare = splits
+        .where((s) => s.userId == currentUserId && s.included)
+        .fold(0, (sum, s) => sum + s.owedPaise);
+
+    if (friendId != null) {
+      final myNetImpact = myPaid - myShare;
+      _ref.read(friendsRepositoryProvider).adjustBalance(friendId, myNetImpact);
+    } else {
+      for (final s in splits) {
+        if (s.userId != currentUserId && s.included) {
+          if (payers.any((p) => p.userId == currentUserId)) {
+            _ref.read(friendsRepositoryProvider).adjustBalance(s.userId, s.owedPaise);
+          }
+        }
+      }
+      for (final p in payers) {
+        if (p.userId != currentUserId) {
+          _ref.read(friendsRepositoryProvider).adjustBalance(p.userId, -myShare);
+        }
+      }
+    }
+  }
+
   Future<ExpenseModel> createExpense({
     required String ledgerId,
     required String title,
@@ -150,6 +196,7 @@ class ExpensesRepository {
     String? friendId,
   }) async {
     await _ensureLoaded();
+    final currentUserId = await _getCurrentUserId();
 
     // Attempt cloud creation
     try {
@@ -171,6 +218,16 @@ class ExpensesRepository {
         final cloudExpense = ExpenseModel.fromJson(res['data'] as Map<String, dynamic>);
         _expenses.insert(0, cloudExpense);
         await _saveToStorage();
+
+        _adjustFriendBalances(
+          ledgerId: ledgerId,
+          friendId: friendId,
+          payers: payers,
+          splits: splits,
+          currentUserId: currentUserId,
+        );
+        _ref.invalidate(friendsNotifierProvider);
+
         return cloudExpense;
       }
     } catch (_) {
@@ -189,7 +246,7 @@ class ExpensesRepository {
       note: note,
       payers: payers,
       splits: splits,
-      createdBy: 'usr_arhaam',
+      createdBy: currentUserId,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -202,37 +259,20 @@ class ExpensesRepository {
       ExpenseActivityItem(
         id: 'act_${DateTime.now().millisecondsSinceEpoch}',
         action: 'EXPENSE_CREATED',
-        actorUserId: 'usr_arhaam',
+        actorUserId: currentUserId,
         createdAt: DateTime.now(),
         payload: {'expenseId': id, 'title': title, 'totalPaise': totalPaise},
       ),
     );
 
-    // If for direct friends (not group or trip ledger), adjust net balance
-    if (!ledgerId.startsWith('grp_') && !ledgerId.startsWith('trip_')) {
-      final myPaid = payers.where((p) => p.userId == 'usr_arhaam').fold(0, (sum, p) => sum + p.paidPaise);
-      final myShare = splits.where((s) => s.userId == 'usr_arhaam' && s.included).fold(0, (sum, s) => sum + s.owedPaise);
-
-      if (friendId != null) {
-        final myNetImpact = myPaid - myShare;
-        _ref.read(friendsRepositoryProvider).adjustBalance(friendId, myNetImpact);
-      } else {
-        // Multi-friend expense:
-        for (final s in splits) {
-          if (s.userId != 'usr_arhaam' && s.included) {
-            if (payers.any((p) => p.userId == 'usr_arhaam')) {
-              _ref.read(friendsRepositoryProvider).adjustBalance(s.userId, s.owedPaise);
-            }
-          }
-        }
-        for (final p in payers) {
-          if (p.userId != 'usr_arhaam') {
-            _ref.read(friendsRepositoryProvider).adjustBalance(p.userId, -myShare);
-          }
-        }
-      }
-      _ref.invalidate(friendsNotifierProvider);
-    }
+    _adjustFriendBalances(
+      ledgerId: ledgerId,
+      friendId: friendId,
+      payers: payers,
+      splits: splits,
+      currentUserId: currentUserId,
+    );
+    _ref.invalidate(friendsNotifierProvider);
 
     return expense;
   }
@@ -253,14 +293,16 @@ class ExpensesRepository {
 
     final old = _expenses[index];
 
+    final currentUserId = await _getCurrentUserId();
+
     // Revert old balance impact if friendId provided
     if (friendId != null) {
-      final oldMyPaid = old.payers.where((p) => p.userId == 'usr_arhaam').fold(0, (sum, p) => sum + p.paidPaise);
-      final oldMyShare = old.splits.where((s) => s.userId == 'usr_arhaam' && s.included).fold(0, (sum, s) => sum + s.owedPaise);
+      final oldMyPaid = old.payers.where((p) => p.userId == currentUserId).fold(0, (sum, p) => sum + p.paidPaise);
+      final oldMyShare = old.splits.where((s) => s.userId == currentUserId && s.included).fold(0, (sum, s) => sum + s.owedPaise);
       final oldMyNet = oldMyPaid - oldMyShare;
 
-      final newMyPaid = payers.where((p) => p.userId == 'usr_arhaam').fold(0, (sum, p) => sum + p.paidPaise);
-      final newMyShare = splits.where((s) => s.userId == 'usr_arhaam' && s.included).fold(0, (sum, s) => sum + s.owedPaise);
+      final newMyPaid = payers.where((p) => p.userId == currentUserId).fold(0, (sum, p) => sum + p.paidPaise);
+      final newMyShare = splits.where((s) => s.userId == currentUserId && s.included).fold(0, (sum, s) => sum + s.owedPaise);
       final newMyNet = newMyPaid - newMyShare;
 
       final diff = newMyNet - oldMyNet;
@@ -310,10 +352,11 @@ class ExpensesRepository {
     final index = _expenses.indexWhere((e) => e.id == expenseId);
     if (index == -1) throw Exception('Expense not found');
 
+    final currentUserId = await _getCurrentUserId();
     final old = _expenses[index];
     _expenses[index] = old.copyWith(
       deletedAt: DateTime.now(),
-      deletedBy: 'usr_arhaam',
+      deletedBy: currentUserId,
     );
     await _saveToStorage();
 
@@ -323,8 +366,8 @@ class ExpensesRepository {
 
     // Revert balance impact
     if (friendId != null) {
-      final myPaid = old.payers.where((p) => p.userId == 'usr_arhaam').fold(0, (sum, p) => sum + p.paidPaise);
-      final myShare = old.splits.where((s) => s.userId == 'usr_arhaam' && s.included).fold(0, (sum, s) => sum + s.owedPaise);
+      final myPaid = old.payers.where((p) => p.userId == currentUserId).fold(0, (sum, p) => sum + p.paidPaise);
+      final myShare = old.splits.where((s) => s.userId == currentUserId && s.included).fold(0, (sum, s) => sum + s.owedPaise);
       final myNetImpact = myPaid - myShare;
       _ref.read(friendsRepositoryProvider).adjustBalance(friendId, -myNetImpact);
       _ref.invalidate(friendsNotifierProvider);

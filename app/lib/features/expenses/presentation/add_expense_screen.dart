@@ -90,6 +90,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
     } else {
       _amountController = TextEditingController(text: '1200');
       _titleController = TextEditingController(text: '');
+      final myUserId = ref.read(authNotifierProvider).user?.id ?? 'usr_arhaam';
+      _payerUserId = myUserId;
     }
   }
 
@@ -323,8 +325,8 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
 
     // Ensure payer is a valid member in single-payer mode
     if (!_isMultiplePayers && !members.any((m) => m['id'] == _payerUserId)) {
-      if (members.any((m) => m['id'] == 'usr_arhaam')) {
-        _payerUserId = 'usr_arhaam';
+      if (members.any((m) => m['id'] == myUserId)) {
+        _payerUserId = myUserId;
       } else if (members.isNotEmpty) {
         _payerUserId = members.first['id'] as String;
       }
@@ -796,7 +798,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                               } else if (!_isMultiplePayers && _payerUserId == memId) {
                                 final replacement = members.firstWhere(
                                   (m) => !_excludedUserIds.contains(m['id']),
-                                  orElse: () => {'id': 'usr_arhaam', 'name': 'You'},
+                                  orElse: () => {'id': myUserId, 'name': 'You'},
                                 );
                                 _payerUserId = replacement['id'] as String;
                                 ScaffoldMessenger.of(context).showSnackBar(

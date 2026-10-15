@@ -6,8 +6,8 @@ appVersionRouter.get('/app/version', (req, res) => {
   res.json({
     latest_version: '1.0.5',
     currentVersion: '1.0.5',
-    build_number: 2006,
-    buildNumber: 2006,
+    build_number: 2007,
+    buildNumber: 2007,
     min_supported_build: 1,
     minSupportedVersion: '1.0.0',
     download_url: 'https://split-up-two.vercel.app/downloads/splitup-v1.0.5.apk',
