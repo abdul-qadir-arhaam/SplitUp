@@ -138,6 +138,63 @@ class UpdateBottomSheet extends ConsumerWidget {
             const SizedBox(height: 24),
           ],
 
+          // Permission required banner
+          if (updateState.needsPermission) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.accentBrass.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: colors.accentBrass.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.security_rounded, size: 18, color: colors.accentBrass),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Install Permission Required',
+                        style: SplitUpTypography.caption(color: colors.accentBrass)
+                            .copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Android requires permission for SplitUp to install updates. Tap below to enable "Allow from this source".',
+                    style: SplitUpTypography.caption(color: colors.textSecondary)
+                        .copyWith(fontSize: 12),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 38,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colors.accentBrass,
+                        side: BorderSide(color: colors.accentBrass.withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      icon: const Icon(Icons.settings_rounded, size: 16),
+                      label: const Text('Open Android Settings', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      onPressed: () {
+                        ref.read(updateControllerProvider.notifier).openInstallSettings();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Error message if any
           if (updateState.errorMessage != null) ...[
             Container(
@@ -199,29 +256,68 @@ class UpdateBottomSheet extends ConsumerWidget {
               ],
             ),
           ] else if (info?.isUpdateAvailable == true) ...[
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colors.accentReceive,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            if (updateState.downloadedApkPath != null) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.accentReceive,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
+                  icon: const Icon(Icons.install_mobile_rounded, size: 20),
+                  label: Text(
+                    'Install Downloaded Update',
+                    style: SplitUpTypography.label(color: Colors.white)
+                        .copyWith(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                  onPressed: () {
+                    ref.read(updateControllerProvider.notifier).installDownloadedApk();
+                  },
                 ),
-                icon: const Icon(Icons.download_rounded, size: 20),
-                label: Text(
-                  'Download & Install Update',
-                  style: SplitUpTypography.label(color: Colors.white)
-                      .copyWith(fontWeight: FontWeight.w700, fontSize: 15),
-                ),
-                onPressed: () {
-                  ref.read(updateControllerProvider.notifier).startOtaUpdate();
-                },
               ),
-            ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton.icon(
+                  icon: Icon(Icons.refresh_rounded, size: 16, color: colors.textSecondary),
+                  label: Text(
+                    'Re-download update',
+                    style: SplitUpTypography.caption(color: colors.textSecondary),
+                  ),
+                  onPressed: () {
+                    ref.read(updateControllerProvider.notifier).startOtaUpdate();
+                  },
+                ),
+              ),
+            ] else ...[
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colors.accentReceive,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: const Icon(Icons.download_rounded, size: 20),
+                  label: Text(
+                    'Download & Install Update',
+                    style: SplitUpTypography.label(color: Colors.white)
+                        .copyWith(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                  onPressed: () {
+                    ref.read(updateControllerProvider.notifier).startOtaUpdate();
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Center(
               child: TextButton.icon(
