@@ -56,20 +56,14 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
       userId = rawToken;
     }
 
+    if (!userId) {
+      throw new UnauthenticatedError('Missing or invalid Authorization header');
+    }
+
     req.user = {
-      id: userId || 'usr_arhaam',
+      id: userId,
       phone: '+919876543210',
       name: `User ${userId}`,
-    };
-    next();
-    return;
-  }
-
-  if (config.AUTH_STUB_MODE) {
-    req.user = {
-      id: 'usr_arhaam',
-      phone: '+919876543210',
-      name: 'Arhaam',
     };
     next();
     return;

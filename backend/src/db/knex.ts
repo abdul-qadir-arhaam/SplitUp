@@ -15,11 +15,13 @@ export const db = knex({
   },
   pool: {
     min: 0,
-    max: 10,
+    max: 5,
     acquireTimeoutMillis: 30000,
   },
   migrations: {
     directory: './dist/db/migrations',
     extension: 'js',
+    loadExtensions: ['.js'],
   },
 });
+

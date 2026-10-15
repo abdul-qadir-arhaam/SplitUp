@@ -16,8 +16,8 @@ import {
 } from './store.js';
 import { normalizePhoneE164 } from './phone.js';
 import { inMemoryLedgers } from '../ledgers/routes.js';
-import { calculateNetBalances } from '../balances/index.js';
-import { NotFoundError, ValidationError, ConflictError } from '../../lib/errors.js';
+import { calculateNetBalances, getUserTotalsFromDb } from '../balances/index.js';
+import { NotFoundError, ValidationError, ConflictError, UnauthenticatedError } from '../../lib/errors.js';
 
 export const usersRouter = Router();
 
@@ -73,32 +73,20 @@ usersRouter.patch('/users/me', async (req, res) => {
 });
 
 // GET /v1/users/me/totals
-usersRouter.get('/users/me/totals', (req, res) => {
-  const callerId = req.user?.id || 'usr_arhaam';
-  let totalOwedPaise = 0;
-  let totalReceivablePaise = 0;
-
-  for (const ledger of inMemoryLedgers.values()) {
-    if (ledger.memberIds.includes(callerId)) {
-      const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
-      const confirmedSettlements = ledger.settlements.filter((s: any) => s.status === 'CONFIRMED');
-      const netResult = calculateNetBalances(ledger.memberIds, activeExpenses, confirmedSettlements);
-      const net = netResult.balances[callerId] || 0;
-      if (net < 0) {
-        totalOwedPaise += -net;
-      } else if (net > 0) {
-        totalReceivablePaise += net;
-      }
+usersRouter.get('/users/me/totals', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Missing or invalid Authorization header');
     }
-  }
 
-  res.json({
-    data: {
-      totalOwedPaise,
-      totalReceivablePaise,
-      netPaise: totalReceivablePaise - totalOwedPaise,
-    },
-  });
+    const totals = await getUserTotalsFromDb(callerId);
+    res.json({
+      data: totals,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 const registerAuthSchema = z.object({

@@ -8,16 +8,24 @@ import {
   blockUser,
   unblockUser,
 } from './store.js';
+import { UnauthenticatedError } from '../../lib/errors.js';
 
 export const friendsRouter = Router();
 
 // GET /v1/friends
-friendsRouter.get('/friends', (req, res) => {
-  const callerId = req.user?.id || 'usr_arhaam';
-  const friends = listFriends(callerId);
-  res.json({
-    data: friends,
-  });
+friendsRouter.get('/friends', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const friends = await listFriends(callerId);
+    res.json({
+      data: friends,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 const addFriendSchema = z.object({
@@ -29,7 +37,10 @@ const addFriendSchema = z.object({
 // POST /v1/friends
 friendsRouter.post('/friends', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const body = addFriendSchema.parse(req.body);
 
     const result = await addFriend({
@@ -52,46 +63,75 @@ const nicknameSchema = z.object({
 });
 
 // PATCH /v1/friends/:id/nickname
-friendsRouter.patch('/friends/:id/nickname', (req, res) => {
-  const callerId = req.user?.id || 'usr_arhaam';
-  const friendId = req.params.id;
-  const body = nicknameSchema.parse(req.body);
+friendsRouter.patch('/friends/:id/nickname', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const friendId = req.params.id;
+    const body = nicknameSchema.parse(req.body);
 
-  const result = updateFriendNickname(callerId, friendId, body.nickname);
-  res.json({
-    data: result,
-  });
+    const result = await updateFriendNickname(callerId, friendId, body.nickname);
+    res.json({
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // DELETE /v1/friends/:id
-friendsRouter.delete('/friends/:id', (req, res) => {
-  const callerId = req.user?.id || 'usr_arhaam';
-  const friendId = req.params.id;
+friendsRouter.delete('/friends/:id', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const friendId = req.params.id;
 
-  const result = removeFriend(callerId, friendId);
-  res.json({
-    data: result,
-  });
+    const result = await removeFriend(callerId, friendId);
+    res.json({
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // POST /v1/friends/:id/block
-friendsRouter.post('/friends/:id/block', (req, res) => {
-  const callerId = req.user?.id || 'usr_arhaam';
-  const friendId = req.params.id;
+friendsRouter.post('/friends/:id/block', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const friendId = req.params.id;
 
-  const result = blockUser(callerId, friendId);
-  res.json({
-    data: result,
-  });
+    const result = await blockUser(callerId, friendId);
+    res.json({
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // DELETE /v1/friends/:id/block
-friendsRouter.delete('/friends/:id/block', (req, res) => {
-  const callerId = req.user?.id || 'usr_arhaam';
-  const friendId = req.params.id;
+friendsRouter.delete('/friends/:id/block', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const friendId = req.params.id;
 
-  const result = unblockUser(callerId, friendId);
-  res.json({
-    data: result,
-  });
+    const result = await unblockUser(callerId, friendId);
+    res.json({
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
 });
+
