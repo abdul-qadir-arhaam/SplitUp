@@ -60,6 +60,7 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
           ledgerId.isNotEmpty &&
           ledgerId != 'ldg_default') {
         await ref.read(expensesNotifierProvider.notifier).syncExpensesForLedger(ledgerId);
+        await ref.read(settlementsNotifierProvider.notifier).syncSettlementsForLedger(ledgerId);
       }
     } catch (_) {}
   }

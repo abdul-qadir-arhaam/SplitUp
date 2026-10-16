@@ -46,10 +46,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final res = await ApiClient().get('/v1/notifications/unread-count');
       if (res != null && res is Map<String, dynamic> && res.containsKey('unreadCount')) {
         final count = (res['unreadCount'] as num).toInt();
-        if (_lastKnownUnread != -1 && count > _lastKnownUnread) {
-          // New notifications arrived: refresh providers
-          ref.invalidate(notificationsNotifierProvider);
-          ref.invalidate(friendsNotifierProvider);
+        if (_lastKnownUnread != -1 && count != _lastKnownUnread) {
+          // Unread notifications changed: refresh notifications & friends balances
+          ref.read(friendsNotifierProvider.notifier).refresh();
+          ref.read(notificationsNotifierProvider.notifier).refresh();
         }
         _lastKnownUnread = count;
       }
@@ -85,9 +85,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             color: colors.accentReceive,
             backgroundColor: colors.surfaceFlatRaised,
             onRefresh: () async {
-              ref.invalidate(friendsNotifierProvider);
-              ref.invalidate(notificationsNotifierProvider);
-              await Future.delayed(const Duration(milliseconds: 350));
+              await Future.wait([
+                ref.read(friendsNotifierProvider.notifier).refresh(),
+                ref.read(notificationsNotifierProvider.notifier).refresh(),
+              ]);
             },
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),

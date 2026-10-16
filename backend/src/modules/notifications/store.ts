@@ -170,15 +170,15 @@ class NotificationsStore {
         if (actionResult !== undefined) {
           item.actionResult = actionResult;
         }
-        db('notifications')
-          .where({ id: item.id })
-          .update({
-            action_state: actionState,
-            action_result: actionResult || null,
-          })
-          .catch((err) => console.error('[NotificationsStore] Error updating settlement notification in MySQL:', err));
       }
     }
+    db('notifications')
+      .whereRaw("JSON_UNQUOTE(JSON_EXTRACT(payload, '$.settlementId')) = ?", [settlementId])
+      .update({
+        action_state: actionState,
+        action_result: actionResult || null,
+      })
+      .catch((err) => console.error('[NotificationsStore] Error updating settlement notification in MySQL:', err));
   }
 
   dismiss(id: string, userId: string): boolean {

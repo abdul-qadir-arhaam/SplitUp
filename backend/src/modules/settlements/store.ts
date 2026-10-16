@@ -554,16 +554,29 @@ export async function confirmSettlement(id: string, actorUserId: string): Promis
     notificationsStore.updateSettlementNotification(id, 'DONE', 'CONFIRMED');
 
     // Notify sender
+    const confirmNotifId = `notif_${ulid()}`;
+    const confirmPayload = {
+      settlementId: id,
+      ledgerId: settlement.ledgerId,
+      amountPaise: settlement.amountPaise,
+      receiverUserId: settlement.toUserId,
+    };
     notificationsStore.create({
       userId: settlement.fromUserId,
       type: 'SETTLEMENT_CONFIRMED',
-      payload: {
-        settlementId: id,
-        ledgerId: settlement.ledgerId,
-        amountPaise: settlement.amountPaise,
-        receiverUserId: settlement.toUserId,
-      },
+      payload: confirmPayload,
     });
+
+    await db('notifications').insert({
+      id: confirmNotifId,
+      user_id: settlement.fromUserId,
+      type: 'SETTLEMENT_CONFIRMED',
+      payload: JSON.stringify(confirmPayload),
+      action_state: null,
+      action_result: null,
+      read_at: null,
+      created_at: now,
+    }).catch(() => {});
 
     return settlement;
   } finally {
@@ -650,16 +663,29 @@ export async function rejectSettlement(id: string, actorUserId: string): Promise
 
   notificationsStore.updateSettlementNotification(id, 'DONE', 'REJECTED');
 
+  const rejectNotifId = `notif_${ulid()}`;
+  const rejectPayload = {
+    settlementId: id,
+    ledgerId: settlement.ledgerId,
+    amountPaise: settlement.amountPaise,
+    receiverUserId: settlement.toUserId,
+  };
   notificationsStore.create({
     userId: settlement.fromUserId,
     type: 'SETTLEMENT_REJECTED',
-    payload: {
-      settlementId: id,
-      ledgerId: settlement.ledgerId,
-      amountPaise: settlement.amountPaise,
-      receiverUserId: settlement.toUserId,
-    },
+    payload: rejectPayload,
   });
+
+  await db('notifications').insert({
+    id: rejectNotifId,
+    user_id: settlement.fromUserId,
+    type: 'SETTLEMENT_REJECTED',
+    payload: JSON.stringify(rejectPayload),
+    action_state: null,
+    action_result: null,
+    read_at: null,
+    created_at: now,
+  }).catch(() => {});
 
   return settlement;
 }

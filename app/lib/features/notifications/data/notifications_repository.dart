@@ -298,6 +298,13 @@ class NotificationsNotifier extends AsyncNotifier<List<NotificationModel>> {
     return repo.fetchNotifications();
   }
 
+  Future<List<NotificationModel>> refresh() async {
+    final repo = ref.read(notificationsRepositoryProvider);
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() => repo.fetchNotifications(forceRefresh: true));
+    return state.value ?? [];
+  }
+
   Future<void> addNotification(NotificationModel notif) async {
     final repo = ref.read(notificationsRepositoryProvider);
     await repo.addNotification(notif);
