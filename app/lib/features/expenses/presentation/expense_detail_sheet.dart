@@ -14,6 +14,7 @@ import '../../trips/domain/trip_model.dart';
 import '../data/expenses_repository.dart';
 import '../domain/expense_model.dart';
 import 'add_expense_screen.dart';
+import '../../../core/auth/auth_provider.dart';
 
 class ExpenseDetailSheet extends ConsumerWidget {
   final ExpenseModel expense;
@@ -37,9 +38,11 @@ class ExpenseDetailSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = context.colors;
+    final myUserId = ref.watch(authNotifierProvider).user?.id ?? 'usr_arhaam';
 
     String resolveName(String userId) {
-      if (userId == 'usr_arhaam') return 'You';
+      if (userId == myUserId || userId == 'usr_arhaam') return 'You';
+      if (friendId != null && userId != friendId) return 'You';
       final friends = ref.watch(friendsNotifierProvider).maybeWhen(
             data: (list) => list,
             orElse: () => <FriendModel>[],

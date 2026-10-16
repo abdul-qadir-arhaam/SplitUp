@@ -30,6 +30,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkCloudSync());
     // Periodic background sync for notifications and social triggers
     _syncTimer = Timer.periodic(const Duration(seconds: 30), (_) => _checkCloudSync());
   }

@@ -315,8 +315,9 @@ class _MockFriendsNotifier extends AsyncNotifier<List<FriendModel>> implements F
   Future<List<FriendModel>> build() async => _initial;
 
   @override
-  Future<void> refresh() async {
+  Future<List<FriendModel>> refresh() async {
     state = AsyncValue.data(_initial);
+    return _initial;
   }
 
   @override

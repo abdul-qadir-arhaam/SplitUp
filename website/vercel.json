@@ -6,8 +6,8 @@
     }
   },
   "rewrites": [
-    { "source": "/downloads/splitup.apk", "destination": "/downloads/splitup-v1.0.2.apk" },
-    { "source": "/downloads/app-release.apk", "destination": "/downloads/splitup-v1.0.2.apk" },
+    { "source": "/downloads/splitup.apk", "destination": "/downloads/splitup-v1.0.6.apk" },
+    { "source": "/downloads/app-release.apk", "destination": "/downloads/splitup-v1.0.6.apk" },
     { "source": "/app/version", "destination": "/api/version" },
     { "source": "/version", "destination": "/api/version" }
   ]

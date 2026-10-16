@@ -30,6 +30,17 @@ class SettlementsRepository {
     ];
   }
 
+  Future<String> _getCurrentUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserId = prefs.getString('splitup_user_id');
+      if (currentUserId != null && currentUserId.isNotEmpty) {
+        return currentUserId;
+      }
+    } catch (_) {}
+    return 'usr_arhaam';
+  }
+
   Future<String> _getStorageKey() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -98,20 +109,21 @@ class SettlementsRepository {
     bool isPlaceholderReceiver = false,
   }) async {
     await _ensureLoaded();
+    final myUid = await _getCurrentUserId();
     final id = 'stl_${DateTime.now().millisecondsSinceEpoch}';
     final isConfirmed = isPlaceholderReceiver;
 
     final settlement = SettlementModel(
       id: id,
       ledgerId: ledgerId,
-      fromUserId: 'usr_arhaam',
+      fromUserId: myUid,
       toUserId: toUserId,
       amountPaise: amountPaise,
       method: method,
       status: isConfirmed ? 'CONFIRMED' : 'PENDING',
       confirmedOnBehalf: isConfirmed,
-      createdBy: 'usr_arhaam',
-      respondedBy: isConfirmed ? 'usr_arhaam' : null,
+      createdBy: myUid,
+      respondedBy: isConfirmed ? myUid : null,
       createdAt: DateTime.now(),
       respondedAt: isConfirmed ? DateTime.now() : null,
     );
@@ -179,10 +191,11 @@ class SettlementsRepository {
       );
     }
 
+    final myUid = await _getCurrentUserId();
     final old = _settlements[index];
     final updated = old.copyWith(
       status: 'CONFIRMED',
-      respondedBy: 'usr_arhaam',
+      respondedBy: myUid,
       respondedAt: DateTime.now(),
     );
     _settlements[index] = updated;
@@ -193,7 +206,7 @@ class SettlementsRepository {
     } catch (_) {}
 
     // Apply to friend balance
-    final friendId = old.fromUserId == 'usr_arhaam' ? old.toUserId : old.fromUserId;
+    final friendId = old.fromUserId == myUid ? old.toUserId : old.fromUserId;
     _ref.read(friendsRepositoryProvider).applySettlement(friendId, old.amountPaise);
     _ref.invalidate(friendsNotifierProvider);
 
@@ -230,10 +243,11 @@ class SettlementsRepository {
       );
     }
 
+    final myUid = await _getCurrentUserId();
     final old = _settlements[index];
     final updated = old.copyWith(
       status: 'REJECTED',
-      respondedBy: 'usr_arhaam',
+      respondedBy: myUid,
       respondedAt: DateTime.now(),
     );
     _settlements[index] = updated;

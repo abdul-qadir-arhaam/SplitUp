@@ -243,10 +243,11 @@ class FriendsNotifier extends AsyncNotifier<List<FriendModel>> {
     return repo.fetchFriends();
   }
 
-  Future<void> refresh() async {
+  Future<List<FriendModel>> refresh() async {
     final repo = ref.read(friendsRepositoryProvider);
     final updated = await repo.fetchFriends(forceRefresh: true);
     state = AsyncValue.data(updated);
+    return updated;
   }
 
   Future<FriendModel> addFriend({

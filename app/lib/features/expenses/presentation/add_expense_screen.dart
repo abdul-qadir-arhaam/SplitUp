@@ -837,8 +837,12 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                         ? 'Update Expense (${formatPaise(totalPaise)})'
                         : 'Save Expense (${formatPaise(totalPaise)})'),
                 icon: Icons.check_rounded,
+                isLoading: _isSaving,
                 onPressed: (canSave && !_isSaving)
                     ? () async {
+                        if (_isSaving) return;
+                        setState(() => _isSaving = true);
+
                         final title = _titleController.text.trim().isEmpty ? 'Expense' : _titleController.text.trim();
 
                         final String? resolvedLedgerId = widget.existingExpense?.ledgerId ??
@@ -847,6 +851,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                             (selectedFriends.length == 1 ? selectedFriends.first.individualLedgerId : null);
 
                         if (resolvedLedgerId == null || resolvedLedgerId.isEmpty) {
+                          if (mounted) setState(() => _isSaving = false);
                           if (selectedFriends.length > 1) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -888,8 +893,6 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                             included: included,
                           );
                         }).toList();
-
-                        setState(() => _isSaving = true);
 
                         try {
                           if (widget.existingExpense != null) {

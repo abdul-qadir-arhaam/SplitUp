@@ -15,6 +15,7 @@ import '../../settlements/data/settlements_repository.dart';
 import '../../settlements/domain/settlement_model.dart';
 import '../../settlements/presentation/settle_sheet.dart';
 import '../../expenses/presentation/add_expense_screen.dart';
+import '../../../core/auth/auth_provider.dart';
 
 class FriendDetailScreen extends ConsumerStatefulWidget {
   final String friendId;
@@ -49,22 +50,24 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
   }
 
   Future<void> _syncServerData() async {
-    final friends = ref.read(friendsNotifierProvider).value ?? [];
-    final matches = friends.where((f) => f.id == widget.friendId);
-    final friend = matches.isNotEmpty ? matches.first : null;
-    final ledgerId = friend?.individualLedgerId ?? 'ldg_${widget.friendId}';
-
     try {
-      await Future.wait([
-        ref.read(friendsNotifierProvider.notifier).refresh(),
-        ref.read(expensesNotifierProvider.notifier).syncExpensesForLedger(ledgerId),
-      ]);
+      final refreshed = await ref.read(friendsNotifierProvider.notifier).refresh();
+      final matches = refreshed.where((f) => f.id == widget.friendId);
+      final friend = matches.isNotEmpty ? matches.first : null;
+      final ledgerId = friend?.individualLedgerId;
+
+      if (ledgerId != null &&
+          ledgerId.isNotEmpty &&
+          ledgerId != 'ldg_default') {
+        await ref.read(expensesNotifierProvider.notifier).syncExpensesForLedger(ledgerId);
+      }
     } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final myUserId = ref.watch(authNotifierProvider).user?.id ?? '';
     final asyncFriends = ref.watch(friendsNotifierProvider);
     final asyncExpenses = ref.watch(expensesNotifierProvider);
     final asyncSettlements = ref.watch(settlementsNotifierProvider);
@@ -363,12 +366,12 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
                       Text(
                         pendingSettlement.isOutdated
                             ? 'The balance changed since this request was made. Tap resubmit to adjust the amount.'
-                            : (pendingSettlement.fromUserId == 'usr_arhaam'
+                            : (pendingSettlement.fromUserId != friend.id
                                 ? 'Waiting for ${friend.resolvedName} to confirm receipt.'
                                 : '${friend.resolvedName} sent you this settlement request.'),
                         style: SplitUpTypography.caption(color: colors.textSecondary),
                       ),
-                      if (pendingSettlement.isOutdated && pendingSettlement.fromUserId == 'usr_arhaam') ...[
+                      if (pendingSettlement.isOutdated && (pendingSettlement.fromUserId != friend.id)) ...[
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
@@ -390,7 +393,7 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
                           },
                         ),
                       ],
-                      if (pendingSettlement.isPending && pendingSettlement.toUserId == 'usr_arhaam') ...[
+                      if (pendingSettlement.isPending && (pendingSettlement.toUserId != friend.id)) ...[
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -492,9 +495,9 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
               else
                 ...expenses.map((exp) {
                   final isDisputed = exp.isDisputed;
-                  final payerName = (exp.payers.isNotEmpty && exp.payers.first.userId == 'usr_arhaam')
-                      ? 'You'
-                      : friend.resolvedName;
+                  final isPayerMe = exp.payers.isNotEmpty &&
+                      (exp.payers.first.userId != friend.id || exp.payers.first.userId == myUserId);
+                  final payerName = isPayerMe ? 'You' : friend.resolvedName;
 
                   return InkWell(
                     onTap: () => ExpenseDetailSheet.show(context, exp, friendId: friend.id),

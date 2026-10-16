@@ -184,7 +184,7 @@ class ExpensesRepository {
     final currentUserId = await _getCurrentUserId();
 
     // Authoritative cloud creation: do not catch silently or fall back to fake local expenses
-    final res = await ApiClient().post('/v1/ledgers/$ledgerId/expenses', {
+    final reqBody = <String, dynamic>{
       'title': title,
       'totalPaise': totalPaise,
       'category': category.toLowerCase(),
@@ -195,8 +195,12 @@ class ExpensesRepository {
         'included': s.included,
         'splitValue': s.owedPaise,
       }).toList(),
-      'note': note,
-    });
+    };
+    if (note != null && note.trim().isNotEmpty) {
+      reqBody['note'] = note.trim();
+    }
+
+    final res = await ApiClient().post('/v1/ledgers/$ledgerId/expenses', reqBody);
 
     if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
       final cloudExpense = ExpenseModel.fromJson(res['data'] as Map<String, dynamic>);
@@ -220,11 +224,10 @@ class ExpensesRepository {
         ),
       );
 
-      // Server is the sole authority for balances. Refetch friends from server:
-      try {
-        await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
+      // Server is the sole authority for balances. Refetch friends from server asynchronously:
+      _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true).then((_) {
         _ref.invalidate(friendsNotifierProvider);
-      } catch (_) {}
+      }).catchError((_) {});
 
       return cloudExpense;
     }
@@ -272,10 +275,9 @@ class ExpensesRepository {
     );
     await _saveToStorage();
 
-    try {
-      await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
+    _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true).then((_) {
       _ref.invalidate(friendsNotifierProvider);
-    } catch (_) {}
+    }).catchError((_) {});
 
     _activities.insert(
       0,
@@ -305,10 +307,9 @@ class ExpensesRepository {
     );
     await _saveToStorage();
 
-    try {
-      await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
+    _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true).then((_) {
       _ref.invalidate(friendsNotifierProvider);
-    } catch (_) {}
+    }).catchError((_) {});
 
     _activities.insert(
       0,
