@@ -69,13 +69,13 @@ const participantSchema = z
   .object({
     userId: z.string(),
     included: z.boolean(),
-    splitValue: z.number().int().optional(),
-    owedPaise: z.number().int().optional(),
+    splitValue: z.number().int().nullish(),
+    owedPaise: z.number().int().nullish(),
   })
   .transform((p) => ({
     userId: p.userId,
     included: p.included,
-    splitValue: p.splitValue !== undefined ? p.splitValue : p.owedPaise,
+    splitValue: (p.splitValue !== undefined && p.splitValue !== null) ? p.splitValue : (p.owedPaise ?? undefined),
   }));
 
 const payerItemSchema = z
@@ -116,7 +116,7 @@ const createExpenseSchema = z.preprocess((val: any) => {
   payers: z.array(payerItemSchema).nonempty(),
   participants: z.array(participantSchema).nonempty(),
   expenseDate: z.string().default(() => new Date().toISOString().split('T')[0]),
-  note: z.string().max(500).optional(),
+  note: z.string().max(500).nullish(),
 }));
 
 const updateExpenseSchema = z.preprocess((val: any) => {
@@ -141,7 +141,7 @@ const updateExpenseSchema = z.preprocess((val: any) => {
   payers: z.array(payerItemSchema).nonempty().optional(),
   participants: z.array(participantSchema).nonempty().optional(),
   expenseDate: z.string().optional(),
-  note: z.string().max(500).optional(),
+  note: z.string().max(500).nullish(),
 }));
 
 // Create Expense in Ledger
