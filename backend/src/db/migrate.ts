@@ -9,6 +9,7 @@ async function run() {
   const [batchNo, log] = await db.migrate.latest({
     directory: './src/db/migrations',
     extension: 'ts',
+    loadExtensions: ['.ts'],
   });
   console.log(`Batch ${batchNo} completed: ${log.length} migrations executed.`);
   for (const m of log) {

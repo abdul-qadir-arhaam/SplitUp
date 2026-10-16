@@ -56,8 +56,8 @@ app.get(['/version', '/app/version'], (req, res) => {
     minSupportedVersion: '1.0.0',
     download_url: 'https://split-up-two.vercel.app/downloads/splitup-v1.0.5.apk',
     downloadUrl: '/downloads/splitup-v1.0.5.apk',
-    file_size_mb: 20.80,
-    release_notes: 'SplitUp v1.0.5: Instant onboarding — eliminated OTP verification step. Sign up directly with phone & password!',
+    file_size_mb: 20.74,
+    release_notes: 'SplitUp v1.0.5: Android 14 in-app installer, server-first expense sync, and authoritative balances.',
   });
 });
 

@@ -64,8 +64,8 @@ export async function getOrCreateIndividualLedger(userA: string, userB: string, 
       type: 'INDIVIDUAL',
       pair_low_user_id: low,
       pair_high_user_id: high,
+      status: 'ACTIVE',
     })
-    .whereNull('deleted_at')
     .first();
 
   if (existing) {
@@ -117,8 +117,8 @@ export async function getOrCreateIndividualLedger(userA: string, userB: string, 
         type: 'INDIVIDUAL',
         pair_low_user_id: low,
         pair_high_user_id: high,
+        status: 'ACTIVE',
       })
-      .whereNull('deleted_at')
       .first();
 
     if (raceExisting) {
