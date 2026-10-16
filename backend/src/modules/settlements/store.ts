@@ -1,4 +1,6 @@
 import { ulid } from 'ulidx';
+import { db } from '../../db/knex.js';
+import { getLedgerBalancesFromDb } from '../balances/sqlBalances.js';
 import { inMemoryLedgers } from '../ledgers/routes.js';
 import { inMemoryUsers } from '../users/store.js';
 import { calculateNetBalances } from '../balances/index.js';
@@ -47,15 +49,48 @@ export const inMemorySettlementEvents: SettlementEvent[] = [];
 // Concurrency locks
 const settlementLocks = new Set<string>();
 
+export function mapDbSettlementToModel(s: any): Settlement {
+  return {
+    id: s.id,
+    ledgerId: s.ledger_id,
+    fromUserId: s.from_user_id,
+    toUserId: s.to_user_id,
+    amountPaise: Number(s.amount_paise),
+    method: s.method,
+    status: s.status,
+    offsetId: s.offset_id || null,
+    replacedById: s.replaced_by_id || null,
+    createdBy: s.created_by,
+    respondedBy: s.responded_by || null,
+    confirmedOnBehalf: Boolean(s.confirmed_on_behalf),
+    reminderCount: Number(s.reminder_count || 0),
+    lastRemindedAt: s.last_reminded_at instanceof Date ? s.last_reminded_at.toISOString() : (s.last_reminded_at ? String(s.last_reminded_at) : null),
+    createdAt: s.created_at instanceof Date ? s.created_at.toISOString() : String(s.created_at),
+    respondedAt: s.responded_at instanceof Date ? s.responded_at.toISOString() : (s.responded_at ? String(s.responded_at) : null),
+  };
+}
+
 /**
  * Calculates current debt owed by fromUserId to toUserId in the ledger.
  * Returns positive paise if fromUserId owes toUserId, or 0 / negative if not.
  */
-export function getCurrentDebt(
+export async function getCurrentDebt(
   ledgerId: string,
   fromUserId: string,
   toUserId: string
-): number {
+): Promise<number> {
+  // 1. Try DB first
+  const dbLedger = await db('ledgers').where({ id: ledgerId }).first();
+  if (dbLedger) {
+    const balances = await getLedgerBalancesFromDb(ledgerId);
+    const fromNet = balances[fromUserId] || 0;
+    if (fromNet < 0) {
+      return -fromNet;
+    }
+    return 0;
+  }
+
+  // 2. Fallback to inMemoryLedgers
   const ledger = inMemoryLedgers.get(ledgerId);
   if (!ledger) {
     throw new NotFoundError(`Ledger ${ledgerId} not found`);
@@ -73,21 +108,20 @@ export function getCurrentDebt(
   );
 
   const fromNet = netResult.balances[fromUserId] || 0;
-  // If fromNet < 0, fromUserId owes -fromNet paise
   if (fromNet < 0) {
     return -fromNet;
   }
   return 0;
 }
 
-export function createSettlement(params: {
+export async function createSettlement(params: {
   ledgerId: string;
   fromUserId: string;
   toUserId: string;
   amountPaise: number;
   method?: 'CASH' | 'UPI' | 'OFFSET' | 'OTHER';
   createdBy: string;
-}): Settlement {
+}): Promise<Settlement> {
   const { ledgerId, fromUserId, toUserId, amountPaise, createdBy } = params;
   const method = params.method || 'CASH';
 
@@ -104,17 +138,29 @@ export function createSettlement(params: {
     throw new ValidationError('Amount must be a positive integer in paise');
   }
 
-  const ledger = inMemoryLedgers.get(ledgerId);
-  if (!ledger) {
-    throw new NotFoundError(`Ledger ${ledgerId} not found`);
+  // Verify membership across DB or inMemory
+  let memberIds: string[] = [];
+  const dbLedger = await db('ledgers').where({ id: ledgerId }).first();
+  if (dbLedger) {
+    const members = await db('ledger_members')
+      .where({ ledger_id: ledgerId })
+      .whereNull('left_at')
+      .select('user_id');
+    memberIds = members.map((m) => m.user_id);
+  } else {
+    const ledger = inMemoryLedgers.get(ledgerId);
+    if (!ledger) {
+      throw new NotFoundError(`Ledger ${ledgerId} not found`);
+    }
+    memberIds = ledger.memberIds;
   }
 
-  if (!ledger.memberIds.includes(fromUserId) || !ledger.memberIds.includes(toUserId)) {
+  if (!memberIds.includes(fromUserId) || !memberIds.includes(toUserId)) {
     throw new ForbiddenError('Both parties must be members of the ledger');
   }
 
   // Check current debt
-  const currentDebt = getCurrentDebt(ledgerId, fromUserId, toUserId);
+  const currentDebt = await getCurrentDebt(ledgerId, fromUserId, toUserId);
   if (currentDebt <= 0) {
     throw new ValidationError('You do not owe any money to this friend in this ledger');
   }
@@ -127,8 +173,10 @@ export function createSettlement(params: {
   }
 
   const id = `stl_${ulid()}`;
-  const toUser = inMemoryUsers.get(toUserId);
-  const isPlaceholder = toUser?.isPlaceholder === true;
+  const dbToUser = await db('users').where({ id: toUserId }).first();
+  const memToUser = inMemoryUsers.get(toUserId);
+  const isPlaceholder = dbToUser ? Boolean(dbToUser.is_placeholder) : (memToUser?.isPlaceholder === true);
+  const placeholderCreator = dbToUser?.created_by || memToUser?.createdBy;
 
   // Placeholder receivers: creator confirms on their behalf (self-confirmed (unverified))
   let status: Settlement['status'] = 'PENDING';
@@ -136,13 +184,14 @@ export function createSettlement(params: {
   let respondedBy: string | null = null;
   let respondedAt: string | null = null;
 
-  if (isPlaceholder && toUser?.createdBy === createdBy) {
+  if (isPlaceholder && placeholderCreator === createdBy) {
     status = 'CONFIRMED';
     confirmedOnBehalf = true;
     respondedBy = createdBy;
     respondedAt = new Date().toISOString();
   }
 
+  const now = new Date();
   const settlement: Settlement = {
     id,
     ledgerId,
@@ -155,29 +204,75 @@ export function createSettlement(params: {
     reminderCount: 0,
     createdBy,
     respondedBy,
-    createdAt: new Date().toISOString(),
+    createdAt: now.toISOString(),
     respondedAt,
   };
 
+  // Persist to MySQL
+  try {
+    await db('settlements').insert({
+      id,
+      ledger_id: ledgerId,
+      from_user_id: fromUserId,
+      to_user_id: toUserId,
+      amount_paise: amountPaise,
+      method,
+      status,
+      offset_id: null,
+      replaced_by_id: null,
+      created_by: createdBy,
+      responded_by: respondedBy,
+      confirmed_on_behalf: confirmedOnBehalf ? 1 : 0,
+      reminder_count: 0,
+      last_reminded_at: null,
+      created_at: now,
+      responded_at: respondedAt ? new Date(respondedAt) : null,
+    });
+
+    await db('settlement_events').insert({
+      settlement_id: id,
+      status: settlement.status,
+      actor_user_id: createdBy,
+      created_at: now,
+    }).catch(() => {});
+
+    await db('activity_log').insert({
+      ledger_id: ledgerId,
+      actor_user_id: createdBy,
+      action: status === 'CONFIRMED' ? 'SETTLEMENT_CONFIRMED' : 'SETTLEMENT_CREATED',
+      entity_type: 'settlement',
+      entity_id: id,
+      payload: JSON.stringify({
+        amountPaise,
+        fromUserId,
+        toUserId,
+        method,
+        confirmedOnBehalf,
+      }),
+      created_at: now,
+    }).catch(() => {});
+  } catch (err) {
+    console.error(`[SettlementsStore] Error inserting settlement ${id} to MySQL:`, err);
+  }
+
+  // Also sync to in-memory maps
   inMemorySettlements.set(id, settlement);
-  ledger.settlements.push(settlement);
+  const memLedger = inMemoryLedgers.get(ledgerId);
+  if (memLedger) {
+    memLedger.settlements.push(settlement);
+  }
 
-  // Persist settlement to MySQL
-  persistSettlementToDb(settlement).catch((err) => {
-    console.error(`[SettlementsStore] Error persisting settlement ${id} to MySQL:`, err);
-  });
-
-  // Audit event
+  // Audit event in-memory
   const event: SettlementEvent = {
     id: `sev_${ulid()}`,
     settlementId: id,
     status: settlement.status,
     actorUserId: createdBy,
-    createdAt: new Date().toISOString(),
+    createdAt: now.toISOString(),
   };
   inMemorySettlementEvents.push(event);
 
-  // Activity log
+  // Activity log in-memory
   activityStore.log({
     ledgerId,
     actorUserId: createdBy,
@@ -195,7 +290,7 @@ export function createSettlement(params: {
 
   // Notifications
   if (status === 'PENDING') {
-    const notifyTarget = isPlaceholder ? (toUser?.createdBy || toUserId) : toUserId;
+    const notifyTarget = isPlaceholder ? (placeholderCreator || toUserId) : toUserId;
     notificationsStore.create({
       userId: notifyTarget,
       type: 'SETTLEMENT_REQUESTED',
@@ -214,15 +309,21 @@ export function createSettlement(params: {
   return settlement;
 }
 
-export function getSettlement(id: string): Settlement {
-  const settlement = inMemorySettlements.get(id);
+export async function getSettlement(id: string): Promise<Settlement> {
+  let settlement: Settlement | undefined = inMemorySettlements.get(id);
+  const row = await db('settlements').where({ id }).first();
+  if (row) {
+    settlement = mapDbSettlementToModel(row);
+    inMemorySettlements.set(id, settlement);
+  }
+
   if (!settlement) {
     throw new NotFoundError(`Settlement ${id} not found`);
   }
 
   // Stale detection on open (Option a)
   if (settlement.status === 'PENDING') {
-    const currentDebt = getCurrentDebt(
+    const currentDebt = await getCurrentDebt(
       settlement.ledgerId,
       settlement.fromUserId,
       settlement.toUserId
@@ -230,6 +331,28 @@ export function getSettlement(id: string): Settlement {
 
     if (currentDebt < settlement.amountPaise) {
       settlement.status = 'OUTDATED';
+
+      await db('settlements').where({ id }).update({ status: 'OUTDATED' }).catch(() => {});
+
+      await db('settlement_events').insert({
+        settlement_id: id,
+        status: 'OUTDATED',
+        actor_user_id: 'system',
+        created_at: new Date(),
+      }).catch(() => {});
+
+      await db('activity_log').insert({
+        ledger_id: settlement.ledgerId,
+        actor_user_id: 'system',
+        action: 'SETTLEMENT_OUTDATED',
+        entity_type: 'settlement',
+        entity_id: id,
+        payload: JSON.stringify({
+          originalAmountPaise: settlement.amountPaise,
+          currentDebt,
+        }),
+        created_at: new Date(),
+      }).catch(() => {});
 
       inMemorySettlementEvents.push({
         id: `sev_${ulid()}`,
@@ -251,15 +374,8 @@ export function getSettlement(id: string): Settlement {
         },
       });
 
-      // Update receiver's notification action state
       notificationsStore.updateSettlementNotification(id, 'EXPIRED');
 
-      // Persist outdated settlement to MySQL
-      persistSettlementToDb(settlement).catch((err) => {
-        console.error(`[SettlementsStore] Error persisting outdated settlement ${id} to MySQL:`, err);
-      });
-
-      // Notify sender
       notificationsStore.create({
         userId: settlement.fromUserId,
         type: 'SETTLEMENT_OUTDATED',
@@ -276,7 +392,7 @@ export function getSettlement(id: string): Settlement {
   return settlement;
 }
 
-export function confirmSettlement(id: string, actorUserId: string): Settlement {
+export async function confirmSettlement(id: string, actorUserId: string): Promise<Settlement> {
   if (settlementLocks.has(id)) {
     throw new ConflictError('Settlement confirmation already in progress');
   }
@@ -284,7 +400,13 @@ export function confirmSettlement(id: string, actorUserId: string): Settlement {
   try {
     settlementLocks.add(id);
 
-    const settlement = inMemorySettlements.get(id);
+    let settlement: Settlement | undefined = inMemorySettlements.get(id);
+    const row = await db('settlements').where({ id }).first();
+    if (row) {
+      settlement = mapDbSettlementToModel(row);
+      inMemorySettlements.set(id, settlement);
+    }
+
     if (!settlement) {
       throw new NotFoundError(`Settlement ${id} not found`);
     }
@@ -294,30 +416,56 @@ export function confirmSettlement(id: string, actorUserId: string): Settlement {
     }
 
     // Receiver or placeholder creator only
-    const toUser = inMemoryUsers.get(settlement.toUserId);
+    const dbToUser = await db('users').where({ id: settlement.toUserId }).first();
+    const memToUser = inMemoryUsers.get(settlement.toUserId);
     const isReceiver = settlement.toUserId === actorUserId;
-    const isPlaceholderCreator = toUser?.isPlaceholder && toUser.createdBy === actorUserId;
+    const isPlaceholder = dbToUser ? Boolean(dbToUser.is_placeholder) : (memToUser?.isPlaceholder === true);
+    const placeholderCreator = dbToUser?.created_by || memToUser?.createdBy;
+    const isPlaceholderCreator = isPlaceholder && placeholderCreator === actorUserId;
 
     if (!isReceiver && !isPlaceholderCreator) {
       throw new ForbiddenError('Only the receiver can confirm this settlement');
     }
 
     // Re-validate validity under lock (Option a)
-    const currentDebt = getCurrentDebt(
+    const currentDebt = await getCurrentDebt(
       settlement.ledgerId,
       settlement.fromUserId,
       settlement.toUserId
     );
 
+    const now = new Date();
     if (currentDebt < settlement.amountPaise) {
       settlement.status = 'OUTDATED';
+
+      await db('settlements').where({ id }).update({ status: 'OUTDATED' }).catch(() => {});
+
+      await db('settlement_events').insert({
+        settlement_id: id,
+        status: 'OUTDATED',
+        actor_user_id: actorUserId,
+        created_at: now,
+      }).catch(() => {});
+
+      await db('activity_log').insert({
+        ledger_id: settlement.ledgerId,
+        actor_user_id: actorUserId,
+        action: 'SETTLEMENT_OUTDATED',
+        entity_type: 'settlement',
+        entity_id: id,
+        payload: JSON.stringify({
+          originalAmountPaise: settlement.amountPaise,
+          currentDebt,
+        }),
+        created_at: now,
+      }).catch(() => {});
 
       inMemorySettlementEvents.push({
         id: `sev_${ulid()}`,
         settlementId: id,
         status: 'OUTDATED',
         actorUserId,
-        createdAt: new Date().toISOString(),
+        createdAt: now.toISOString(),
       });
 
       activityStore.log({
@@ -349,23 +497,46 @@ export function confirmSettlement(id: string, actorUserId: string): Settlement {
 
     settlement.status = 'CONFIRMED';
     settlement.respondedBy = actorUserId;
-    settlement.respondedAt = new Date().toISOString();
+    settlement.respondedAt = now.toISOString();
     if (isPlaceholderCreator && !isReceiver) {
       settlement.confirmedOnBehalf = true;
     }
 
     // Persist confirmed status to MySQL
-    persistSettlementToDb(settlement).catch((err) => {
-      console.error(`[SettlementsStore] Error persisting confirmed settlement ${id} to MySQL:`, err);
-    });
+    await db('settlements').where({ id }).update({
+      status: 'CONFIRMED',
+      responded_by: actorUserId,
+      responded_at: now,
+      confirmed_on_behalf: settlement.confirmedOnBehalf ? 1 : 0,
+    }).catch(() => {});
 
-    // Audit event
+    await db('settlement_events').insert({
+      settlement_id: id,
+      status: 'CONFIRMED',
+      actor_user_id: actorUserId,
+      created_at: now,
+    }).catch(() => {});
+
+    await db('activity_log').insert({
+      ledger_id: settlement.ledgerId,
+      actor_user_id: actorUserId,
+      action: 'SETTLEMENT_CONFIRMED',
+      entity_type: 'settlement',
+      entity_id: id,
+      payload: JSON.stringify({
+        amountPaise: settlement.amountPaise,
+        confirmedOnBehalf: settlement.confirmedOnBehalf,
+      }),
+      created_at: now,
+    }).catch(() => {});
+
+    // Audit event in-memory
     inMemorySettlementEvents.push({
       id: `sev_${ulid()}`,
       settlementId: id,
       status: 'CONFIRMED',
       actorUserId,
-      createdAt: new Date().toISOString(),
+      createdAt: now.toISOString(),
     });
 
     activityStore.log({
@@ -400,8 +571,14 @@ export function confirmSettlement(id: string, actorUserId: string): Settlement {
   }
 }
 
-export function rejectSettlement(id: string, actorUserId: string): Settlement {
-  const settlement = inMemorySettlements.get(id);
+export async function rejectSettlement(id: string, actorUserId: string): Promise<Settlement> {
+  let settlement: Settlement | undefined = inMemorySettlements.get(id);
+  const row = await db('settlements').where({ id }).first();
+  if (row) {
+    settlement = mapDbSettlementToModel(row);
+    inMemorySettlements.set(id, settlement);
+  }
+
   if (!settlement) {
     throw new NotFoundError(`Settlement ${id} not found`);
   }
@@ -410,29 +587,54 @@ export function rejectSettlement(id: string, actorUserId: string): Settlement {
     throw new ConflictError(`Settlement cannot be rejected (current status: ${settlement.status})`);
   }
 
-  const toUser = inMemoryUsers.get(settlement.toUserId);
+  const dbToUser = await db('users').where({ id: settlement.toUserId }).first();
+  const memToUser = inMemoryUsers.get(settlement.toUserId);
   const isReceiver = settlement.toUserId === actorUserId;
-  const isPlaceholderCreator = toUser?.isPlaceholder && toUser.createdBy === actorUserId;
+  const isPlaceholder = dbToUser ? Boolean(dbToUser.is_placeholder) : (memToUser?.isPlaceholder === true);
+  const placeholderCreator = dbToUser?.created_by || memToUser?.createdBy;
+  const isPlaceholderCreator = isPlaceholder && placeholderCreator === actorUserId;
 
   if (!isReceiver && !isPlaceholderCreator) {
     throw new ForbiddenError('Only the receiver can reject this settlement');
   }
 
+  const now = new Date();
   settlement.status = 'REJECTED';
   settlement.respondedBy = actorUserId;
-  settlement.respondedAt = new Date().toISOString();
+  settlement.respondedAt = now.toISOString();
 
   // Persist rejected status to MySQL
-  persistSettlementToDb(settlement).catch((err) => {
-    console.error(`[SettlementsStore] Error persisting rejected settlement ${id} to MySQL:`, err);
-  });
+  await db('settlements').where({ id }).update({
+    status: 'REJECTED',
+    responded_by: actorUserId,
+    responded_at: now,
+  }).catch(() => {});
+
+  await db('settlement_events').insert({
+    settlement_id: id,
+    status: 'REJECTED',
+    actor_user_id: actorUserId,
+    created_at: now,
+  }).catch(() => {});
+
+  await db('activity_log').insert({
+    ledger_id: settlement.ledgerId,
+    actor_user_id: actorUserId,
+    action: 'SETTLEMENT_REJECTED',
+    entity_type: 'settlement',
+    entity_id: id,
+    payload: JSON.stringify({
+      amountPaise: settlement.amountPaise,
+    }),
+    created_at: now,
+  }).catch(() => {});
 
   inMemorySettlementEvents.push({
     id: `sev_${ulid()}`,
     settlementId: id,
     status: 'REJECTED',
     actorUserId,
-    createdAt: new Date().toISOString(),
+    createdAt: now.toISOString(),
   });
 
   activityStore.log({
@@ -462,8 +664,14 @@ export function rejectSettlement(id: string, actorUserId: string): Settlement {
   return settlement;
 }
 
-export function cancelSettlement(id: string, actorUserId: string): Settlement {
-  const settlement = inMemorySettlements.get(id);
+export async function cancelSettlement(id: string, actorUserId: string): Promise<Settlement> {
+  let settlement: Settlement | undefined = inMemorySettlements.get(id);
+  const row = await db('settlements').where({ id }).first();
+  if (row) {
+    settlement = mapDbSettlementToModel(row);
+    inMemorySettlements.set(id, settlement);
+  }
+
   if (!settlement) {
     throw new NotFoundError(`Settlement ${id} not found`);
   }
@@ -476,19 +684,27 @@ export function cancelSettlement(id: string, actorUserId: string): Settlement {
     throw new ForbiddenError('Only the sender can cancel a pending settlement');
   }
 
+  const now = new Date();
   settlement.status = 'CANCELLED';
 
   // Persist cancelled status to MySQL
-  persistSettlementToDb(settlement).catch((err) => {
-    console.error(`[SettlementsStore] Error persisting cancelled settlement ${id} to MySQL:`, err);
-  });
+  await db('settlements').where({ id }).update({
+    status: 'CANCELLED',
+  }).catch(() => {});
+
+  await db('settlement_events').insert({
+    settlement_id: id,
+    status: 'CANCELLED',
+    actor_user_id: actorUserId,
+    created_at: now,
+  }).catch(() => {});
 
   inMemorySettlementEvents.push({
     id: `sev_${ulid()}`,
     settlementId: id,
     status: 'CANCELLED',
     actorUserId,
-    createdAt: new Date().toISOString(),
+    createdAt: now.toISOString(),
   });
 
   activityStore.log({
@@ -504,13 +720,19 @@ export function cancelSettlement(id: string, actorUserId: string): Settlement {
   return settlement;
 }
 
-export function resubmitSettlement(params: {
+export async function resubmitSettlement(params: {
   id: string;
   actorUserId: string;
   newAmountPaise?: number;
-}): Settlement {
+}): Promise<Settlement> {
   const { id, actorUserId, newAmountPaise } = params;
-  const oldSettlement = inMemorySettlements.get(id);
+  let oldSettlement: Settlement | undefined = inMemorySettlements.get(id);
+  const row = await db('settlements').where({ id }).first();
+  if (row) {
+    oldSettlement = mapDbSettlementToModel(row);
+    inMemorySettlements.set(id, oldSettlement);
+  }
+
   if (!oldSettlement) {
     throw new NotFoundError(`Settlement ${id} not found`);
   }
@@ -524,7 +746,7 @@ export function resubmitSettlement(params: {
   }
 
   // Check current debt
-  const currentDebt = getCurrentDebt(
+  const currentDebt = await getCurrentDebt(
     oldSettlement.ledgerId,
     oldSettlement.fromUserId,
     oldSettlement.toUserId
@@ -560,7 +782,7 @@ export function resubmitSettlement(params: {
   }
 
   // Create new settlement
-  const newSettlement = createSettlement({
+  const newSettlement = await createSettlement({
     ledgerId: oldSettlement.ledgerId,
     fromUserId: oldSettlement.fromUserId,
     toUserId: oldSettlement.toUserId,
@@ -571,6 +793,7 @@ export function resubmitSettlement(params: {
 
   // Link replaced_by_id on the old record
   oldSettlement.replacedById = newSettlement.id;
+  await db('settlements').where({ id: oldSettlement.id }).update({ replaced_by_id: newSettlement.id }).catch(() => {});
 
   // If suppressed, remove the notification created in createSettlement
   if (suppressNotification) {

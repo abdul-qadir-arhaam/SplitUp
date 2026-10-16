@@ -3,7 +3,9 @@ import { fileURLToPath } from 'url';
 import express from 'express';
 import { app } from './backend/dist/app.js';
 import { initUserStore } from './backend/dist/modules/users/store.js';
+import { initFriendsStore } from './backend/dist/modules/friends/store.js';
 import { initNotificationsStore } from './backend/dist/modules/notifications/store.js';
+import { initLedgersStore } from './backend/dist/modules/ledgers/db_sync.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,7 +19,9 @@ async function ensureInitialized() {
   if (!initPromise) {
     initPromise = Promise.all([
       initUserStore(),
+      initFriendsStore(),
       initNotificationsStore(),
+      initLedgersStore(),
     ])
       .then(() => {
         initialized = true;

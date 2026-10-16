@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { db } from '../../db/knex.js';
 import {
   createSettlement,
   getSettlement,
@@ -7,6 +8,7 @@ import {
   rejectSettlement,
   cancelSettlement,
   resubmitSettlement,
+  mapDbSettlementToModel,
 } from './store.js';
 import { inMemoryLedgers } from '../ledgers/routes.js';
 import { NotFoundError } from '../../lib/errors.js';
@@ -25,12 +27,12 @@ const resubmitSettlementSchema = z.object({
 });
 
 // POST /v1/settlements
-settlementsRouter.post('/settlements', (req, res, next) => {
+settlementsRouter.post('/settlements', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
     const body = createSettlementSchema.parse(req.body);
 
-    const settlement = createSettlement({
+    const settlement = await createSettlement({
       ledgerId: body.ledgerId,
       fromUserId: callerId,
       toUserId: body.toUserId,
@@ -48,9 +50,9 @@ settlementsRouter.post('/settlements', (req, res, next) => {
 });
 
 // GET /v1/settlements/:id
-settlementsRouter.get('/settlements/:id', (req, res, next) => {
+settlementsRouter.get('/settlements/:id', async (req, res, next) => {
   try {
-    const settlement = getSettlement(req.params.id);
+    const settlement = await getSettlement(req.params.id);
     res.json({
       data: settlement,
     });
@@ -60,10 +62,10 @@ settlementsRouter.get('/settlements/:id', (req, res, next) => {
 });
 
 // POST /v1/settlements/:id/confirm
-settlementsRouter.post('/settlements/:id/confirm', (req, res, next) => {
+settlementsRouter.post('/settlements/:id/confirm', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
-    const settlement = confirmSettlement(req.params.id, callerId);
+    const settlement = await confirmSettlement(req.params.id, callerId);
     res.json({
       data: settlement,
     });
@@ -73,10 +75,10 @@ settlementsRouter.post('/settlements/:id/confirm', (req, res, next) => {
 });
 
 // POST /v1/settlements/:id/reject
-settlementsRouter.post('/settlements/:id/reject', (req, res, next) => {
+settlementsRouter.post('/settlements/:id/reject', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
-    const settlement = rejectSettlement(req.params.id, callerId);
+    const settlement = await rejectSettlement(req.params.id, callerId);
     res.json({
       data: settlement,
     });
@@ -86,10 +88,10 @@ settlementsRouter.post('/settlements/:id/reject', (req, res, next) => {
 });
 
 // POST /v1/settlements/:id/cancel
-settlementsRouter.post('/settlements/:id/cancel', (req, res, next) => {
+settlementsRouter.post('/settlements/:id/cancel', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
-    const settlement = cancelSettlement(req.params.id, callerId);
+    const settlement = await cancelSettlement(req.params.id, callerId);
     res.json({
       data: settlement,
     });
@@ -99,11 +101,11 @@ settlementsRouter.post('/settlements/:id/cancel', (req, res, next) => {
 });
 
 // POST /v1/settlements/:id/resubmit
-settlementsRouter.post('/settlements/:id/resubmit', (req, res, next) => {
+settlementsRouter.post('/settlements/:id/resubmit', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
     const body = resubmitSettlementSchema.parse(req.body || {});
-    const settlement = resubmitSettlement({
+    const settlement = await resubmitSettlement({
       id: req.params.id,
       actorUserId: callerId,
       newAmountPaise: body.amountPaise,
@@ -117,12 +119,26 @@ settlementsRouter.post('/settlements/:id/resubmit', (req, res, next) => {
 });
 
 // GET /v1/ledgers/:id/settlements
-settlementsRouter.get('/ledgers/:id/settlements', (req, res, next) => {
+settlementsRouter.get('/ledgers/:id/settlements', async (req, res, next) => {
   try {
     const ledgerId = req.params.id;
+    const dbRows = await db('settlements')
+      .where({ ledger_id: ledgerId })
+      .orderBy('created_at', 'desc');
+
+    if (dbRows.length > 0) {
+      return res.json({
+        data: dbRows.map(mapDbSettlementToModel),
+      });
+    }
+
     const ledger = inMemoryLedgers.get(ledgerId);
     if (!ledger) {
-      throw new NotFoundError(`Ledger ${ledgerId} not found`);
+      const dbLedger = await db('ledgers').where({ id: ledgerId }).first();
+      if (!dbLedger) {
+        throw new NotFoundError(`Ledger ${ledgerId} not found`);
+      }
+      return res.json({ data: [] });
     }
 
     res.json({
