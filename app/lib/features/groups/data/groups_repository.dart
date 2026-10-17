@@ -76,6 +76,17 @@ class GroupsRepository {
     }).toList();
   }
 
+  Future<String> _getCurrentUserId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserId = prefs.getString('splitup_user_id');
+      if (currentUserId != null && currentUserId.isNotEmpty) {
+        return currentUserId;
+      }
+    } catch (_) {}
+    return 'usr_arhaam';
+  }
+
   Future<String> _getStorageKey() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -128,8 +139,21 @@ class GroupsRepository {
       final res = await ApiClient().get('/v1/groups');
       if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
         final list = res['data'] as List<dynamic>;
-        _groups = list.map((g) => GroupModel.fromJson(g as Map<String, dynamic>)).toList();
-        await _saveToStorage();
+        final serverGroups = list.map((g) => GroupModel.fromJson(g as Map<String, dynamic>)).toList();
+
+        if (serverGroups.isNotEmpty) {
+          // Merge server groups with any local groups that are not yet on the server
+          final serverGroupIds = serverGroups.map((g) => g.id).toSet();
+          final localOnly = _groups.where((g) => !serverGroupIds.contains(g.id)).toList();
+          _groups = [...serverGroups, ...localOnly];
+          await _saveToStorage();
+        } else {
+          // If server returns empty list, do NOT wipe local groups if user has local groups
+          if (_groups.isEmpty) {
+            _groups = [];
+            await _saveToStorage();
+          }
+        }
       }
     } catch (_) {
       // Offline fallback: keep cached groups
@@ -175,9 +199,12 @@ class GroupsRepository {
     required String name,
     required List<String> memberUserIds,
     String? photoUrl,
-    String creatorUserId = 'usr_arhaam',
+    String? creatorUserId,
   }) async {
     await _ensureLoaded();
+    final actualCreatorUserId = (creatorUserId != null && creatorUserId.isNotEmpty)
+        ? creatorUserId
+        : await _getCurrentUserId();
 
     try {
       final res = await ApiClient().post('/v1/groups', {
@@ -188,6 +215,7 @@ class GroupsRepository {
 
       if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
         final cloudGroup = GroupModel.fromJson(res['data'] as Map<String, dynamic>);
+        _groups.removeWhere((g) => g.id == cloudGroup.id);
         _groups.insert(0, cloudGroup);
         await _saveToStorage();
         return cloudGroup;
@@ -197,10 +225,10 @@ class GroupsRepository {
     }
 
     final groupId = 'grp_${DateTime.now().millisecondsSinceEpoch}';
-    final allUserIds = {creatorUserId, ...memberUserIds}.toList();
+    final allUserIds = {actualCreatorUserId, ...memberUserIds}.toList();
 
     final members = allUserIds.map((uid) {
-      final isCreator = uid == creatorUserId;
+      final isCreator = uid == actualCreatorUserId;
       String memberName = 'Member';
       String phone = '+919999900000';
       bool isAppUser = true;
@@ -231,7 +259,7 @@ class GroupsRepository {
       id: groupId,
       name: name.trim(),
       photoUrl: photoUrl,
-      creatorUserId: creatorUserId,
+      creatorUserId: actualCreatorUserId,
       isAdmin: true,
       memberIds: allUserIds,
       members: members,
@@ -241,6 +269,7 @@ class GroupsRepository {
       createdAt: DateTime.now().toIso8601String(),
     );
 
+    _groups.removeWhere((g) => g.id == newGroup.id);
     _groups.insert(0, newGroup);
     await _saveToStorage();
     return newGroup;

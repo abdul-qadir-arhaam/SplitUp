@@ -4,6 +4,19 @@ import { inMemorySettlements, Settlement } from '../settlements/store.js';
 
 export async function persistLedgerToDb(ledger: any): Promise<void> {
   try {
+    const creatorId = ledger.creatorUserId || ledger.created_by || 'usr_arhaam';
+    const creatorExists = await db('users').where({ id: creatorId }).first();
+    if (!creatorExists) {
+      await db('users').insert({
+        id: creatorId,
+        phone_e164: `+9100000${creatorId.slice(-5)}`,
+        name: 'User',
+        is_placeholder: 1,
+        created_at: new Date(),
+        updated_at: new Date(),
+      }).catch(() => {});
+    }
+
     await db('ledgers')
       .insert({
         id: ledger.id,
@@ -16,14 +29,28 @@ export async function persistLedgerToDb(ledger: any): Promise<void> {
         status: ledger.status || 'ACTIVE',
         pair_low_user_id: ledger.pair_low_user_id || null,
         pair_high_user_id: ledger.pair_high_user_id || null,
-        created_by: ledger.creatorUserId || ledger.created_by || 'usr_arhaam',
+        created_by: creatorId,
         created_at: new Date(ledger.createdAt || Date.now()),
         updated_at: new Date(ledger.updatedAt || Date.now()),
       })
       .onConflict('id')
       .merge();
 
-    if (Array.isArray(ledger.memberIds)) {
+    if (Array.isArray(ledger.memberIds) && ledger.memberIds.length > 0) {
+      for (const uid of ledger.memberIds) {
+        const uExists = await db('users').where({ id: uid }).first();
+        if (!uExists) {
+          await db('users').insert({
+            id: uid,
+            phone_e164: `+9100000${uid.slice(-5)}`,
+            name: 'Member',
+            is_placeholder: 1,
+            created_at: new Date(),
+            updated_at: new Date(),
+          }).catch(() => {});
+        }
+      }
+
       const memberRows = ledger.memberIds.map((uid: string) => ({
         ledger_id: ledger.id,
         user_id: uid,

@@ -24,12 +24,12 @@ export interface GroupMemberInfo {
   isAppUser: boolean;
 }
 
-export function createGroup(params: {
+export async function createGroup(params: {
   name: string;
   creatorUserId: string;
   memberUserIds: string[];
   photoUrl?: string | null;
-}): any {
+}): Promise<any> {
   const { name, creatorUserId, memberUserIds, photoUrl } = params;
 
   if (!name || name.trim().length === 0) {
@@ -40,6 +40,29 @@ export function createGroup(params: {
   const id = `grp_${ulid()}`;
   const now = new Date().toISOString();
 
+  // Fetch member user details for GroupMember format
+  const dbUsers = allMembers.length > 0
+    ? await db('users').whereIn('id', allMembers).select('*').catch(() => [])
+    : [];
+  const usersMap = new Map(dbUsers.map((u: any) => [u.id, u]));
+
+  const membersInfo: GroupMemberInfo[] = allMembers.map((uid) => {
+    const memUser = inMemoryUsers.get(uid);
+    const dbU = usersMap.get(uid);
+    const mName = dbU?.name || memUser?.name || (uid === creatorUserId ? 'You' : 'Member');
+    const phone = dbU?.phone_e164 || memUser?.phoneE164 || '';
+    const isAppUser = dbU ? !dbU.is_placeholder : (memUser ? !memUser.isPlaceholder : true);
+    return {
+      userId: uid,
+      name: mName,
+      phoneE164: phone,
+      photoUrl: dbU?.photo_url || memUser?.photoUrl || null,
+      role: uid === creatorUserId ? 'ADMIN' : 'MEMBER',
+      netPaise: 0,
+      isAppUser,
+    };
+  });
+
   const groupRecord = {
     id,
     name: name.trim(),
@@ -48,6 +71,11 @@ export function createGroup(params: {
     creatorUserId,
     adminUserIds: [creatorUserId],
     memberIds: allMembers,
+    members: membersInfo,
+    isAdmin: true,
+    myNetPaise: 0,
+    totalSpentPaise: 0,
+    lastActivity: 'Created just now',
     expenses: [],
     settlements: [],
     createdAt: now,
@@ -56,10 +84,8 @@ export function createGroup(params: {
 
   inMemoryLedgers.set(id, groupRecord as any);
 
-  // Persist group to MySQL
-  persistLedgerToDb(groupRecord as any).catch((err) => {
-    console.error(`[GroupsStore] Error persisting group ${id} to MySQL:`, err);
-  });
+  // Persist group to MySQL and AWAIT to guarantee durability
+  await persistLedgerToDb(groupRecord as any);
 
   // Log activity
   activityStore.log({
@@ -74,17 +100,31 @@ export function createGroup(params: {
   // Notify other members
   for (const uid of allMembers) {
     if (uid !== creatorUserId) {
-      const user = inMemoryUsers.get(uid);
-      if (user && !user.isPlaceholder) {
+      const user = inMemoryUsers.get(uid) || usersMap.get(uid);
+      const isPlaceholder = user ? (user.isPlaceholder ?? user.is_placeholder) : false;
+      if (!isPlaceholder) {
+        const notifPayload = {
+          groupId: id,
+          groupName: groupRecord.name,
+          creatorUserId,
+        };
         notificationsStore.create({
           userId: uid,
           type: 'ADDED_TO_GROUP' as any,
-          payload: {
-            groupId: id,
-            groupName: groupRecord.name,
-            creatorUserId,
-          },
+          payload: notifPayload,
         });
+
+        // Also persist notification to MySQL
+        db('notifications').insert({
+          id: `notif_${ulid()}`,
+          user_id: uid,
+          type: 'ADDED_TO_GROUP',
+          payload: JSON.stringify(notifPayload),
+          action_state: null,
+          action_result: null,
+          read_at: null,
+          created_at: new Date(),
+        }).catch(() => {});
       }
     }
   }
@@ -92,46 +132,239 @@ export function createGroup(params: {
   return groupRecord;
 }
 
-export function listUserGroups(userId: string) {
+export async function listUserGroups(userId: string): Promise<any[]> {
   const results: any[] = [];
+  const seenIds = new Set<string>();
 
+  // 1. Fetch group IDs where user is member from MySQL
+  let dbLedgerIds: string[] = [];
+  try {
+    const memberRows = await db('ledger_members')
+      .where({ user_id: userId })
+      .whereNull('left_at')
+      .select('ledger_id');
+    dbLedgerIds = memberRows.map((r: any) => r.ledger_id);
+  } catch (err) {
+    console.error('[GroupsStore] Error querying ledger_members from MySQL:', err);
+  }
+
+  // 2. Also check inMemoryLedgers
   for (const ledger of inMemoryLedgers.values()) {
     if (ledger.type === 'GROUP' && ledger.memberIds.includes(userId)) {
-      const anyLedger = ledger as any;
-      const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
-      const confirmedSettlements = ledger.settlements.filter(
-        (s: any) => s.status === 'CONFIRMED'
-      );
-
-      const netResult = calculateNetBalances(
-        ledger.memberIds,
-        activeExpenses,
-        confirmedSettlements
-      );
-
-      const totalSpentPaise = activeExpenses.reduce(
-        (sum: number, e: any) => sum + e.totalPaise,
-        0
-      );
-
-      results.push({
-        id: ledger.id,
-        name: ledger.name,
-        photoUrl: anyLedger.photoUrl || null,
-        memberCount: ledger.memberIds.length,
-        myNetPaise: netResult.balances[userId] || 0,
-        totalSpentPaise,
-        createdAt: anyLedger.createdAt || new Date().toISOString(),
-        updatedAt: anyLedger.updatedAt || new Date().toISOString(),
-      });
+      dbLedgerIds.push(ledger.id);
     }
+  }
+
+  const uniqueGroupIds = Array.from(new Set(dbLedgerIds));
+  if (uniqueGroupIds.length === 0) {
+    return [];
+  }
+
+  // 3. Load ledgers from MySQL
+  let dbLedgers: any[] = [];
+  try {
+    dbLedgers = await db('ledgers')
+      .whereIn('id', uniqueGroupIds)
+      .where({ type: 'GROUP' })
+      .whereNot('status', 'DELETED')
+      .select('*');
+  } catch (err) {
+    console.error('[GroupsStore] Error querying ledgers from MySQL:', err);
+  }
+
+  // Fallback to in-memory ledgers if dbLedgers is empty
+  if (dbLedgers.length === 0) {
+    for (const gid of uniqueGroupIds) {
+      const mem = inMemoryLedgers.get(gid);
+      if (mem && mem.type === 'GROUP') {
+        dbLedgers.push(mem);
+      }
+    }
+  }
+
+  if (dbLedgers.length === 0) {
+    return [];
+  }
+
+  const validGroupIds = dbLedgers.map((l: any) => l.id);
+
+  // 4. Load all active members for these groups
+  let memberRows: any[] = [];
+  try {
+    memberRows = await db('ledger_members')
+      .whereIn('ledger_id', validGroupIds)
+      .whereNull('left_at')
+      .select('*');
+  } catch (_) {}
+
+  // 5. Load users for members
+  const memberUserIds = Array.from(new Set(memberRows.map((m: any) => m.user_id)));
+  let userRows: any[] = [];
+  if (memberUserIds.length > 0) {
+    try {
+      userRows = await db('users').whereIn('id', memberUserIds).select('*');
+    } catch (_) {}
+  }
+  const usersMap = new Map(userRows.map((u: any) => [u.id, u]));
+
+  // 6. Load expenses and settlements
+  let dbExpenses: any[] = [];
+  try {
+    dbExpenses = await db('expenses')
+      .whereIn('ledger_id', validGroupIds)
+      .whereNull('deleted_at')
+      .select('*');
+  } catch (_) {}
+
+  let dbSettlements: any[] = [];
+  try {
+    dbSettlements = await db('settlements')
+      .whereIn('ledger_id', validGroupIds)
+      .where({ status: 'CONFIRMED' })
+      .select('*');
+  } catch (_) {}
+
+  // Group members, expenses, settlements by ledger
+  const membersByLedger = new Map<string, any[]>();
+  for (const m of memberRows) {
+    const list = membersByLedger.get(m.ledger_id) || [];
+    const dbU = usersMap.get(m.user_id);
+    const memU = inMemoryUsers.get(m.user_id);
+    list.push({
+      userId: m.user_id,
+      name: dbU?.name || memU?.name || 'Member',
+      phoneE164: dbU?.phone_e164 || memU?.phoneE164 || '',
+      photoUrl: dbU?.photo_url || memU?.photoUrl || null,
+      role: m.role || 'MEMBER',
+      netPaise: 0,
+      isAppUser: dbU ? !dbU.is_placeholder : (memU ? !memUserIsPlaceholder(memU) : true),
+    });
+    membersByLedger.set(m.ledger_id, list);
+  }
+
+  function memUserIsPlaceholder(u: any) {
+    return Boolean(u?.isPlaceholder ?? u?.is_placeholder);
+  }
+
+  const expensesByLedger = new Map<string, any[]>();
+  for (const e of dbExpenses) {
+    const list = expensesByLedger.get(e.ledger_id) || [];
+    list.push({
+      id: e.id,
+      ledgerId: e.ledger_id,
+      totalPaise: Number(e.total_paise),
+      deletedAt: e.deleted_at,
+    });
+    expensesByLedger.set(e.ledger_id, list);
+  }
+
+  const settlementsByLedger = new Map<string, any[]>();
+  for (const s of dbSettlements) {
+    const list = settlementsByLedger.get(s.ledger_id) || [];
+    list.push({
+      id: s.id,
+      fromUserId: s.from_user_id,
+      toUserId: s.to_user_id,
+      amountPaise: Number(s.amount_paise),
+      status: s.status,
+    });
+    settlementsByLedger.set(s.ledger_id, list);
+  }
+
+  // 7. Assemble final group models
+  for (const ledger of dbLedgers) {
+    const gid = ledger.id;
+    if (seenIds.has(gid)) continue;
+    seenIds.add(gid);
+
+    const memLedger = inMemoryLedgers.get(gid) as any;
+    const members = membersByLedger.get(gid) || (memLedger?.members ?? []);
+    const memberIds = members.map((m: any) => m.userId);
+    const creatorUserId = ledger.created_by || ledger.creatorUserId || memLedger?.creatorUserId || '';
+    const adminUserIds = memLedger?.adminUserIds || [creatorUserId];
+
+    const expenses = memLedger?.expenses || expensesByLedger.get(gid) || [];
+    const settlements = memLedger?.settlements || settlementsByLedger.get(gid) || [];
+
+    const activeExpenses = expenses.filter((e: any) => !e.deletedAt);
+    const confirmedSettlements = settlements.filter((s: any) => s.status === 'CONFIRMED');
+
+    const netResult = calculateNetBalances(memberIds, activeExpenses, confirmedSettlements);
+    const totalSpentPaise = activeExpenses.reduce((sum: number, e: any) => sum + (e.totalPaise || 0), 0);
+
+    // Keep inMemoryLedgers populated
+    if (!memLedger) {
+      inMemoryLedgers.set(gid, {
+        id: gid,
+        name: ledger.name,
+        type: 'GROUP',
+        photoUrl: ledger.photo_url || ledger.photoUrl || null,
+        creatorUserId,
+        adminUserIds,
+        memberIds,
+        expenses,
+        settlements,
+        createdAt: ledger.created_at instanceof Date ? ledger.created_at.toISOString() : String(ledger.created_at),
+        updatedAt: ledger.updated_at instanceof Date ? ledger.updated_at.toISOString() : String(ledger.updated_at),
+      } as any);
+    }
+
+    results.push({
+      id: gid,
+      name: ledger.name,
+      photoUrl: ledger.photo_url || ledger.photoUrl || null,
+      creatorUserId,
+      isAdmin: adminUserIds.includes(userId),
+      memberIds,
+      members,
+      memberCount: memberIds.length,
+      myNetPaise: netResult.balances[userId] || 0,
+      totalSpentPaise,
+      lastActivity: 'Active recently',
+      createdAt: ledger.created_at instanceof Date ? ledger.created_at.toISOString() : String(ledger.created_at),
+      updatedAt: ledger.updated_at instanceof Date ? ledger.updated_at.toISOString() : String(ledger.updated_at),
+    });
   }
 
   return results.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export function getGroupDetails(groupId: string, callerUserId: string) {
-  const ledger = inMemoryLedgers.get(groupId);
+export async function getGroupDetails(groupId: string, callerUserId: string): Promise<any> {
+  let ledger = inMemoryLedgers.get(groupId);
+  if (!ledger) {
+    const dbLedger = await db('ledgers')
+      .where({ id: groupId, type: 'GROUP' })
+      .whereNot('status', 'DELETED')
+      .first();
+
+    if (dbLedger) {
+      const memberRows = await db('ledger_members')
+        .where({ ledger_id: groupId })
+        .whereNull('left_at')
+        .select('*');
+      const memberIds = memberRows.map((r: any) => r.user_id);
+      const adminUserIds = memberRows
+        .filter((r: any) => r.role === 'ADMIN')
+        .map((r: any) => r.user_id);
+      if (adminUserIds.length === 0) adminUserIds.push(dbLedger.created_by);
+
+      ledger = {
+        id: dbLedger.id,
+        name: dbLedger.name,
+        type: 'GROUP',
+        photoUrl: dbLedger.photo_url || null,
+        creatorUserId: dbLedger.created_by,
+        adminUserIds,
+        memberIds,
+        expenses: [],
+        settlements: [],
+        createdAt: dbLedger.created_at instanceof Date ? dbLedger.created_at.toISOString() : String(dbLedger.created_at),
+        updatedAt: dbLedger.updated_at instanceof Date ? dbLedger.updated_at.toISOString() : String(dbLedger.updated_at),
+      } as any;
+      inMemoryLedgers.set(groupId, ledger as any);
+    }
+  }
+
   if (!ledger || ledger.type !== 'GROUP') {
     throw new NotFoundError(`Group ${groupId} not found`);
   }
@@ -154,16 +387,23 @@ export function getGroupDetails(groupId: string, callerUserId: string) {
     confirmedSettlements
   );
 
+  // Fetch users from MySQL/inMemory
+  const dbUsers = ledger.memberIds.length > 0
+    ? await db('users').whereIn('id', ledger.memberIds).select('*').catch(() => [])
+    : [];
+  const usersMap = new Map(dbUsers.map((u: any) => [u.id, u]));
+
   const membersInfo: GroupMemberInfo[] = ledger.memberIds.map((uid) => {
-    const user = inMemoryUsers.get(uid);
+    const memUser = inMemoryUsers.get(uid);
+    const dbU = usersMap.get(uid);
     return {
       userId: uid,
-      name: user?.name || uid,
-      phoneE164: user?.phoneE164 || '',
-      photoUrl: user?.photoUrl || null,
+      name: dbU?.name || memUser?.name || uid,
+      phoneE164: dbU?.phone_e164 || memUser?.phoneE164 || '',
+      photoUrl: dbU?.photo_url || memUser?.photoUrl || null,
       role: adminUserIds.includes(uid) ? 'ADMIN' : 'MEMBER',
       netPaise: netResult.balances[uid] || 0,
-      isAppUser: !user?.isPlaceholder,
+      isAppUser: dbU ? !dbU.is_placeholder : (memUser ? !memUser.isPlaceholder : true),
     };
   });
 
@@ -188,12 +428,17 @@ export function getGroupDetails(groupId: string, callerUserId: string) {
   };
 }
 
-export function updateGroup(
+export async function updateGroup(
   groupId: string,
   actorUserId: string,
   data: { name?: string; photoUrl?: string | null }
-) {
-  const ledger = inMemoryLedgers.get(groupId);
+): Promise<any> {
+  let ledger = inMemoryLedgers.get(groupId);
+  if (!ledger) {
+    await getGroupDetails(groupId, actorUserId);
+    ledger = inMemoryLedgers.get(groupId);
+  }
+
   if (!ledger || ledger.type !== 'GROUP') {
     throw new NotFoundError(`Group ${groupId} not found`);
   }
@@ -226,14 +471,17 @@ export function updateGroup(
   }
 
   anyLedger.updatedAt = new Date().toISOString();
-  persistLedgerToDb(ledger).catch((err) => {
-    console.error(`[GroupsStore] Error updating group ${groupId} in MySQL:`, err);
-  });
+  await persistLedgerToDb(ledger);
   return ledger;
 }
 
-export function addMember(groupId: string, actorUserId: string, newUserId: string) {
-  const ledger = inMemoryLedgers.get(groupId);
+export async function addMember(groupId: string, actorUserId: string, newUserId: string): Promise<any> {
+  let ledger = inMemoryLedgers.get(groupId);
+  if (!ledger) {
+    await getGroupDetails(groupId, actorUserId);
+    ledger = inMemoryLedgers.get(groupId);
+  }
+
   if (!ledger || ledger.type !== 'GROUP') {
     throw new NotFoundError(`Group ${groupId} not found`);
   }
@@ -252,9 +500,7 @@ export function addMember(groupId: string, actorUserId: string, newUserId: strin
   anyLedger.updatedAt = new Date().toISOString();
 
   // Persist updated membership to MySQL
-  persistLedgerToDb(ledger).catch((err) => {
-    console.error(`[GroupsStore] Error persisting new member in group ${groupId} to MySQL:`, err);
-  });
+  await persistLedgerToDb(ledger);
 
   activityStore.log({
     ledgerId: groupId,
@@ -280,12 +526,17 @@ export function addMember(groupId: string, actorUserId: string, newUserId: strin
   return ledger;
 }
 
-export function removeMember(
+export async function removeMember(
   groupId: string,
   actorUserId: string,
   targetUserId: string
-) {
-  const ledger = inMemoryLedgers.get(groupId);
+): Promise<any> {
+  let ledger = inMemoryLedgers.get(groupId);
+  if (!ledger) {
+    await getGroupDetails(groupId, actorUserId);
+    ledger = inMemoryLedgers.get(groupId);
+  }
+
   if (!ledger || ledger.type !== 'GROUP') {
     throw new NotFoundError(`Group ${groupId} not found`);
   }
@@ -327,10 +578,8 @@ export function removeMember(
   anyLedger.updatedAt = new Date().toISOString();
 
   // Persist updated membership & mark left in MySQL
-  persistLedgerToDb(ledger).catch((err) => {
-    console.error(`[GroupsStore] Error persisting removed member in group ${groupId} to MySQL:`, err);
-  });
-  db('ledger_members')
+  await persistLedgerToDb(ledger);
+  await db('ledger_members')
     .where({ ledger_id: groupId, user_id: targetUserId })
     .update({ left_at: new Date() })
     .catch((err) => console.error('[GroupsStore] Error marking left_at in MySQL:', err));
@@ -346,8 +595,13 @@ export function removeMember(
   return ledger;
 }
 
-export function deleteGroup(groupId: string, actorUserId: string) {
-  const ledger = inMemoryLedgers.get(groupId);
+export async function deleteGroup(groupId: string, actorUserId: string): Promise<any> {
+  let ledger = inMemoryLedgers.get(groupId);
+  if (!ledger) {
+    await getGroupDetails(groupId, actorUserId);
+    ledger = inMemoryLedgers.get(groupId);
+  }
+
   if (!ledger || ledger.type !== 'GROUP') {
     throw new NotFoundError(`Group ${groupId} not found`);
   }
@@ -380,7 +634,7 @@ export function deleteGroup(groupId: string, actorUserId: string) {
   inMemoryLedgers.delete(groupId);
 
   // Soft delete in MySQL
-  db('ledgers')
+  await db('ledgers')
     .where({ id: groupId })
     .update({ status: 'DELETED', updated_at: new Date() })
     .catch((err) => console.error('[GroupsStore] Error deleting group from MySQL:', err));
@@ -388,8 +642,8 @@ export function deleteGroup(groupId: string, actorUserId: string) {
   return { success: true };
 }
 
-export function getGroupDashboard(groupId: string, callerUserId: string) {
-  const details = getGroupDetails(groupId, callerUserId);
+export async function getGroupDashboard(groupId: string, callerUserId: string): Promise<any> {
+  const details = await getGroupDetails(groupId, callerUserId);
   const ledger = inMemoryLedgers.get(groupId)!;
   const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
 
@@ -422,7 +676,7 @@ export function getGroupDashboard(groupId: string, callerUserId: string) {
     }
   }
 
-  const memberBars = details.members.map((mem) => ({
+  const memberBars = details.members.map((mem: any) => ({
     userId: mem.userId,
     name: mem.name,
     paidPaise: memberPaidShare[mem.userId]?.paid || 0,
@@ -451,12 +705,12 @@ export function getGroupDashboard(groupId: string, callerUserId: string) {
   };
 }
 
-export function getGroupGraph(
+export async function getGroupGraph(
   groupId: string,
   callerUserId: string,
   mode: 'simplified' | 'actual' = 'simplified'
-) {
-  const details = getGroupDetails(groupId, callerUserId);
+): Promise<any> {
+  const details = await getGroupDetails(groupId, callerUserId);
   const ledger = inMemoryLedgers.get(groupId)!;
   const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
   const confirmedSettlements = ledger.settlements.filter(
@@ -472,7 +726,7 @@ export function getGroupGraph(
     confirmedSettlements
   );
 
-  const nodes = details.members.map((mem) => ({
+  const nodes = details.members.map((mem: any) => ({
     id: mem.userId,
     name: mem.name,
     role: mem.role,

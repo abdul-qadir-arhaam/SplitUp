@@ -30,12 +30,12 @@ const addMemberSchema = z.object({
 });
 
 // POST /v1/groups
-groupsRouter.post('/groups', (req, res, next) => {
+groupsRouter.post('/groups', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
     const body = createGroupSchema.parse(req.body);
 
-    const group = createGroup({
+    const group = await createGroup({
       name: body.name,
       creatorUserId: callerId,
       memberUserIds: body.memberUserIds,
@@ -51,10 +51,10 @@ groupsRouter.post('/groups', (req, res, next) => {
 });
 
 // GET /v1/groups
-groupsRouter.get('/groups', (req, res, next) => {
+groupsRouter.get('/groups', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
-    const groups = listUserGroups(callerId);
+    const groups = await listUserGroups(callerId);
 
     res.json({
       data: groups,
@@ -65,10 +65,10 @@ groupsRouter.get('/groups', (req, res, next) => {
 });
 
 // GET /v1/groups/:id
-groupsRouter.get('/groups/:id', (req, res, next) => {
+groupsRouter.get('/groups/:id', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
-    const details = getGroupDetails(req.params.id, callerId);
+    const details = await getGroupDetails(req.params.id, callerId);
 
     res.json({
       data: details,
@@ -79,12 +79,12 @@ groupsRouter.get('/groups/:id', (req, res, next) => {
 });
 
 // PATCH /v1/groups/:id
-groupsRouter.patch('/groups/:id', (req, res, next) => {
+groupsRouter.patch('/groups/:id', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
     const body = updateGroupSchema.parse(req.body);
 
-    const updated = updateGroup(req.params.id, callerId, body);
+    const updated = await updateGroup(req.params.id, callerId, body);
     res.json({
       data: updated,
     });
@@ -94,12 +94,12 @@ groupsRouter.patch('/groups/:id', (req, res, next) => {
 });
 
 // POST /v1/groups/:id/members
-groupsRouter.post('/groups/:id/members', (req, res, next) => {
+groupsRouter.post('/groups/:id/members', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
     const body = addMemberSchema.parse(req.body);
 
-    const updated = addMember(req.params.id, callerId, body.userId);
+    const updated = await addMember(req.params.id, callerId, body.userId);
     res.status(201).json({
       data: updated,
     });
@@ -109,12 +109,12 @@ groupsRouter.post('/groups/:id/members', (req, res, next) => {
 });
 
 // DELETE /v1/groups/:id/members/:userId
-groupsRouter.delete('/groups/:id/members/:userId', (req, res, next) => {
+groupsRouter.delete('/groups/:id/members/:userId', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
     const targetUserId = req.params.userId;
 
-    const updated = removeMember(req.params.id, callerId, targetUserId);
+    const updated = await removeMember(req.params.id, callerId, targetUserId);
     res.json({
       data: updated,
     });
@@ -124,10 +124,10 @@ groupsRouter.delete('/groups/:id/members/:userId', (req, res, next) => {
 });
 
 // DELETE /v1/groups/:id
-groupsRouter.delete('/groups/:id', (req, res, next) => {
+groupsRouter.delete('/groups/:id', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
-    const result = deleteGroup(req.params.id, callerId);
+    const result = await deleteGroup(req.params.id, callerId);
 
     res.json({
       data: result,
@@ -138,10 +138,10 @@ groupsRouter.delete('/groups/:id', (req, res, next) => {
 });
 
 // GET /v1/groups/:id/dashboard
-groupsRouter.get('/groups/:id/dashboard', (req, res, next) => {
+groupsRouter.get('/groups/:id/dashboard', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
-    const dashboard = getGroupDashboard(req.params.id, callerId);
+    const dashboard = await getGroupDashboard(req.params.id, callerId);
 
     res.json({
       data: dashboard,
@@ -152,11 +152,11 @@ groupsRouter.get('/groups/:id/dashboard', (req, res, next) => {
 });
 
 // GET /v1/groups/:id/graph
-groupsRouter.get('/groups/:id/graph', (req, res, next) => {
+groupsRouter.get('/groups/:id/graph', async (req, res, next) => {
   try {
     const callerId = req.user?.id || 'usr_arhaam';
     const mode = req.query.mode === 'actual' ? 'actual' : 'simplified';
-    const graph = getGroupGraph(req.params.id, callerId, mode);
+    const graph = await getGroupGraph(req.params.id, callerId, mode);
 
     res.json({
       data: graph,

@@ -47,6 +47,9 @@ class ApiClient {
         headers['Authorization'] = token.startsWith('Bearer ') ? token : 'Bearer $token';
       } else if (userId != null && userId.isNotEmpty) {
         headers['Authorization'] = 'Bearer user:$userId';
+      }
+
+      if (userId != null && userId.isNotEmpty) {
         headers['x-user-id'] = userId;
       }
     } catch (_) {}
