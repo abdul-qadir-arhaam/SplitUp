@@ -244,7 +244,12 @@ class TripsRepository {
     try {
       final res = await ApiClient().get('/v1/trips');
       if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
-        final list = res['data'] as List<dynamic>;
+        final dynamic rawData = res['data'];
+        final List<dynamic> list = rawData is List<dynamic>
+            ? rawData
+            : (rawData is Map<String, dynamic> && rawData.containsKey('all')
+                ? (rawData['all'] as List<dynamic>)
+                : <dynamic>[]);
         _trips = list.map((t) => TripModel.fromJson(t as Map<String, dynamic>)).toList();
         await _saveToStorage();
       }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import '../../../core/money/paise.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/auth/auth_provider.dart';
 import '../data/groups_repository.dart';
 import '../domain/group_model.dart';
 import '../../expenses/data/expenses_repository.dart';
@@ -26,19 +28,50 @@ class GroupDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<GroupDetailScreen> createState() => _GroupDetailScreenState();
 }
 
-class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with SingleTickerProviderStateMixin {
+class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncGroupData();
+    });
+
+    // Rule R9: 15-second poll while group page is open
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) {
+        _syncGroupData();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncGroupData();
+    }
+  }
+
+  Future<void> _syncGroupData() async {
+    try {
+      ref.invalidate(groupDetailProvider(widget.groupId));
+      ref.invalidate(groupDashboardProvider(widget.groupId));
+      ref.invalidate(offsetSuggestionsProvider(widget.groupId));
+      await ref.read(expensesNotifierProvider.notifier).syncExpensesForLedger(widget.groupId);
+    } catch (_) {}
   }
 
   void _showRenameDialog(GroupModel group) {
@@ -168,6 +201,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
   }
 
   void _showMembersSheet(GroupModel group) {
+    final currentUserId = (ref.read(authNotifierProvider).user?.id?.isNotEmpty ?? false) ? ref.read(authNotifierProvider).user!.id : 'usr_arhaam';
     final repo = ref.read(groupsRepositoryProvider);
     final members = group.members.map((m) {
       final debtDesc = repo.checkPendingDebts(m.userId, groupId: group.id);
@@ -179,7 +213,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
         role: m.role,
         netPaise: m.netPaise,
         isAppUser: m.isAppUser,
-        isMe: m.userId == 'usr_arhaam',
+        isMe: m.userId == currentUserId,
         debtDescription: debtDesc,
       );
     }).toList();
@@ -318,8 +352,27 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
     return asyncGroup.when(
       loading: () => const SplitUpLoadingView(message: 'Loading group details...'),
       error: (err, _) => Scaffold(
-        appBar: AppBar(backgroundColor: Colors.transparent),
-        body: Center(child: Text('Error: $err', style: TextStyle(color: colors.accentOwe))),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Error: $err', style: TextStyle(color: colors.accentOwe)),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(groupDetailProvider(widget.groupId)),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
       ),
       data: (group) {
         return Scaffold(
@@ -444,12 +497,13 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
             backgroundColor: colors.accentReceive,
             foregroundColor: Colors.black,
             onPressed: () {
+              final currentUserId = (ref.read(authNotifierProvider).user?.id?.isNotEmpty ?? false) ? ref.read(authNotifierProvider).user!.id : 'usr_arhaam';
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (ctx) => AddExpenseScreen(
                     initialLedgerId: group.id,
                     initialMembers: group.members.map((m) {
-                      final isMe = m.userId == 'usr_arhaam';
+                      final isMe = m.userId == currentUserId;
                       return {
                         'id': m.userId,
                         'name': isMe ? 'You' : m.name,
@@ -560,7 +614,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
                           children: [
                             Text(exp.title, style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
                             const SizedBox(height: 2),
-                            Text('Paid ₹${(exp.totalPaise / 100).toStringAsFixed(0)}', style: SplitUpTypography.caption(color: colors.textMuted)),
+                            Text('Paid ${formatPaise(exp.totalPaise)}', style: SplitUpTypography.caption(color: colors.textMuted)),
                           ],
                         ),
                       ),
@@ -722,98 +776,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         // Offset Suggestion Banner (Group with Individual)
-        asyncSuggestions.when(
-          loading: () => const SizedBox.shrink(),
-          error: (err, st) => const SizedBox.shrink(),
-          data: (suggestions) {
-            if (suggestions.isEmpty) return const SizedBox.shrink();
-            final s = suggestions.first;
-            return Container(
-              margin: const EdgeInsets.only(bottom: 18),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    colors.accentBrass.withValues(alpha: 0.25),
-                    colors.accentBrass.withValues(alpha: 0.08),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: colors.accentBrass.withValues(alpha: 0.5)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.swap_horizontal_circle_rounded, color: colors.accentBrass, size: 24),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Offset Available',
-                        style: SplitUpTypography.title(color: colors.accentBrass).copyWith(fontSize: 16),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${s.toUserName} owes you ${formatPaise(s.individualCreditPaise)} individually. You owe ${formatPaise(s.groupDebtPaise)} in this group.',
-                    style: SplitUpTypography.body(color: colors.textPrimary).copyWith(fontSize: 13),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Offset ${formatPaise(s.maxOffsetPaise)}? Remaining ${formatPaise(s.remainingGroupDebtPaise)} settled normally.',
-                    style: SplitUpTypography.caption(color: colors.textMuted),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colors.accentBrass,
-                          foregroundColor: Colors.black,
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        icon: const Icon(Icons.check_rounded, size: 18),
-                        label: Text(
-                          'Offset ${formatPaise(s.maxOffsetPaise)}',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        onPressed: () async {
-                          try {
-                            final offset = await ref.read(offsetsRepositoryProvider).createOffset(
-                                  groupLedgerId: group.id,
-                                  toUserId: s.toUserId,
-                                  amountPaise: s.maxOffsetPaise,
-                                );
-                            // Auto-confirm for interactive testing
-                            await ref.read(offsetsRepositoryProvider).confirmOffset(offset.id);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Offset of ${formatPaise(s.maxOffsetPaise)} confirmed! Both ledgers updated.'),
-                                ),
-                              );
-                              // Refresh group
-                              ref.invalidate(groupDetailProvider(group.id));
-                              ref.invalidate(offsetSuggestionsProvider(group.id));
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Offset error: $e')),
-                              );
-                            }
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
+        // Hidden per Stage 4a: Offsets are in-memory on backend and not persisted across serverless restarts.
+        const SizedBox.shrink(),
+
 
         // Settle Graph CTA Card
         GlassCard(
@@ -874,6 +839,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
               );
             }
 
+            final currentUserId = (ref.watch(authNotifierProvider).user?.id?.isNotEmpty ?? false) ? ref.watch(authNotifierProvider).user!.id : 'usr_arhaam';
             return Column(
               children: links.map((link) {
                 final fromMember = group.members.firstWhere(
@@ -884,9 +850,9 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
                   (m) => m.userId == link.toUserId,
                   orElse: () => GroupMember(userId: link.toUserId, name: link.toUserId, phoneE164: '', role: 'MEMBER', netPaise: 0, isAppUser: true),
                 );
-                final fromName = link.fromUserId == 'usr_arhaam' ? 'You' : fromMember.name;
-                final toName = link.toUserId == 'usr_arhaam' ? 'You' : toMember.name;
-                final isUserPaying = link.fromUserId == 'usr_arhaam';
+                final fromName = link.fromUserId == currentUserId ? 'You' : fromMember.name;
+                final toName = link.toUserId == currentUserId ? 'You' : toMember.name;
+                final isUserPaying = link.fromUserId == currentUserId;
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 10),
@@ -907,7 +873,7 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen> with Sing
                             Text(
                               isUserPaying
                                   ? 'Pay $toName'
-                                  : (link.toUserId == 'usr_arhaam'
+                                  : (link.toUserId == currentUserId
                                       ? '$fromName owes you'
                                       : '$fromName owes $toName'),
                               style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),

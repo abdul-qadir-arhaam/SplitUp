@@ -9,7 +9,8 @@ import '../config/api_config.dart';
 class ApiException implements Exception {
   final String message;
   final int statusCode;
-  const ApiException(this.message, [this.statusCode = 0]);
+  final Map<String, dynamic>? errorData;
+  const ApiException(this.message, [this.statusCode = 0, this.errorData]);
 
   @override
   String toString() => message;
@@ -48,10 +49,6 @@ class ApiClient {
       } else if (userId != null && userId.isNotEmpty) {
         headers['Authorization'] = 'Bearer user:$userId';
       }
-
-      if (userId != null && userId.isNotEmpty) {
-        headers['x-user-id'] = userId;
-      }
     } catch (_) {}
 
     if (extraHeaders != null) {
@@ -85,6 +82,14 @@ class ApiClient {
       return jsonDecode(response.body);
     }
 
+    Map<String, dynamic>? errorData;
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        errorData = decoded;
+      }
+    } catch (_) {}
+
     if (response.statusCode == 401) {
       // Clear cached auth token on 401 to prevent stale unauthorized loops
       SharedPreferences.getInstance().then((prefs) {
@@ -98,12 +103,14 @@ class ApiClient {
           fallback: 'Session expired or unauthorized. Please log in again.',
         ),
         401,
+        errorData,
       );
     }
 
     throw ApiException(
       _extractErrorMessage(response.body, response.statusCode),
       response.statusCode,
+      errorData,
     );
   }
 

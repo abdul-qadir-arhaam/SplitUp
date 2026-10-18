@@ -7,28 +7,12 @@ import '../../notifications/data/notifications_repository.dart';
 import '../../../core/network/api_client.dart';
 
 class SettlementsRepository {
-  static const _storageKey = 'splitup_settlements_data_v2';
+  static const _storageKey = 'splitup_settlements_data_v3';
   final Ref _ref;
   List<SettlementModel> _settlements = [];
   bool _isLoaded = false;
 
   SettlementsRepository(this._ref);
-
-  void _initDefaultSettlements() {
-    _settlements = [
-      SettlementModel(
-        id: 'stl_sample_rahul',
-        ledgerId: 'ldg_usr_rahul',
-        fromUserId: 'usr_rahul',
-        toUserId: 'usr_arhaam',
-        amountPaise: 85000,
-        method: 'UPI',
-        status: 'PENDING',
-        createdBy: 'usr_rahul',
-        createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
-      ),
-    ];
-  }
 
   Future<String> _getCurrentUserId() async {
     try {
@@ -45,7 +29,7 @@ class SettlementsRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final currentUserId = prefs.getString('splitup_user_id');
-      if (currentUserId != null && currentUserId != 'usr_arhaam') {
+      if (currentUserId != null && currentUserId.isNotEmpty) {
         return 'splitup_settlements_$currentUserId';
       }
     } catch (_) {}
@@ -56,23 +40,34 @@ class SettlementsRepository {
     if (_isLoaded) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final currentUserId = prefs.getString('splitup_user_id');
-      final isNewUser = currentUserId != null && currentUserId != 'usr_arhaam';
       final key = await _getStorageKey();
+
+      // Clear settlement and notification caches once on first launch of this version (R9/f)
+      final isCleaned = prefs.getBool('splitup_cache_cleared_v109') ?? false;
+      if (!isCleaned) {
+        await prefs.remove(key);
+        await prefs.remove('splitup_settlements_data_v2');
+        await prefs.remove(_storageKey);
+        await prefs.setBool('splitup_cache_cleared_v109', true);
+        _settlements = [];
+        _isLoaded = true;
+        return;
+      }
 
       final raw = prefs.getString(key);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(raw);
-        _settlements = decoded.map((s) => SettlementModel.fromJson(s as Map<String, dynamic>)).toList();
+        _settlements = decoded
+            .map((s) => SettlementModel.fromJson(s as Map<String, dynamic>))
+            // Purge old local-only stl_<ms> settlements
+            .where((s) => !RegExp(r'^stl_\d{13}$').hasMatch(s.id) && s.id != 'stl_sample_rahul')
+            .toList();
       } else {
-        if (isNewUser) {
-          _settlements = [];
-        } else {
-          _initDefaultSettlements();
-        }
-        await _saveToStorage();
+        _settlements = [];
       }
-    } catch (_) {}
+    } catch (_) {
+      _settlements = [];
+    }
     _isLoaded = true;
   }
 
@@ -97,15 +92,13 @@ class SettlementsRepository {
         final res = await ApiClient().get('/v1/ledgers/$ledgerId/settlements');
         if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
           final list = res['data'] as List<dynamic>;
-          for (final item in list) {
-            final serverSettlement = SettlementModel.fromJson(item as Map<String, dynamic>);
-            final idx = _settlements.indexWhere((s) => s.id == serverSettlement.id);
-            if (idx != -1) {
-              _settlements[idx] = serverSettlement;
-            } else {
-              _settlements.insert(0, serverSettlement);
-            }
-          }
+          final serverSettlements = list
+              .map((item) => SettlementModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+
+          // EXACT mirror: replace all local records for this ledger with authoritative server records
+          _settlements.removeWhere((s) => s.ledgerId == ledgerId);
+          _settlements.insertAll(0, serverSettlements);
           await _saveToStorage();
         }
       } catch (_) {}
@@ -125,166 +118,97 @@ class SettlementsRepository {
     required int amountPaise,
     String method = 'CASH',
     bool isPlaceholderReceiver = false,
+    String? idempotencyKey,
   }) async {
     await _ensureLoaded();
-    final myUid = await _getCurrentUserId();
-    final id = 'stl_${DateTime.now().millisecondsSinceEpoch}';
-    final isConfirmed = isPlaceholderReceiver;
 
-    final settlement = SettlementModel(
-      id: id,
-      ledgerId: ledgerId,
-      fromUserId: myUid,
-      toUserId: toUserId,
-      amountPaise: amountPaise,
-      method: method,
-      status: isConfirmed ? 'CONFIRMED' : 'PENDING',
-      confirmedOnBehalf: isConfirmed,
-      createdBy: myUid,
-      respondedBy: isConfirmed ? myUid : null,
-      createdAt: DateTime.now(),
-      respondedAt: isConfirmed ? DateTime.now() : null,
-    );
+    final headers = idempotencyKey != null ? {'Idempotency-Key': idempotencyKey} : null;
 
-    _settlements.insert(0, settlement);
-    await _saveToStorage();
-
-    try {
-      await ApiClient().post('/v1/settlements', {
+    // R1: Only the server creates settlement IDs. App never invents one.
+    // Call API and await authoritative response before saving anything locally.
+    final res = await ApiClient().post(
+      '/v1/settlements',
+      {
         'ledgerId': ledgerId,
         'toUserId': toUserId,
         'amountPaise': amountPaise,
         'method': method,
-      });
-    } catch (_) {}
+      },
+      headers,
+    );
 
-    if (isConfirmed) {
-      // Self-confirmed for placeholder: update friend balance
-      _ref.read(friendsRepositoryProvider).applySettlement(toUserId, amountPaise);
-      _ref.invalidate(friendsNotifierProvider);
-    } else {
-      // Pending: emit notification
-      _ref.read(notificationsRepositoryProvider).addNotification(
-            NotificationModel(
-              id: 'notif_$id',
-              type: 'SETTLEMENT_REQUESTED',
-              title: 'Settlement Created',
-              body: 'You requested ₹${(amountPaise / 100).toStringAsFixed(2)} settlement via $method.',
-              isRead: true,
-              actionState: 'OPEN',
-              payload: {
-                'settlementId': id,
-                'ledgerId': ledgerId,
-                'amountPaise': amountPaise,
-                'toUserId': toUserId,
-              },
-              createdAt: DateTime.now(),
-            ),
-          );
-      _ref.invalidate(notificationsNotifierProvider);
+    if (res == null || res is! Map<String, dynamic> || !res.containsKey('data')) {
+      throw const ApiException('Invalid response received from server');
     }
 
-    return settlement;
+    final serverSettlement = SettlementModel.fromJson(res['data'] as Map<String, dynamic>);
+
+    // Store server's authoritative record
+    final idx = _settlements.indexWhere((s) => s.id == serverSettlement.id);
+    if (idx != -1) {
+      _settlements[idx] = serverSettlement;
+    } else {
+      _settlements.insert(0, serverSettlement);
+    }
+    await _saveToStorage();
+
+    // Refetch friends to update authoritative balances
+    try {
+      await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
+    } catch (_) {}
+    _ref.invalidate(friendsNotifierProvider);
+
+    return serverSettlement;
   }
 
   Future<SettlementModel> confirmSettlement(String settlementId) async {
     await _ensureLoaded();
-    final myUid = await _getCurrentUserId();
-    final index = _settlements.indexWhere((s) => s.id == settlementId);
 
-    SettlementModel? serverSettlement;
-    try {
-      final res = await ApiClient().post('/v1/settlements/$settlementId/confirm');
-      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
-        serverSettlement = SettlementModel.fromJson(res['data'] as Map<String, dynamic>);
-      }
-    } catch (_) {}
+    // Call server and await authoritative response
+    final res = await ApiClient().post('/v1/settlements/$settlementId/confirm');
+    if (res == null || res is! Map<String, dynamic> || !res.containsKey('data')) {
+      throw const ApiException('Invalid response from server');
+    }
 
-    final updated = serverSettlement ??
-        (index != -1
-            ? _settlements[index].copyWith(
-                status: 'CONFIRMED',
-                respondedBy: myUid,
-                respondedAt: DateTime.now(),
-              )
-            : SettlementModel(
-                id: settlementId,
-                ledgerId: '',
-                fromUserId: '',
-                toUserId: myUid,
-                amountPaise: 0,
-                status: 'CONFIRMED',
-                createdBy: '',
-                respondedBy: myUid,
-                createdAt: DateTime.now(),
-                respondedAt: DateTime.now(),
-              ));
+    final serverSettlement = SettlementModel.fromJson(res['data'] as Map<String, dynamic>);
 
+    final index = _settlements.indexWhere((s) => s.id == serverSettlement.id);
     if (index != -1) {
-      _settlements[index] = updated;
+      _settlements[index] = serverSettlement;
     } else {
-      _settlements.insert(0, updated);
+      _settlements.insert(0, serverSettlement);
     }
     await _saveToStorage();
 
-    // Apply to friend balance & refresh from server
-    final friendId = updated.fromUserId == myUid ? updated.toUserId : updated.fromUserId;
-    if (friendId.isNotEmpty && updated.amountPaise > 0) {
-      _ref.read(friendsRepositoryProvider).applySettlement(friendId, updated.amountPaise);
-    }
+    // Refetch friends, totals, and notifications
     try {
       await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
     } catch (_) {}
     _ref.invalidate(friendsNotifierProvider);
 
-    // Update notification
-    _ref.read(notificationsRepositoryProvider).updateSettlementAction(
-          settlementId,
-          'DONE',
-          actionResult: 'CONFIRMED',
-        );
+    try {
+      await _ref.read(notificationsRepositoryProvider).fetchNotifications(forceRefresh: true);
+    } catch (_) {}
     _ref.invalidate(notificationsNotifierProvider);
 
-    return updated;
+    return serverSettlement;
   }
 
   Future<SettlementModel> rejectSettlement(String settlementId) async {
     await _ensureLoaded();
-    final myUid = await _getCurrentUserId();
-    final index = _settlements.indexWhere((s) => s.id == settlementId);
 
-    SettlementModel? serverSettlement;
-    try {
-      final res = await ApiClient().post('/v1/settlements/$settlementId/reject');
-      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
-        serverSettlement = SettlementModel.fromJson(res['data'] as Map<String, dynamic>);
-      }
-    } catch (_) {}
+    final res = await ApiClient().post('/v1/settlements/$settlementId/reject');
+    if (res == null || res is! Map<String, dynamic> || !res.containsKey('data')) {
+      throw const ApiException('Invalid response from server');
+    }
 
-    final updated = serverSettlement ??
-        (index != -1
-            ? _settlements[index].copyWith(
-                status: 'REJECTED',
-                respondedBy: myUid,
-                respondedAt: DateTime.now(),
-              )
-            : SettlementModel(
-                id: settlementId,
-                ledgerId: '',
-                fromUserId: '',
-                toUserId: myUid,
-                amountPaise: 0,
-                status: 'REJECTED',
-                createdBy: '',
-                respondedBy: myUid,
-                createdAt: DateTime.now(),
-                respondedAt: DateTime.now(),
-              ));
+    final serverSettlement = SettlementModel.fromJson(res['data'] as Map<String, dynamic>);
 
+    final index = _settlements.indexWhere((s) => s.id == serverSettlement.id);
     if (index != -1) {
-      _settlements[index] = updated;
+      _settlements[index] = serverSettlement;
     } else {
-      _settlements.insert(0, updated);
+      _settlements.insert(0, serverSettlement);
     }
     await _saveToStorage();
 
@@ -293,63 +217,70 @@ class SettlementsRepository {
     } catch (_) {}
     _ref.invalidate(friendsNotifierProvider);
 
-    _ref.read(notificationsRepositoryProvider).updateSettlementAction(
-          settlementId,
-          'DONE',
-          actionResult: 'REJECTED',
-        );
+    try {
+      await _ref.read(notificationsRepositoryProvider).fetchNotifications(forceRefresh: true);
+    } catch (_) {}
     _ref.invalidate(notificationsNotifierProvider);
 
-    return updated;
+    return serverSettlement;
   }
 
   Future<SettlementModel> cancelSettlement(String settlementId) async {
     await _ensureLoaded();
-    final index = _settlements.indexWhere((s) => s.id == settlementId);
-    if (index == -1) {
-      throw Exception('Settlement not found');
+
+    final res = await ApiClient().post('/v1/settlements/$settlementId/cancel');
+    if (res == null || res is! Map<String, dynamic> || !res.containsKey('data')) {
+      throw const ApiException('Invalid response from server');
     }
 
-    final old = _settlements[index];
-    final updated = old.copyWith(
-      status: 'CANCELLED',
-      respondedAt: DateTime.now(),
-    );
-    _settlements[index] = updated;
+    final serverSettlement = SettlementModel.fromJson(res['data'] as Map<String, dynamic>);
+
+    final index = _settlements.indexWhere((s) => s.id == serverSettlement.id);
+    if (index != -1) {
+      _settlements[index] = serverSettlement;
+    } else {
+      _settlements.insert(0, serverSettlement);
+    }
     await _saveToStorage();
 
     try {
-      await ApiClient().post('/v1/settlements/$settlementId/cancel');
+      await _ref.read(notificationsRepositoryProvider).fetchNotifications(forceRefresh: true);
     } catch (_) {}
-
-    _ref.read(notificationsRepositoryProvider).updateSettlementAction(
-          settlementId,
-          'EXPIRED',
-        );
     _ref.invalidate(notificationsNotifierProvider);
 
-    return updated;
+    return serverSettlement;
   }
 
   Future<SettlementModel> resubmitSettlement(String settlementId, {int? newAmountPaise}) async {
     await _ensureLoaded();
-    final index = _settlements.indexWhere((s) => s.id == settlementId);
-    if (index == -1) {
-      throw Exception('Settlement not found');
+
+    final body = <String, dynamic>{};
+    if (newAmountPaise != null) {
+      body['amountPaise'] = newAmountPaise;
     }
 
-    final old = _settlements[index];
-    final amount = newAmountPaise ?? old.amountPaise;
+    final res = await ApiClient().post('/v1/settlements/$settlementId/resubmit', body);
+    if (res == null || res is! Map<String, dynamic> || !res.containsKey('data')) {
+      throw const ApiException('Invalid response from server');
+    }
 
-    final newSettlement = await createSettlement(
-      ledgerId: old.ledgerId,
-      toUserId: old.toUserId,
-      amountPaise: amount,
-      method: old.method,
-    );
+    final newSettlement = SettlementModel.fromJson(res['data'] as Map<String, dynamic>);
 
-    _settlements[index] = old.copyWith(replacedById: newSettlement.id);
+    // Update old settlement replacedById
+    final oldIdx = _settlements.indexWhere((s) => s.id == settlementId);
+    if (oldIdx != -1) {
+      _settlements[oldIdx] = _settlements[oldIdx].copyWith(replacedById: newSettlement.id);
+    }
+
+    // Insert new settlement
+    _settlements.insert(0, newSettlement);
     await _saveToStorage();
+
+    try {
+      await _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true);
+    } catch (_) {}
+    _ref.invalidate(friendsNotifierProvider);
+
     return newSettlement;
   }
 }
@@ -371,6 +302,7 @@ class SettlementsNotifier extends AsyncNotifier<List<SettlementModel>> {
     required int amountPaise,
     String method = 'CASH',
     bool isPlaceholderReceiver = false,
+    String? idempotencyKey,
   }) async {
     final repo = ref.read(settlementsRepositoryProvider);
     final item = await repo.createSettlement(
@@ -379,27 +311,31 @@ class SettlementsNotifier extends AsyncNotifier<List<SettlementModel>> {
       amountPaise: amountPaise,
       method: method,
       isPlaceholderReceiver: isPlaceholderReceiver,
+      idempotencyKey: idempotencyKey,
     );
     ref.invalidateSelf();
     return item;
   }
 
-  Future<void> confirmSettlement(String id) async {
+  Future<SettlementModel> confirmSettlement(String id) async {
     final repo = ref.read(settlementsRepositoryProvider);
-    await repo.confirmSettlement(id);
+    final item = await repo.confirmSettlement(id);
     ref.invalidateSelf();
+    return item;
   }
 
-  Future<void> rejectSettlement(String id) async {
+  Future<SettlementModel> rejectSettlement(String id) async {
     final repo = ref.read(settlementsRepositoryProvider);
-    await repo.rejectSettlement(id);
+    final item = await repo.rejectSettlement(id);
     ref.invalidateSelf();
+    return item;
   }
 
-  Future<void> cancelSettlement(String id) async {
+  Future<SettlementModel> cancelSettlement(String id) async {
     final repo = ref.read(settlementsRepositoryProvider);
-    await repo.cancelSettlement(id);
+    final item = await repo.cancelSettlement(id);
     ref.invalidateSelf();
+    return item;
   }
 
   Future<SettlementModel> resubmitSettlement(String id, {int? newAmountPaise}) async {

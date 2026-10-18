@@ -1,6 +1,4 @@
 import { ulid } from 'ulidx';
-import { inMemoryLedgers } from '../ledgers/routes.js';
-import { inMemoryUsers } from '../users/store.js';
 import { calculateNetBalances, simplifyDebts, calculatePairwiseDebts } from '../balances/index.js';
 import { notificationsStore } from '../notifications/store.js';
 import { activityStore } from '../activity/store.js';
@@ -9,7 +7,7 @@ import {
   NotFoundError,
   ForbiddenError,
 } from '../../lib/errors.js';
-import { persistLedgerToDb } from '../ledgers/db_sync.js';
+import { db } from '../../db/knex.js';
 
 export interface TripMemberInfo {
   userId: string;
@@ -66,6 +64,18 @@ export function computeBudgetMeter(
   let level: 'UNDER_60' | '60_TO_80' | '80_TO_100' | 'OVER_100';
   let statusMessage: string;
 
+function formatRupeesFromPaise(paise: number): string {
+  const isNegative = paise < 0;
+  const absPaise = Math.abs(paise);
+  const rupees = Math.floor(absPaise / 100);
+  const rem = absPaise % 100;
+  let formatted = rupees.toLocaleString('en-IN');
+  if (rem > 0) {
+    formatted += '.' + rem.toString().padStart(2, '0');
+  }
+  return `${isNegative ? '-' : ''}₹${formatted}`;
+}
+
   if (spentPercent < 60) {
     level = 'UNDER_60';
     statusMessage = 'On track';
@@ -74,11 +84,11 @@ export function computeBudgetMeter(
     statusMessage = 'Heads up';
   } else if (spentPercent <= 100) {
     level = '80_TO_100';
-    statusMessage = `Warning, remaining ₹${(remainingPaise / 100).toFixed(0)}`;
+    statusMessage = `Warning, remaining ${formatRupeesFromPaise(remainingPaise)}`;
   } else {
     level = 'OVER_100';
     const over = totalSpentPaise - budgetPaise;
-    statusMessage = `Over budget by ₹${(over / 100).toFixed(0)}`;
+    statusMessage = `Over budget by ${formatRupeesFromPaise(over)}`;
   }
 
   const perDayInfo = calculateRemainingPerDay(startDate, endDate, remainingPaise);
@@ -95,7 +105,7 @@ export function computeBudgetMeter(
   };
 }
 
-export function createTrip(params: {
+export async function createTrip(params: {
   name: string;
   budgetPaise: number;
   startDate?: string | null;
@@ -104,7 +114,7 @@ export function createTrip(params: {
   memberUserIds: string[];
   sourceGroupId?: string | null;
   photoUrl?: string | null;
-}): any {
+}): Promise<any> {
   const {
     name,
     budgetPaise,
@@ -124,23 +134,93 @@ export function createTrip(params: {
     throw new ValidationError('Budget must be a positive integer in paise');
   }
 
-  const membersSet = new Set<string>([creatorUserId, ...memberUserIds]);
+  const membersSet = new Set<string>([creatorUserId, ...(memberUserIds || [])]);
 
   // "Add all members of an existing group" (copies members, no live link)
   if (sourceGroupId) {
-    const sourceGroup = inMemoryLedgers.get(sourceGroupId);
-    if (sourceGroup && sourceGroup.type === 'GROUP') {
-      for (const mId of sourceGroup.memberIds) {
-        membersSet.add(mId);
-      }
+    const groupMembers = await db('ledger_members')
+      .where({ ledger_id: sourceGroupId })
+      .whereNull('left_at')
+      .select('user_id');
+    for (const gm of groupMembers) {
+      membersSet.add(gm.user_id);
     }
   }
 
   const allMembers = Array.from(membersSet);
   const id = `trp_${ulid()}`;
-  const now = new Date().toISOString();
+  const now = new Date();
 
-  const tripRecord = {
+  // ONE AWAITED TRANSACTION: ledgers + ledger_members + activity_log
+  await db.transaction(async (trx) => {
+    // Ensure placeholder user rows exist so foreign keys don't fail
+    for (const uid of allMembers) {
+      const uExists = await trx('users').where({ id: uid }).first();
+      if (!uExists) {
+        await trx('users').insert({
+          id: uid,
+          phone_e164: `+9100000${uid.slice(-5)}`,
+          name: uid === creatorUserId ? 'Creator' : 'Member',
+          is_placeholder: 1,
+          created_at: now,
+          updated_at: now,
+        }).catch(() => {});
+      }
+    }
+
+    await trx('ledgers').insert({
+      id,
+      type: 'TRIP',
+      name: name.trim(),
+      photo_url: photoUrl || null,
+      budget_paise: budgetPaise,
+      start_date: startDate ? new Date(startDate) : null,
+      end_date: endDate ? new Date(endDate) : null,
+      status: 'ACTIVE',
+      created_by: creatorUserId,
+      created_at: now,
+      updated_at: now,
+    });
+
+    const memberRows = allMembers.map((uid) => ({
+      ledger_id: id,
+      user_id: uid,
+      role: uid === creatorUserId ? 'ADMIN' : 'MEMBER',
+      joined_at: now,
+    }));
+    await trx('ledger_members').insert(memberRows);
+
+    await trx('activity_log').insert({
+      ledger_id: id,
+      actor_user_id: creatorUserId,
+      action: 'LEDGER_CREATED',
+      entity_type: 'ledger',
+      entity_id: id,
+      payload: JSON.stringify({ name: name.trim(), budgetPaise, memberCount: allMembers.length }),
+      created_at: now,
+    });
+  });
+
+  // Notify members (except creator)
+  for (const mId of allMembers) {
+    if (mId === creatorUserId) continue;
+    try {
+      await notificationsStore.create({
+        userId: mId,
+        type: 'ADDED_TO_TRIP' as any,
+        payload: {
+          tripId: id,
+          tripName: name.trim(),
+          addedBy: creatorUserId,
+          budgetPaise,
+        },
+      });
+    } catch (e) {
+      console.error(`[TripsStore] Error notifying member ${mId}:`, e);
+    }
+  }
+
+  return {
     id,
     name: name.trim(),
     type: 'TRIP' as const,
@@ -152,101 +232,132 @@ export function createTrip(params: {
     creatorUserId,
     adminUserIds: [creatorUserId],
     memberIds: allMembers,
-    notifiedThresholds: [] as number[],
     expenses: [],
     settlements: [],
-    createdAt: now,
-    updatedAt: now,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
   };
-
-  inMemoryLedgers.set(id, tripRecord as any);
-
-  // Persist trip to MySQL
-  persistLedgerToDb(tripRecord as any).catch((err) => {
-    console.error(`[TripsStore] Error persisting trip ${id} to MySQL:`, err);
-  });
-
-  // Log activity
-  activityStore.log({
-    ledgerId: id,
-    actorUserId: creatorUserId,
-    action: 'LEDGER_CREATED',
-    entityType: 'ledger',
-    entityId: id,
-    payload: { name: tripRecord.name, budgetPaise },
-  });
-
-  // Notify members
-  for (const mId of allMembers) {
-    if (mId === creatorUserId) continue;
-    const user = inMemoryUsers.get(mId);
-    if (user && !user.isPlaceholder) {
-      notificationsStore.create({
-        userId: mId,
-        type: 'ADDED_TO_TRIP' as any,
-        payload: {
-          tripId: id,
-          tripName: tripRecord.name,
-          addedBy: creatorUserId,
-          budgetPaise,
-        },
-      });
-    }
-  }
-
-  return tripRecord;
 }
 
-export function listUserTrips(userId: string) {
+export async function listUserTrips(userId: string): Promise<{ all: any[]; active: any[]; completed: any[] }> {
+  // Query trips where user is an active member
+  const ledgerRows = await db('ledgers')
+    .join('ledger_members', 'ledgers.id', 'ledger_members.ledger_id')
+    .where('ledger_members.user_id', userId)
+    .whereNull('ledger_members.left_at')
+    .where('ledgers.type', 'TRIP')
+    .select('ledgers.*')
+    .orderBy('ledgers.created_at', 'desc');
+
   const userTrips: any[] = [];
 
-  for (const ledger of inMemoryLedgers.values()) {
-    if (ledger.type === 'TRIP' && ledger.memberIds.includes(userId)) {
-      const anyLedger = ledger as any;
-      const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
-      const totalSpentPaise = activeExpenses.reduce(
-        (sum: number, exp: any) => sum + exp.totalPaise,
-        0
-      );
+  for (const ledger of ledgerRows) {
+    const tripId = ledger.id;
 
-      const confirmedSettlements = ledger.settlements.filter(
-        (s: any) => s.status === 'CONFIRMED'
-      );
-      const netResult = calculateNetBalances(
-        ledger.memberIds,
-        activeExpenses,
-        confirmedSettlements
-      );
+    // Get all active members for this trip
+    const memberRows = await db('ledger_members')
+      .where({ ledger_id: tripId })
+      .whereNull('left_at')
+      .select('user_id');
+    const memberIds = memberRows.map((m) => m.user_id);
 
-      const budgetMeter = computeBudgetMeter(
-        anyLedger.budgetPaise || 0,
-        totalSpentPaise,
-        anyLedger.startDate,
-        anyLedger.endDate
-      );
+    // Get active expenses
+    const expenseRows = await db('expenses')
+      .where({ ledger_id: tripId })
+      .whereNull('deleted_at');
 
-      userTrips.push({
-        id: ledger.id,
-        name: ledger.name,
-        photoUrl: anyLedger.photoUrl || null,
-        budgetPaise: anyLedger.budgetPaise || 0,
-        startDate: anyLedger.startDate || null,
-        endDate: anyLedger.endDate || null,
-        status: anyLedger.status || 'ACTIVE',
-        isCompleted: anyLedger.status === 'COMPLETED',
-        creatorUserId: anyLedger.creatorUserId,
-        isAdmin: anyLedger.creatorUserId === userId,
-        membersCount: ledger.memberIds.length,
-        myNetPaise: netResult.balances[userId] || 0,
-        totalSpentPaise,
-        budgetMeter,
-        createdAt: anyLedger.createdAt,
-      });
+    const totalSpentPaise = expenseRows.reduce(
+      (sum: number, exp: any) => sum + Number(exp.total_paise),
+      0
+    );
+
+    // Get expense payers and splits for net calculation
+    const expenseIds = expenseRows.map((e) => e.id);
+    const payerRows = expenseIds.length > 0
+      ? await db('expense_payers').whereIn('expense_id', expenseIds)
+      : [];
+    const splitRows = expenseIds.length > 0
+      ? await db('expense_splits').whereIn('expense_id', expenseIds)
+      : [];
+
+    const payersByExpense = new Map<string, any[]>();
+    for (const p of payerRows) {
+      const list = payersByExpense.get(p.expense_id) || [];
+      list.push({ userId: p.user_id, paidPaise: Number(p.paid_paise) });
+      payersByExpense.set(p.expense_id, list);
     }
-  }
 
-  // Sort by created descending
-  userTrips.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const splitsByExpense = new Map<string, any[]>();
+    for (const s of splitRows) {
+      const list = splitsByExpense.get(s.expense_id) || [];
+      list.push({
+        userId: s.user_id,
+        owedPaise: Number(s.owed_paise),
+        splitValue: s.split_value,
+        included: Boolean(s.included),
+      });
+      splitsByExpense.set(s.expense_id, list);
+    }
+
+    const formattedExpenses = expenseRows.map((e) => ({
+      id: e.id,
+      ledgerId: e.ledger_id,
+      title: e.title,
+      totalPaise: Number(e.total_paise),
+      payers: payersByExpense.get(e.id) || [],
+      splits: splitsByExpense.get(e.id) || [],
+    }));
+
+    const settlementRows = await db('settlements')
+      .where({ ledger_id: tripId, status: 'CONFIRMED' });
+
+    const formattedSettlements = settlementRows.map((s) => ({
+      id: s.id,
+      fromUserId: s.from_user_id,
+      toUserId: s.to_user_id,
+      amountPaise: Number(s.amount_paise),
+      status: s.status,
+    }));
+
+    const netResult = calculateNetBalances(
+      memberIds,
+      formattedExpenses,
+      formattedSettlements
+    );
+
+    const budgetPaise = Number(ledger.budget_paise) || 0;
+    const startDateStr = ledger.start_date instanceof Date
+      ? ledger.start_date.toISOString().slice(0, 10)
+      : (ledger.start_date ? String(ledger.start_date) : null);
+    const endDateStr = ledger.end_date instanceof Date
+      ? ledger.end_date.toISOString().slice(0, 10)
+      : (ledger.end_date ? String(ledger.end_date) : null);
+
+    const budgetMeter = computeBudgetMeter(
+      budgetPaise,
+      totalSpentPaise,
+      startDateStr,
+      endDateStr
+    );
+
+    userTrips.push({
+      id: ledger.id,
+      name: ledger.name,
+      photoUrl: ledger.photo_url || null,
+      budgetPaise,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      status: ledger.status || 'ACTIVE',
+      isCompleted: ledger.status === 'COMPLETED',
+      creatorUserId: ledger.created_by,
+      isAdmin: ledger.created_by === userId,
+      membersCount: memberIds.length,
+      myNetPaise: netResult.balances[userId] || 0,
+      totalSpentPaise,
+      budgetMeter,
+      createdAt: ledger.created_at instanceof Date ? ledger.created_at.toISOString() : String(ledger.created_at),
+    });
+  }
 
   return {
     all: userTrips,
@@ -255,20 +366,100 @@ export function listUserTrips(userId: string) {
   };
 }
 
-export function getTripDetails(tripId: string, callerUserId: string) {
-  const ledger = inMemoryLedgers.get(tripId);
-  if (!ledger || ledger.type !== 'TRIP') {
+export async function getTripDetails(tripId: string, callerUserId: string): Promise<any> {
+  const ledger = await db('ledgers').where({ id: tripId, type: 'TRIP' }).first();
+  if (!ledger) {
     throw new NotFoundError(`Trip ${tripId} not found`);
   }
 
-  const anyLedger = ledger as any;
-  const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
-  const confirmedSettlements = ledger.settlements.filter(
-    (s: any) => s.status === 'CONFIRMED'
-  );
+  // Requirement: GET /v1/trips/:id must check membership (403 for non-members)
+  const membership = await db('ledger_members')
+    .where({ ledger_id: tripId, user_id: callerUserId })
+    .whereNull('left_at')
+    .first();
+  if (!membership) {
+    throw new ForbiddenError(`User is not a member of trip ${tripId}`);
+  }
+
+  const memberRows = await db('ledger_members')
+    .leftJoin('users', 'ledger_members.user_id', 'users.id')
+    .where({ 'ledger_members.ledger_id': tripId })
+    .whereNull('ledger_members.left_at')
+    .select(
+      'ledger_members.user_id',
+      'ledger_members.role',
+      'users.name',
+      'users.phone_e164',
+      'users.photo_url',
+      'users.is_placeholder'
+    );
+
+  const memberIds = memberRows.map((m) => m.user_id);
+
+  // Active expenses
+  const expenseRows = await db('expenses')
+    .where({ ledger_id: tripId })
+    .whereNull('deleted_at')
+    .orderBy('created_at', 'desc');
+
+  const expenseIds = expenseRows.map((e) => e.id);
+  const payerRows = expenseIds.length > 0
+    ? await db('expense_payers').whereIn('expense_id', expenseIds)
+    : [];
+  const splitRows = expenseIds.length > 0
+    ? await db('expense_splits').whereIn('expense_id', expenseIds)
+    : [];
+
+  const payersByExpense = new Map<string, any[]>();
+  for (const p of payerRows) {
+    const list = payersByExpense.get(p.expense_id) || [];
+    list.push({ userId: p.user_id, paidPaise: Number(p.paid_paise) });
+    payersByExpense.set(p.expense_id, list);
+  }
+
+  const splitsByExpense = new Map<string, any[]>();
+  for (const s of splitRows) {
+    const list = splitsByExpense.get(s.expense_id) || [];
+    list.push({
+      userId: s.user_id,
+      owedPaise: Number(s.owed_paise),
+      splitValue: s.split_value,
+      included: Boolean(s.included),
+    });
+    splitsByExpense.set(s.expense_id, list);
+  }
+
+  const activeExpenses = expenseRows.map((e) => ({
+    id: e.id,
+    ledgerId: e.ledger_id,
+    title: e.title,
+    totalPaise: Number(e.total_paise),
+    category: e.category,
+    splitType: e.split_type,
+    expenseDate: e.expense_date instanceof Date
+      ? e.expense_date.toISOString().slice(0, 10)
+      : String(e.expense_date),
+    note: e.note || null,
+    createdBy: e.created_by,
+    createdAt: e.created_at instanceof Date ? e.created_at.toISOString() : String(e.created_at),
+    updatedAt: e.updated_at instanceof Date ? e.updated_at.toISOString() : String(e.updated_at),
+    payers: payersByExpense.get(e.id) || [],
+    splits: splitsByExpense.get(e.id) || [],
+  }));
+
+  const settlementRows = await db('settlements').where({ ledger_id: tripId });
+  const confirmedSettlements = settlementRows
+    .filter((s) => s.status === 'CONFIRMED')
+    .map((s) => ({
+      id: s.id,
+      fromUserId: s.from_user_id,
+      toUserId: s.to_user_id,
+      amountPaise: Number(s.amount_paise),
+      status: s.status,
+    }));
 
   const netResult = calculateNetBalances(
-    ledger.memberIds,
+    memberIds,
     activeExpenses,
     confirmedSettlements
   );
@@ -278,92 +469,121 @@ export function getTripDetails(tripId: string, callerUserId: string) {
     0
   );
 
-  const membersInfo: TripMemberInfo[] = ledger.memberIds.map((mId) => {
-    const user = inMemoryUsers.get(mId);
-    return {
-      userId: mId,
-      name: user?.name || mId,
-      phoneE164: user?.phoneE164 || '',
-      photoUrl: user?.photoUrl || null,
-      role: anyLedger.creatorUserId === mId ? 'CREATOR' : 'MEMBER',
-      netPaise: netResult.balances[mId] || 0,
-      isAppUser: user ? !user.isPlaceholder : true,
-    };
-  });
+  const membersInfo: TripMemberInfo[] = memberRows.map((m) => ({
+    userId: m.user_id,
+    name: m.name || m.user_id,
+    phoneE164: m.phone_e164 || '',
+    photoUrl: m.photo_url || null,
+    role: ledger.created_by === m.user_id ? 'CREATOR' : 'MEMBER',
+    netPaise: netResult.balances[m.user_id] || 0,
+    isAppUser: !m.is_placeholder,
+  }));
+
+  const budgetPaise = Number(ledger.budget_paise) || 0;
+  const startDateStr = ledger.start_date instanceof Date
+    ? ledger.start_date.toISOString().slice(0, 10)
+    : (ledger.start_date ? String(ledger.start_date) : null);
+  const endDateStr = ledger.end_date instanceof Date
+    ? ledger.end_date.toISOString().slice(0, 10)
+    : (ledger.end_date ? String(ledger.end_date) : null);
 
   const budgetMeter = computeBudgetMeter(
-    anyLedger.budgetPaise || 0,
+    budgetPaise,
     totalSpentPaise,
-    anyLedger.startDate,
-    anyLedger.endDate
+    startDateStr,
+    endDateStr
   );
+
+  const formattedSettlements = settlementRows.map((s) => ({
+    id: s.id,
+    ledgerId: s.ledger_id,
+    fromUserId: s.from_user_id,
+    toUserId: s.to_user_id,
+    amountPaise: Number(s.amount_paise),
+    status: s.status,
+    method: s.method,
+    createdAt: s.created_at instanceof Date ? s.created_at.toISOString() : String(s.created_at),
+    updatedAt: s.updated_at instanceof Date ? s.updated_at.toISOString() : String(s.updated_at),
+  }));
 
   return {
     id: ledger.id,
     name: ledger.name,
-    photoUrl: anyLedger.photoUrl || null,
-    budgetPaise: anyLedger.budgetPaise || 0,
-    startDate: anyLedger.startDate || null,
-    endDate: anyLedger.endDate || null,
-    status: anyLedger.status || 'ACTIVE',
-    isCompleted: anyLedger.status === 'COMPLETED',
-    creatorUserId: anyLedger.creatorUserId,
-    isAdmin: anyLedger.creatorUserId === callerUserId,
-    memberIds: ledger.memberIds,
+    photoUrl: ledger.photo_url || null,
+    budgetPaise,
+    startDate: startDateStr,
+    endDate: endDateStr,
+    status: ledger.status || 'ACTIVE',
+    isCompleted: ledger.status === 'COMPLETED',
+    creatorUserId: ledger.created_by,
+    isAdmin: ledger.created_by === callerUserId || membership.role === 'ADMIN',
+    memberIds,
     members: membersInfo,
     myNetPaise: netResult.balances[callerUserId] || 0,
     totalSpentPaise,
     budgetMeter,
     expenses: activeExpenses,
-    settlements: ledger.settlements,
-    createdAt: anyLedger.createdAt,
-    updatedAt: anyLedger.updatedAt,
+    settlements: formattedSettlements,
+    createdAt: ledger.created_at instanceof Date ? ledger.created_at.toISOString() : String(ledger.created_at),
+    updatedAt: ledger.updated_at instanceof Date ? ledger.updated_at.toISOString() : String(ledger.updated_at),
   };
 }
 
-export function updateTripBudget(
+export async function updateTripBudget(
   tripId: string,
   actorUserId: string,
   newBudgetPaise: number
-) {
+): Promise<any> {
   if (newBudgetPaise <= 0 || !Number.isInteger(newBudgetPaise)) {
     throw new ValidationError('Budget must be a positive integer in paise');
   }
 
-  const ledger = inMemoryLedgers.get(tripId);
-  if (!ledger || ledger.type !== 'TRIP') {
+  const ledger = await db('ledgers').where({ id: tripId, type: 'TRIP' }).first();
+  if (!ledger) {
     throw new NotFoundError(`Trip ${tripId} not found`);
   }
 
-  const anyLedger = ledger as any;
-  if (anyLedger.creatorUserId !== actorUserId) {
-    throw new ForbiddenError('Only the trip creator can update the budget');
+  const membership = await db('ledger_members')
+    .where({ ledger_id: tripId, user_id: actorUserId })
+    .whereNull('left_at')
+    .first();
+
+  const isCreator = ledger.created_by === actorUserId;
+  const isAdmin = membership && (membership.role === 'ADMIN' || membership.role === 'CREATOR');
+
+  if (!isCreator && !isAdmin) {
+    throw new ForbiddenError('Only the trip creator or admin can update the budget');
   }
 
-  const oldBudgetPaise = anyLedger.budgetPaise;
-  anyLedger.budgetPaise = newBudgetPaise;
-  anyLedger.updatedAt = new Date().toISOString();
-  persistLedgerToDb(ledger).catch((err) => {
-    console.error(`[TripsStore] Error updating trip budget in MySQL:`, err);
-  });
+  const oldBudgetPaise = Number(ledger.budget_paise) || 0;
+  const now = new Date();
 
-  // Log activity
-  activityStore.log({
-    ledgerId: tripId,
-    actorUserId,
-    action: 'BUDGET_CHANGED' as any,
-    entityType: 'ledger',
-    entityId: tripId,
-    payload: { oldBudgetPaise, newBudgetPaise },
+  await db.transaction(async (trx) => {
+    await trx('ledgers')
+      .where({ id: tripId })
+      .update({
+        budget_paise: newBudgetPaise,
+        updated_at: now,
+      });
+
+    await trx('activity_log').insert({
+      ledger_id: tripId,
+      actor_user_id: actorUserId,
+      action: 'BUDGET_CHANGED',
+      entity_type: 'ledger',
+      entity_id: tripId,
+      payload: JSON.stringify({ oldBudgetPaise, newBudgetPaise }),
+      created_at: now,
+    });
   });
 
   // Re-check budget thresholds
-  checkTripBudgetThresholds(tripId);
+  await checkTripBudgetThresholds(tripId);
 
   return getTripDetails(tripId, actorUserId);
 }
 
-export function updateTrip(
+export async function updateTrip(
   tripId: string,
   actorUserId: string,
   data: {
@@ -372,98 +592,144 @@ export function updateTrip(
     startDate?: string | null;
     endDate?: string | null;
   }
-) {
-  const ledger = inMemoryLedgers.get(tripId);
-  if (!ledger || ledger.type !== 'TRIP') {
+): Promise<any> {
+  const ledger = await db('ledgers').where({ id: tripId, type: 'TRIP' }).first();
+  if (!ledger) {
     throw new NotFoundError(`Trip ${tripId} not found`);
   }
 
-  const anyLedger = ledger as any;
-  if (anyLedger.creatorUserId !== actorUserId) {
-    throw new ForbiddenError('Only the trip creator can update trip details');
+  const membership = await db('ledger_members')
+    .where({ ledger_id: tripId, user_id: actorUserId })
+    .whereNull('left_at')
+    .first();
+
+  const isCreator = ledger.created_by === actorUserId;
+  const isAdmin = membership && (membership.role === 'ADMIN' || membership.role === 'CREATOR');
+
+  if (!isCreator && !isAdmin) {
+    throw new ForbiddenError('Only the trip creator or admin can update trip details');
   }
+
+  const updates: Record<string, any> = {
+    updated_at: new Date(),
+  };
 
   if (data.name !== undefined) {
     if (data.name.trim().length === 0) {
       throw new ValidationError('Trip name cannot be empty');
     }
-    const oldName = ledger.name;
-    ledger.name = data.name.trim();
-
-    activityStore.log({
-      ledgerId: tripId,
-      actorUserId,
-      action: 'LEDGER_RENAMED',
-      entityType: 'ledger',
-      entityId: tripId,
-      payload: { oldName, newName: ledger.name },
-    });
+    updates.name = data.name.trim();
   }
+  if (data.photoUrl !== undefined) updates.photo_url = data.photoUrl;
+  if (data.startDate !== undefined) updates.start_date = data.startDate ? new Date(data.startDate) : null;
+  if (data.endDate !== undefined) updates.end_date = data.endDate ? new Date(data.endDate) : null;
 
-  if (data.photoUrl !== undefined) anyLedger.photoUrl = data.photoUrl;
-  if (data.startDate !== undefined) anyLedger.startDate = data.startDate;
-  if (data.endDate !== undefined) anyLedger.endDate = data.endDate;
+  await db.transaction(async (trx) => {
+    await trx('ledgers').where({ id: tripId }).update(updates);
 
-  anyLedger.updatedAt = new Date().toISOString();
-  persistLedgerToDb(ledger).catch((err) => {
-    console.error(`[TripsStore] Error updating trip in MySQL:`, err);
+    if (data.name !== undefined && data.name.trim() !== ledger.name) {
+      await trx('activity_log').insert({
+        ledger_id: tripId,
+        actor_user_id: actorUserId,
+        action: 'LEDGER_RENAMED',
+        entity_type: 'ledger',
+        entity_id: tripId,
+        payload: JSON.stringify({ oldName: ledger.name, newName: data.name.trim() }),
+        created_at: updates.updated_at,
+      });
+    }
   });
+
   return getTripDetails(tripId, actorUserId);
 }
 
-export function completeTrip(tripId: string, actorUserId: string) {
-  const ledger = inMemoryLedgers.get(tripId);
-  if (!ledger || ledger.type !== 'TRIP') {
+export async function completeTrip(tripId: string, actorUserId: string): Promise<any> {
+  const ledger = await db('ledgers').where({ id: tripId, type: 'TRIP' }).first();
+  if (!ledger) {
     throw new NotFoundError(`Trip ${tripId} not found`);
   }
 
-  const anyLedger = ledger as any;
-  if (anyLedger.creatorUserId !== actorUserId) {
-    throw new ForbiddenError('Only the trip creator can mark a trip as completed');
+  const membership = await db('ledger_members')
+    .where({ ledger_id: tripId, user_id: actorUserId })
+    .whereNull('left_at')
+    .first();
+
+  const isCreator = ledger.created_by === actorUserId;
+  const isAdmin = membership && (membership.role === 'ADMIN' || membership.role === 'CREATOR');
+
+  if (!isCreator && !isAdmin) {
+    throw new ForbiddenError('Only the trip creator or admin can mark a trip as completed');
   }
 
-  anyLedger.status = 'COMPLETED';
-  anyLedger.updatedAt = new Date().toISOString();
-  persistLedgerToDb(ledger).catch((err) => {
-    console.error(`[TripsStore] Error updating completed trip in MySQL:`, err);
-  });
+  const now = new Date();
+  await db.transaction(async (trx) => {
+    await trx('ledgers')
+      .where({ id: tripId })
+      .update({
+        status: 'COMPLETED',
+        updated_at: now,
+      });
 
-  activityStore.log({
-    ledgerId: tripId,
-    actorUserId,
-    action: 'TRIP_COMPLETED' as any,
-    entityType: 'ledger',
-    entityId: tripId,
+    await trx('activity_log').insert({
+      ledger_id: tripId,
+      actor_user_id: actorUserId,
+      action: 'TRIP_COMPLETED',
+      entity_type: 'ledger',
+      entity_id: tripId,
+      created_at: now,
+    });
   });
 
   return getTripDetails(tripId, actorUserId);
 }
 
-export function checkTripBudgetThresholds(tripId: string) {
-  const ledger = inMemoryLedgers.get(tripId);
-  if (!ledger || ledger.type !== 'TRIP') return;
+export async function checkTripBudgetThresholds(tripId: string): Promise<void> {
+  const ledger = await db('ledgers').where({ id: tripId, type: 'TRIP' }).first();
+  if (!ledger) return;
 
-  const anyLedger = ledger as any;
-  const budgetPaise = anyLedger.budgetPaise || 0;
+  const budgetPaise = Number(ledger.budget_paise) || 0;
   if (budgetPaise <= 0) return;
 
-  const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
-  const totalSpentPaise = activeExpenses.reduce(
-    (sum: number, exp: any) => sum + exp.totalPaise,
+  const expenseRows = await db('expenses')
+    .where({ ledger_id: tripId })
+    .whereNull('deleted_at');
+
+  const totalSpentPaise = expenseRows.reduce(
+    (sum: number, exp: any) => sum + Number(exp.total_paise),
     0
   );
 
   const spentPercent = (totalSpentPaise / budgetPaise) * 100;
-  if (!anyLedger.notifiedThresholds) {
-    anyLedger.notifiedThresholds = [];
-  }
+
+  // Check activity_log to see what thresholds were already notified
+  const existingAlerts = await db('activity_log')
+    .where({ ledger_id: tripId })
+    .whereIn('action', ['TRIP_BUDGET_WARNING', 'TRIP_BUDGET_EXCEEDED'])
+    .select('action');
+
+  const alertedWarning = existingAlerts.some((a) => a.action === 'TRIP_BUDGET_WARNING');
+  const alertedExceeded = existingAlerts.some((a) => a.action === 'TRIP_BUDGET_EXCEEDED');
+
+  const memberRows = await db('ledger_members')
+    .where({ ledger_id: tripId })
+    .whereNull('left_at')
+    .select('user_id');
+  const memberIds = memberRows.map((m) => m.user_id);
 
   // 80% threshold warning
-  if (spentPercent >= 80 && !anyLedger.notifiedThresholds.includes(80)) {
-    anyLedger.notifiedThresholds.push(80);
-    // Send notification to all trip members
-    for (const memberId of ledger.memberIds) {
-      notificationsStore.create({
+  if (spentPercent >= 80 && !alertedWarning) {
+    await db('activity_log').insert({
+      ledger_id: tripId,
+      actor_user_id: ledger.created_by,
+      action: 'TRIP_BUDGET_WARNING',
+      entity_type: 'ledger',
+      entity_id: tripId,
+      payload: JSON.stringify({ spentPercent, totalSpentPaise, budgetPaise }),
+      created_at: new Date(),
+    });
+
+    for (const memberId of memberIds) {
+      await notificationsStore.create({
         userId: memberId,
         type: 'TRIP_BUDGET_WARNING' as any,
         payload: {
@@ -473,15 +739,24 @@ export function checkTripBudgetThresholds(tripId: string) {
           spentPaise: totalSpentPaise,
           budgetPaise,
         },
-      });
+      }).catch(() => {});
     }
   }
 
   // 100% threshold exceeded
-  if (spentPercent >= 100 && !anyLedger.notifiedThresholds.includes(100)) {
-    anyLedger.notifiedThresholds.push(100);
-    for (const memberId of ledger.memberIds) {
-      notificationsStore.create({
+  if (spentPercent >= 100 && !alertedExceeded) {
+    await db('activity_log').insert({
+      ledger_id: tripId,
+      actor_user_id: ledger.created_by,
+      action: 'TRIP_BUDGET_EXCEEDED',
+      entity_type: 'ledger',
+      entity_id: tripId,
+      payload: JSON.stringify({ spentPercent, totalSpentPaise, budgetPaise, overPaise: totalSpentPaise - budgetPaise }),
+      created_at: new Date(),
+    });
+
+    for (const memberId of memberIds) {
+      await notificationsStore.create({
         userId: memberId,
         type: 'TRIP_BUDGET_EXCEEDED' as any,
         payload: {
@@ -492,15 +767,14 @@ export function checkTripBudgetThresholds(tripId: string) {
           budgetPaise,
           overPaise: totalSpentPaise - budgetPaise,
         },
-      });
+      }).catch(() => {});
     }
   }
 }
 
-export function getTripDashboard(tripId: string, callerUserId: string) {
-  const details = getTripDetails(tripId, callerUserId);
-  const ledger = inMemoryLedgers.get(tripId)!;
-  const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
+export async function getTripDashboard(tripId: string, callerUserId: string): Promise<any> {
+  const details = await getTripDetails(tripId, callerUserId);
+  const activeExpenses = details.expenses;
 
   // 1. Categories
   const categoryTotals: Record<string, number> = {};
@@ -534,7 +808,7 @@ export function getTripDashboard(tripId: string, callerUserId: string) {
       }
     }
   }
-  const memberBars = details.members.map((mem) => ({
+  const memberBars = details.members.map((mem: any) => ({
     userId: mem.userId,
     name: mem.name,
     paidPaise: memberPaidShare[mem.userId]?.paid || 0,
@@ -566,28 +840,27 @@ export function getTripDashboard(tripId: string, callerUserId: string) {
   };
 }
 
-export function getTripGraph(
+export async function getTripGraph(
   tripId: string,
   callerUserId: string,
   mode: 'simplified' | 'actual' = 'simplified'
-) {
-  const details = getTripDetails(tripId, callerUserId);
-  const ledger = inMemoryLedgers.get(tripId)!;
-  const activeExpenses = ledger.expenses.filter((e: any) => !e.deletedAt);
-  const confirmedSettlements = ledger.settlements.filter(
+): Promise<any> {
+  const details = await getTripDetails(tripId, callerUserId);
+  const activeExpenses = details.expenses;
+  const confirmedSettlements = details.settlements.filter(
     (s: any) => s.status === 'CONFIRMED'
   );
-  const pendingSettlements = ledger.settlements.filter(
+  const pendingSettlements = details.settlements.filter(
     (s: any) => s.status === 'PENDING'
   );
 
   const netResult = calculateNetBalances(
-    ledger.memberIds,
+    details.memberIds,
     activeExpenses,
     confirmedSettlements
   );
 
-  const nodes = details.members.map((mem) => ({
+  const nodes = details.members.map((mem: any) => ({
     userId: mem.userId,
     name: mem.name,
     netPaise: netResult.balances[mem.userId] || 0,

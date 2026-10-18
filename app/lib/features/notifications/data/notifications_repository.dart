@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/money/paise.dart';
 
 class NotificationModel {
   final String id;
@@ -57,12 +58,12 @@ class NotificationModel {
           break;
         case 'EXPENSE_ADDED':
           final expTitle = payload['title'] ?? 'an expense';
-          final owed = payload['owedPaise'] != null ? '₹${((payload['owedPaise'] as num) / 100).toStringAsFixed(0)}' : '';
+          final owed = payload['owedPaise'] != null ? formatPaise((payload['owedPaise'] as num).toInt()) : '';
           title = 'New Expense Split';
           body = 'New expense "$expTitle" was added. ${owed.isNotEmpty ? "Your share: $owed" : ""}';
           break;
         case 'SETTLEMENT_REQUESTED':
-          final amt = payload['amountPaise'] != null ? '₹${((payload['amountPaise'] as num) / 100).toStringAsFixed(0)}' : '';
+          final amt = payload['amountPaise'] != null ? formatPaise((payload['amountPaise'] as num).toInt()) : '';
           title = 'Settlement Payment';
           body = 'A payment of $amt was recorded. Tap to confirm or decline.';
           break;
@@ -157,23 +158,35 @@ class NotificationsRepository {
     try {
       final prefs = await SharedPreferences.getInstance();
       final key = await _getStorageKey();
-      final raw = prefs.getString(key);
-      if (raw != null && raw.isNotEmpty) {
-        final List<dynamic> decoded = jsonDecode(raw);
+      // Clear notifications cache once on first launch of this version (Stage 2f)
+      final isCleaned = prefs.getBool('splitup_notifs_cleared_v109') ?? false;
+      if (!isCleaned) {
+        await prefs.remove(key);
+        await prefs.remove(_storageKey);
+        await prefs.setBool('splitup_notifs_cleared_v109', true);
         _items.clear();
-        _items.addAll(decoded.map((n) => NotificationModel.fromJson(n as Map<String, dynamic>)));
       } else {
-        _items.clear();
+        final raw = prefs.getString(key);
+        if (raw != null && raw.isNotEmpty) {
+          final List<dynamic> decoded = jsonDecode(raw);
+          _items.clear();
+          _items.addAll(decoded.map((n) => NotificationModel.fromJson(n as Map<String, dynamic>)));
+        } else {
+          _items.clear();
+        }
       }
 
-      // Purge any legacy dummy / sample notifications
-      _items.removeWhere((n) =>
-          n.id == 'notif_settle_sample' ||
-          n.id == 'notif_1' ||
-          n.id == 'notif_2' ||
-          n.id.startsWith('notif_sample') ||
-          n.payload?['settlementId'] == 'stl_sample_rahul' ||
-          n.payload?['fromUserId'] == 'usr_rahul');
+      // Purge any legacy dummy / sample notifications and old local stl_<ms>
+      _items.removeWhere((n) {
+        final stlId = n.payload?['settlementId'] as String?;
+        return n.id == 'notif_settle_sample' ||
+            n.id == 'notif_1' ||
+            n.id == 'notif_2' ||
+            n.id.startsWith('notif_sample') ||
+            (stlId != null && RegExp(r'^stl_\d{13}$').hasMatch(stlId)) ||
+            stlId == 'stl_sample_rahul' ||
+            n.payload?['fromUserId'] == 'usr_rahul';
+      });
 
       // Also clean up legacy un-scoped key if present
       if (key != _storageKey && prefs.containsKey(_storageKey)) {

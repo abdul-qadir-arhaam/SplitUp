@@ -11,6 +11,8 @@ import {
   getGroupDashboard,
   getGroupGraph,
 } from './store.js';
+import { UnauthenticatedError } from '../../lib/errors.js';
+import { assertLedgerMember } from '../ledgers/routes.js';
 
 export const groupsRouter = Router();
 
@@ -32,7 +34,10 @@ const addMemberSchema = z.object({
 // POST /v1/groups
 groupsRouter.post('/groups', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const body = createGroupSchema.parse(req.body);
 
     const group = await createGroup({
@@ -53,7 +58,10 @@ groupsRouter.post('/groups', async (req, res, next) => {
 // GET /v1/groups
 groupsRouter.get('/groups', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const groups = await listUserGroups(callerId);
 
     res.json({
@@ -67,7 +75,10 @@ groupsRouter.get('/groups', async (req, res, next) => {
 // GET /v1/groups/:id
 groupsRouter.get('/groups/:id', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const details = await getGroupDetails(req.params.id, callerId);
 
     res.json({
@@ -81,7 +92,10 @@ groupsRouter.get('/groups/:id', async (req, res, next) => {
 // PATCH /v1/groups/:id
 groupsRouter.patch('/groups/:id', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const body = updateGroupSchema.parse(req.body);
 
     const updated = await updateGroup(req.params.id, callerId, body);
@@ -96,7 +110,10 @@ groupsRouter.patch('/groups/:id', async (req, res, next) => {
 // POST /v1/groups/:id/members
 groupsRouter.post('/groups/:id/members', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const body = addMemberSchema.parse(req.body);
 
     const updated = await addMember(req.params.id, callerId, body.userId);
@@ -111,7 +128,10 @@ groupsRouter.post('/groups/:id/members', async (req, res, next) => {
 // DELETE /v1/groups/:id/members/:userId
 groupsRouter.delete('/groups/:id/members/:userId', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const targetUserId = req.params.userId;
 
     const updated = await removeMember(req.params.id, callerId, targetUserId);
@@ -126,7 +146,10 @@ groupsRouter.delete('/groups/:id/members/:userId', async (req, res, next) => {
 // DELETE /v1/groups/:id
 groupsRouter.delete('/groups/:id', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const result = await deleteGroup(req.params.id, callerId);
 
     res.json({
@@ -140,7 +163,10 @@ groupsRouter.delete('/groups/:id', async (req, res, next) => {
 // GET /v1/groups/:id/dashboard
 groupsRouter.get('/groups/:id/dashboard', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const dashboard = await getGroupDashboard(req.params.id, callerId);
 
     res.json({
@@ -154,7 +180,10 @@ groupsRouter.get('/groups/:id/dashboard', async (req, res, next) => {
 // GET /v1/groups/:id/graph
 groupsRouter.get('/groups/:id/graph', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const mode = req.query.mode === 'actual' ? 'actual' : 'simplified';
     const graph = await getGroupGraph(req.params.id, callerId, mode);
 
@@ -169,7 +198,11 @@ groupsRouter.get('/groups/:id/graph', async (req, res, next) => {
 // GET /v1/groups/:id/offset-suggestions
 groupsRouter.get('/groups/:id/offset-suggestions', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    await assertLedgerMember(req.params.id, callerId);
     const { getOffsetSuggestions } = await import('../offsets/store.js');
     const suggestions = getOffsetSuggestions(req.params.id, callerId);
 
@@ -180,4 +213,3 @@ groupsRouter.get('/groups/:id/offset-suggestions', async (req, res, next) => {
     next(err);
   }
 });
-

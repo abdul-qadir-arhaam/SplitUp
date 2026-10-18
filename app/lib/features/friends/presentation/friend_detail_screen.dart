@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +28,9 @@ class FriendDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with WidgetsBindingObserver {
+  Timer? _pollTimer;
+  bool _isActing = false;
+
   @override
   void initState() {
     super.initState();
@@ -34,10 +38,18 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncServerData();
     });
+
+    // Rule R9: 15-second poll while friend page is open
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) {
+        _syncServerData();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -110,10 +122,14 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
       orElse: () => const <SettlementModel>[],
     );
 
-    final pendingMatches = settlements.where((s) => s.isPending || s.isOutdated);
-    final pendingSettlement = pendingMatches.isEmpty ? null : pendingMatches.first;
+    // Rule R7: A ledger whose balance is zero shows "All squared up" and NO Pending, Rejected, or Outdated banners.
+    // Only the most recent unresolved settlement per pair is shown.
+    final pendingMatches = settlements.where((s) => (s.isPending || s.isOutdated) && s.replacedById == null);
+    final pendingSettlement = (friend.netPaise == 0 || pendingMatches.isEmpty) ? null : pendingMatches.first;
 
     final isOwe = friend.netPaise < 0;
+    final isSender = pendingSettlement != null && pendingSettlement.toUserId == friend.id;
+    final isReceiver = pendingSettlement != null && pendingSettlement.fromUserId == friend.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -366,35 +382,100 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
                       const SizedBox(height: 6),
                       Text(
                         pendingSettlement.isOutdated
-                            ? 'The balance changed since this request was made. Tap resubmit to adjust the amount.'
-                            : (pendingSettlement.fromUserId != friend.id
+                            ? (isSender
+                                ? 'The balance changed since this request was made.'
+                                : 'The balance changed since this request was made. Waiting for ${friend.resolvedName} to resubmit.')
+                            : (isSender
                                 ? 'Waiting for ${friend.resolvedName} to confirm receipt.'
                                 : '${friend.resolvedName} sent you this settlement request.'),
                         style: SplitUpTypography.caption(color: colors.textSecondary),
                       ),
-                      if (pendingSettlement.isOutdated && (pendingSettlement.fromUserId != friend.id)) ...[
+                      // Outdated & Sender: Resubmit if debt remains (R7)
+                      if (pendingSettlement.isOutdated && isSender && friend.netPaise < 0) ...[
                         const SizedBox(height: 10),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(color: colors.accentBrass),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
-                          icon: Icon(Icons.refresh_rounded, size: 16, color: colors.accentBrass),
+                          icon: _isActing
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
+                                )
+                              : Icon(Icons.refresh_rounded, size: 16, color: colors.accentBrass),
                           label: Text('Resubmit Amount', style: TextStyle(color: colors.accentBrass)),
-                          onPressed: () async {
-                            await ref.read(settlementsNotifierProvider.notifier).resubmitSettlement(
-                                  pendingSettlement.id,
-                                  newAmountPaise: friend.netPaise.abs(),
-                                );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Resubmitted settlement with current balance.')),
-                              );
-                            }
-                          },
+                          onPressed: _isActing
+                              ? null
+                              : () async {
+                                  setState(() => _isActing = true);
+                                  try {
+                                    await ref.read(settlementsNotifierProvider.notifier).resubmitSettlement(
+                                          pendingSettlement.id,
+                                          newAmountPaise: friend.netPaise.abs(),
+                                        );
+                                    await _syncServerData();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Resubmitted settlement with current balance.')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Failed to resubmit: $e'), backgroundColor: colors.accentOwe),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) setState(() => _isActing = false);
+                                  }
+                                },
                         ),
                       ],
-                      if (pendingSettlement.isPending && (pendingSettlement.toUserId != friend.id)) ...[
+                      // Pending & Sender: Cancel button (R5)
+                      if (pendingSettlement.isPending && isSender) ...[
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colors.textSecondary,
+                            side: BorderSide(color: colors.divider),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: _isActing
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.cancel_outlined, size: 16),
+                          label: const Text('Cancel Request'),
+                          onPressed: _isActing
+                              ? null
+                              : () async {
+                                  setState(() => _isActing = true);
+                                  try {
+                                    await ref.read(settlementsNotifierProvider.notifier).cancelSettlement(pendingSettlement.id);
+                                    await _syncServerData();
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Settlement request cancelled.')),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Failed to cancel: $e'), backgroundColor: colors.accentOwe),
+                                      );
+                                    }
+                                  } finally {
+                                    if (mounted) setState(() => _isActing = false);
+                                  }
+                                },
+                        ),
+                      ],
+                      // Pending & Receiver: Confirm and Reject buttons (R5)
+                      if (pendingSettlement.isPending && isReceiver) ...[
                         const SizedBox(height: 12),
                         Row(
                           children: [
@@ -405,11 +486,38 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
                                   foregroundColor: Colors.black,
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
-                                icon: const Icon(Icons.check_rounded, size: 16),
+                                icon: _isActing
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                      )
+                                    : const Icon(Icons.check_rounded, size: 16),
                                 label: const Text('Confirm'),
-                                onPressed: () => ref
-                                    .read(settlementsNotifierProvider.notifier)
-                                    .confirmSettlement(pendingSettlement.id),
+                                onPressed: _isActing
+                                    ? null
+                                    : () async {
+                                        setState(() => _isActing = true);
+                                        try {
+                                          await ref
+                                              .read(settlementsNotifierProvider.notifier)
+                                              .confirmSettlement(pendingSettlement.id);
+                                          await _syncServerData();
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Settlement confirmed!')),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Failed to confirm: $e'), backgroundColor: colors.accentOwe),
+                                            );
+                                          }
+                                        } finally {
+                                          if (mounted) setState(() => _isActing = false);
+                                        }
+                                      },
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -420,11 +528,38 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
                                   side: BorderSide(color: colors.accentOwe),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
-                                icon: const Icon(Icons.close_rounded, size: 16),
+                                icon: _isActing
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.close_rounded, size: 16),
                                 label: const Text('Reject'),
-                                onPressed: () => ref
-                                    .read(settlementsNotifierProvider.notifier)
-                                    .rejectSettlement(pendingSettlement.id),
+                                onPressed: _isActing
+                                    ? null
+                                    : () async {
+                                        setState(() => _isActing = true);
+                                        try {
+                                          await ref
+                                              .read(settlementsNotifierProvider.notifier)
+                                              .rejectSettlement(pendingSettlement.id);
+                                          await _syncServerData();
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Settlement request rejected.')),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Failed to reject: $e'), backgroundColor: colors.accentOwe),
+                                            );
+                                          }
+                                        } finally {
+                                          if (mounted) setState(() => _isActing = false);
+                                        }
+                                      },
                               ),
                             ),
                           ],
@@ -435,39 +570,6 @@ class _FriendDetailScreenState extends ConsumerState<FriendDetailScreen> with Wi
                 ),
               ],
 
-              // "Also in" Groups section
-              if (friend.commonGroups.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                Text(
-                  'Also in groups',
-                  style: SplitUpTypography.label(color: colors.textMuted),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: friend.commonGroups.map((g) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceFlat,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: colors.divider),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.group_outlined, size: 14, color: colors.accentBrass),
-                          const SizedBox(width: 6),
-                          Text(
-                            g,
-                            style: SplitUpTypography.label(color: colors.textPrimary),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
 
               const SizedBox(height: 24),
               Text(

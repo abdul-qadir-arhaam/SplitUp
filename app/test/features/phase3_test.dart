@@ -31,6 +31,44 @@ void main() {
       final friend = await friendsRepo.addFriend(phone: '+919999900010', name: 'Dev Friend');
       friendsRepo.adjustBalance(friend.id, -50000); // Arhaam owes Dev Friend 50000 paise
 
+      ApiClient.setMockClient(MockClient((request) async {
+        if (request.method == 'POST' && request.url.path.contains('/settlements') && request.url.path.contains('/confirm')) {
+          friendsRepo.adjustBalance(friend.id, 50000);
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'id': 'stl_dev_1',
+                'ledgerId': friend.individualLedgerId,
+                'fromUserId': 'usr_arhaam',
+                'toUserId': friend.id,
+                'amountPaise': 50000,
+                'status': 'CONFIRMED',
+                'confirmedAt': DateTime.now().toIso8601String(),
+              },
+              'balances': {'netPaise': 0}
+            }),
+            200,
+          );
+        }
+        if (request.method == 'POST' && request.url.path.contains('/settlements')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'id': 'stl_dev_1',
+                'ledgerId': friend.individualLedgerId,
+                'fromUserId': 'usr_arhaam',
+                'toUserId': friend.id,
+                'amountPaise': 50000,
+                'status': 'PENDING',
+                'createdAt': DateTime.now().toIso8601String(),
+              }
+            }),
+            201,
+          );
+        }
+        return http.Response(jsonEncode({'data': {}}), 200);
+      }));
+
       // Create settlement
       final settlement = await settlementsRepo.createSettlement(
         ledgerId: friend.individualLedgerId,
@@ -57,6 +95,27 @@ void main() {
       final container = ProviderContainer();
 
       final settlementsRepo = container.read(settlementsRepositoryProvider);
+
+      ApiClient.setMockClient(MockClient((request) async {
+        if (request.method == 'POST' && request.url.path.contains('/settlements')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'id': 'stl_placeholder_1',
+                'ledgerId': 'ldg_placeholder',
+                'fromUserId': 'usr_arhaam',
+                'toUserId': 'usr_placeholder',
+                'amountPaise': 30000,
+                'status': 'CONFIRMED',
+                'confirmedOnBehalf': true,
+                'createdAt': DateTime.now().toIso8601String(),
+              }
+            }),
+            201,
+          );
+        }
+        return http.Response(jsonEncode({'data': {}}), 200);
+      }));
 
       final settlement = await settlementsRepo.createSettlement(
         ledgerId: 'ldg_placeholder',

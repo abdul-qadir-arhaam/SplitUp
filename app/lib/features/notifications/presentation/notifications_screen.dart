@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,10 +7,56 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
 import '../data/notifications_repository.dart';
+import '../../friends/data/friends_repository.dart';
 import '../../settlements/data/settlements_repository.dart';
 
-class NotificationsScreen extends ConsumerWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> with WidgetsBindingObserver {
+  Timer? _pollTimer;
+  final Set<String> _actingNotifIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshData();
+    });
+
+    // Rule R9: 15-second poll while notifications page is open
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) {
+        _refreshData();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshData();
+    }
+  }
+
+  Future<void> _refreshData() async {
+    try {
+      await ref.read(notificationsRepositoryProvider).fetchNotifications(forceRefresh: true);
+      ref.invalidate(notificationsNotifierProvider);
+    } catch (_) {}
+  }
 
   String _groupKey(DateTime dt) {
     final now = DateTime.now();
@@ -23,7 +70,7 @@ class NotificationsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = context.colors;
     final asyncNotifs = ref.watch(notificationsNotifierProvider);
 
@@ -93,7 +140,19 @@ class NotificationsScreen extends ConsumerWidget {
                 child: SplitUpLoadingAnimation(message: 'Loading notifications...'),
               ),
             ),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Error: $e', style: TextStyle(color: colors.accentOwe)),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _refreshData,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
             data: (items) {
               if (items.isEmpty) {
                 return const Center(
@@ -114,217 +173,264 @@ class NotificationsScreen extends ConsumerWidget {
 
               final groupKeys = ['Today', 'Yesterday', 'Earlier'].where((k) => grouped.containsKey(k)).toList();
 
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                itemCount: groupKeys.length,
-                itemBuilder: (context, gIndex) {
-                  final groupTitle = groupKeys[gIndex];
-                  final groupItems = grouped[groupTitle]!;
+              return RefreshIndicator(
+                color: colors.accentReceive,
+                backgroundColor: colors.surfaceFlatRaised,
+                onRefresh: _refreshData,
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  itemCount: groupKeys.length,
+                  itemBuilder: (context, gIndex) {
+                    final groupTitle = groupKeys[gIndex];
+                    final groupItems = grouped[groupTitle]!;
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          groupTitle,
-                          style: SplitUpTypography.caption(color: colors.textMuted).copyWith(
-                            letterSpacing: 1.1,
-                            fontWeight: FontWeight.bold,
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            groupTitle,
+                            style: SplitUpTypography.caption(color: colors.textMuted).copyWith(
+                              letterSpacing: 1.1,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                      ),
-                      ...groupItems.map((n) {
-                        final isActionable = n.type == 'SETTLEMENT_REQUESTED';
-                        final isOpen = n.actionState == 'OPEN';
-                        final settlementId = n.payload?['settlementId'] as String?;
-                        final amountPaise = n.payload?['amountPaise'] as int? ?? 0;
+                        ...groupItems.map((n) {
+                          final isActionable = n.type == 'SETTLEMENT_REQUESTED';
+                          final isOpen = n.actionState == 'OPEN';
+                          final settlementId = n.payload?['settlementId'] as String?;
+                          final amountPaise = n.payload?['amountPaise'] as int? ?? 0;
+                          final isActing = _actingNotifIds.contains(n.id);
 
-                        return Dismissible(
-                          key: Key('notif_${n.id}'),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            decoration: BoxDecoration(
-                              color: colors.accentOwe.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            alignment: Alignment.centerRight,
-                            child: Icon(Icons.delete_outline_rounded, color: colors.accentOwe),
-                          ),
-                          onDismissed: (_) {
-                            ref.read(notificationsNotifierProvider.notifier).deleteNotification(n.id);
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: n.isRead ? colors.surfaceFlat : colors.glassFillStrong,
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                color: isOpen
-                                    ? colors.accentBrass
-                                    : (n.isRead ? colors.divider : colors.accentReceive.withValues(alpha: 0.4)),
+                          return Dismissible(
+                            key: Key('notif_${n.id}'),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              decoration: BoxDecoration(
+                                color: colors.accentOwe.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(18),
                               ),
+                              alignment: Alignment.centerRight,
+                              child: Icon(Icons.delete_outline_rounded, color: colors.accentOwe),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(
-                                      isActionable
-                                          ? Icons.account_balance_wallet_outlined
-                                          : (n.type.contains('FRIEND')
-                                              ? Icons.person_add_rounded
-                                              : Icons.receipt_long_rounded),
-                                      color: isOpen
-                                          ? colors.accentBrass
-                                          : (n.isRead ? colors.textMuted : colors.accentReceive),
-                                      size: 24,
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Expanded(
-                                                child: Text(n.title, style: SplitUpTypography.title(color: colors.textPrimary)),
-                                              ),
-                                              if (!n.isRead)
-                                                Container(
-                                                  width: 8,
-                                                  height: 8,
-                                                  margin: const EdgeInsets.only(top: 4, left: 6, right: 6),
-                                                  decoration: BoxDecoration(
-                                                    color: colors.accentReceive,
-                                                    shape: BoxShape.circle,
-                                                  ),
-                                                ),
-                                              IconButton(
-                                                icon: Icon(Icons.close_rounded, size: 16, color: colors.textMuted.withValues(alpha: 0.7)),
-                                                padding: EdgeInsets.zero,
-                                                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                                                tooltip: 'Dismiss',
-                                                onPressed: () {
-                                                  ref.read(notificationsNotifierProvider.notifier).deleteNotification(n.id);
-                                                },
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(n.body, style: SplitUpTypography.body(color: colors.textSecondary)),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                            onDismissed: (_) {
+                              ref.read(notificationsNotifierProvider.notifier).deleteNotification(n.id);
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: n.isRead ? colors.surfaceFlat : colors.glassFillStrong,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: isOpen
+                                      ? colors.accentBrass
+                                      : (n.isRead ? colors.divider : colors.accentReceive.withValues(alpha: 0.4)),
                                 ),
-
-                                // Inline Confirm / Reject for Actionable Settlement Requests
-                                if (isActionable && isOpen && settlementId != null) ...[
-                                  const SizedBox(height: 14),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: colors.accentReceive,
-                                            foregroundColor: Colors.black,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                            padding: const EdgeInsets.symmetric(vertical: 8),
-                                          ),
-                                          icon: const Icon(Icons.check_rounded, size: 16),
-                                          label: const Text('Confirm'),
-                                          onPressed: () async {
-                                            try {
-                                              await ref
-                                                  .read(settlementsNotifierProvider.notifier)
-                                                  .confirmSettlement(settlementId);
-                                            } catch (_) {}
-                                            await ref
-                                                .read(notificationsNotifierProvider.notifier)
-                                                .updateActionState(
-                                                  n.id,
-                                                  'DONE',
-                                                  actionResult: 'CONFIRMED',
-                                                );
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(content: Text('Confirmed ${formatPaise(amountPaise)} settlement.')),
-                                              );
-                                            }
-                                          },
-                                        ),
+                                      Icon(
+                                        isActionable
+                                            ? Icons.account_balance_wallet_outlined
+                                            : (n.type.contains('FRIEND')
+                                                ? Icons.person_add_rounded
+                                                : Icons.receipt_long_rounded),
+                                        color: isOpen
+                                            ? colors.accentBrass
+                                            : (n.isRead ? colors.textMuted : colors.accentReceive),
+                                        size: 24,
                                       ),
-                                      const SizedBox(width: 10),
+                                      const SizedBox(width: 14),
                                       Expanded(
-                                        child: OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: colors.accentOwe,
-                                            side: BorderSide(color: colors.accentOwe),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                            padding: const EdgeInsets.symmetric(vertical: 8),
-                                          ),
-                                          icon: const Icon(Icons.close_rounded, size: 16),
-                                          label: const Text('Decline'),
-                                          onPressed: () async {
-                                            try {
-                                              await ref
-                                                  .read(settlementsNotifierProvider.notifier)
-                                                  .rejectSettlement(settlementId);
-                                            } catch (_) {}
-                                            await ref
-                                                .read(notificationsNotifierProvider.notifier)
-                                                .updateActionState(
-                                                  n.id,
-                                                  'DONE',
-                                                  actionResult: 'REJECTED',
-                                                );
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Settlement request declined.')),
-                                              );
-                                            }
-                                          },
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Expanded(
+                                                  child: Text(n.title, style: SplitUpTypography.title(color: colors.textPrimary)),
+                                                ),
+                                                if (!n.isRead)
+                                                  Container(
+                                                    width: 8,
+                                                    height: 8,
+                                                    margin: const EdgeInsets.only(top: 4, left: 6, right: 6),
+                                                    decoration: BoxDecoration(
+                                                      color: colors.accentReceive,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                                IconButton(
+                                                  icon: Icon(Icons.close_rounded, size: 16, color: colors.textMuted.withValues(alpha: 0.7)),
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                                                  tooltip: 'Dismiss',
+                                                  onPressed: () {
+                                                    ref.read(notificationsNotifierProvider.notifier).deleteNotification(n.id);
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(n.body, style: SplitUpTypography.body(color: colors.textSecondary)),
+                                          ],
                                         ),
                                       ),
                                     ],
                                   ),
-                                ],
 
-                                // Result state if acted upon
-                                if (n.actionState == 'DONE') ...[
-                                  const SizedBox(height: 10),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: (n.actionResult == 'CONFIRMED' ? colors.accentReceive : colors.accentOwe)
-                                          .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(8),
+                                  // Inline Confirm / Reject for Actionable Settlement Requests (Rule R8)
+                                  if (isActionable && isOpen && settlementId != null) ...[
+                                    const SizedBox(height: 14),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: colors.accentReceive,
+                                              foregroundColor: Colors.black,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              padding: const EdgeInsets.symmetric(vertical: 8),
+                                            ),
+                                            icon: isActing
+                                                ? const SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                                                  )
+                                                : const Icon(Icons.check_rounded, size: 16),
+                                            label: const Text('Confirm'),
+                                            onPressed: isActing
+                                                ? null
+                                                : () async {
+                                                    setState(() => _actingNotifIds.add(n.id));
+                                                    try {
+                                                      await ref
+                                                          .read(settlementsNotifierProvider.notifier)
+                                                          .confirmSettlement(settlementId);
+                                                      await ref
+                                                          .read(notificationsNotifierProvider.notifier)
+                                                          .updateActionState(
+                                                            n.id,
+                                                            'DONE',
+                                                            actionResult: 'CONFIRMED',
+                                                          );
+                                                      // Refresh friends to reflect updated balance
+                                                      ref.read(friendsNotifierProvider.notifier).refresh();
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(content: Text('Confirmed ${formatPaise(amountPaise)} settlement.')),
+                                                        );
+                                                      }
+                                                    } catch (e) {
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(content: Text('Failed to confirm: $e'), backgroundColor: colors.accentOwe),
+                                                        );
+                                                      }
+                                                    } finally {
+                                                      if (mounted) {
+                                                        setState(() => _actingNotifIds.remove(n.id));
+                                                      }
+                                                    }
+                                                  },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: colors.accentOwe,
+                                              side: BorderSide(color: colors.accentOwe),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              padding: const EdgeInsets.symmetric(vertical: 8),
+                                            ),
+                                            icon: isActing
+                                                ? const SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                                  )
+                                                : const Icon(Icons.close_rounded, size: 16),
+                                            label: const Text('Decline'),
+                                            onPressed: isActing
+                                                ? null
+                                                : () async {
+                                                    setState(() => _actingNotifIds.add(n.id));
+                                                    try {
+                                                      await ref
+                                                          .read(settlementsNotifierProvider.notifier)
+                                                          .rejectSettlement(settlementId);
+                                                      await ref
+                                                          .read(notificationsNotifierProvider.notifier)
+                                                          .updateActionState(
+                                                            n.id,
+                                                            'DONE',
+                                                            actionResult: 'REJECTED',
+                                                          );
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          const SnackBar(content: Text('Settlement request declined.')),
+                                                        );
+                                                      }
+                                                    } catch (e) {
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                          SnackBar(content: Text('Failed to decline: $e'), backgroundColor: colors.accentOwe),
+                                                        );
+                                                      }
+                                                    } finally {
+                                                      if (mounted) {
+                                                        setState(() => _actingNotifIds.remove(n.id));
+                                                      }
+                                                    }
+                                                  },
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    child: Text(
-                                      n.actionResult == 'CONFIRMED'
-                                          ? 'You confirmed this settlement'
-                                          : 'You declined this settlement',
-                                      style: SplitUpTypography.caption(
-                                        color: n.actionResult == 'CONFIRMED' ? colors.accentReceive : colors.accentOwe,
-                                      ).copyWith(fontWeight: FontWeight.bold),
+                                  ],
+
+                                  // Result state if acted upon (Rule R8: stays in the list with result)
+                                  if (n.actionState == 'DONE') ...[
+                                    const SizedBox(height: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: (n.actionResult == 'CONFIRMED' ? colors.accentReceive : colors.accentOwe)
+                                            .withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        n.actionResult == 'CONFIRMED'
+                                            ? 'You confirmed this settlement'
+                                            : 'You declined this settlement',
+                                        style: SplitUpTypography.caption(
+                                          color: n.actionResult == 'CONFIRMED' ? colors.accentReceive : colors.accentOwe,
+                                        ).copyWith(fontWeight: FontWeight.bold),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                        );
-                      }),
-                    ],
-                  );
-                },
+                          );
+                        }),
+                      ],
+                    );
+                  },
+                ),
               );
             },
           ),

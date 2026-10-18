@@ -14,6 +14,7 @@ import {
 } from '../../lib/errors.js';
 import { activityStore } from '../activity/store.js';
 import { notificationsStore } from '../notifications/store.js';
+import { checkTripBudgetThresholds } from '../trips/store.js';
 
 export const ledgersRouter = Router();
 
@@ -29,7 +30,7 @@ export interface StoredLedger {
 
 export const inMemoryLedgers = new Map<string, StoredLedger>();
 
-async function assertLedgerMember(ledgerId: string, userId: string): Promise<void> {
+export async function assertLedgerMember(ledgerId: string, userId: string): Promise<void> {
   const row = await db('ledger_members')
     .where({ ledger_id: ledgerId, user_id: userId })
     .whereNull('left_at')
@@ -326,10 +327,10 @@ ledgersRouter.post('/ledgers/:id/expenses', async (req, res, next) => {
       }
     });
 
-    // Notify participants asynchronously
+    // Notify participants
     for (const split of splits) {
       if (split.userId !== callerId && split.owedPaise > 0) {
-        notificationsStore.create({
+        await notificationsStore.create({
           userId: split.userId,
           type: 'EXPENSE_ADDED',
           payload: {
@@ -340,8 +341,14 @@ ledgersRouter.post('/ledgers/:id/expenses', async (req, res, next) => {
             owedPaise: split.owedPaise,
             createdBy: callerId,
           },
-        });
+        }).catch((err) => console.error('[LedgersRoute] Failed to notify participant:', err));
       }
+    }
+
+    // If ledger is a TRIP, recompute and notify budget thresholds
+    const ledgerRow = await db('ledgers').where({ id: ledgerId }).first();
+    if (ledgerRow && ledgerRow.type === 'TRIP') {
+      await checkTripBudgetThresholds(ledgerId).catch(() => {});
     }
 
     res.status(201).json({
@@ -487,186 +494,266 @@ ledgersRouter.get('/expenses/:id', async (req, res, next) => {
   }
 });
 
-// Edit Expense
+// Helper: Edit Expense logic
+async function executeEditExpense(
+  expenseId: string,
+  callerId: string,
+  rawBody: any,
+  expectedLedgerId?: string
+) {
+  const expense = await db('expenses').where({ id: expenseId }).first();
+  if (!expense) {
+    throw new NotFoundError(`Expense ${expenseId} not found`);
+  }
+
+  if (expectedLedgerId && expense.ledger_id !== expectedLedgerId) {
+    throw new NotFoundError(`Expense ${expenseId} not found in ledger ${expectedLedgerId}`);
+  }
+
+  const membership = await db('ledger_members')
+    .where({ ledger_id: expense.ledger_id, user_id: callerId })
+    .whereNull('left_at')
+    .first();
+  if (!membership) {
+    throw new ForbiddenError(`User is not an active member of ledger ${expense.ledger_id}`);
+  }
+
+  const isCreator = expense.created_by === callerId;
+  const isAdmin = membership.role === 'ADMIN' || membership.role === 'CREATOR';
+  if (!isCreator && !isAdmin) {
+    throw new ForbiddenError('Only the expense creator or a ledger admin can edit this expense');
+  }
+
+  if (expense.deleted_at) {
+    throw new ValidationError('Cannot edit a deleted expense');
+  }
+
+  const body = updateExpenseSchema.parse(rawBody);
+
+  const oldPayers = await db('expense_payers').where({ expense_id: expenseId });
+  const oldSplits = await db('expense_splits').where({ expense_id: expenseId });
+
+  const totalPaise = body.totalPaise !== undefined ? body.totalPaise : Number(expense.total_paise);
+  const splitType = body.splitType !== undefined ? body.splitType : expense.split_type;
+  const payers = body.payers !== undefined ? body.payers : oldPayers.map((p) => ({ userId: p.user_id, paidPaise: Number(p.paid_paise) }));
+  const participants = body.participants !== undefined
+    ? body.participants
+    : oldSplits.map((s) => ({ userId: s.user_id, included: Boolean(s.included), splitValue: s.split_value }));
+
+  if (body.totalPaise !== undefined || body.payers !== undefined || body.participants !== undefined || body.splitType !== undefined) {
+    const sumPaid = payers.reduce((sum: number, p: any) => sum + p.paidPaise, 0);
+    if (sumPaid !== totalPaise) {
+      throw new ValidationError(`Sum of payer amounts (${sumPaid} paise) does not equal expense total (${totalPaise} paise)`);
+    }
+
+    const memberIds = await getLedgerMemberIds(expense.ledger_id);
+    const memberSet = new Set(memberIds);
+
+    const editPayerUserIds = new Set<string>();
+    for (const p of payers) {
+      if (editPayerUserIds.has(p.userId)) {
+        throw new ValidationError(`Duplicate payer ${p.userId} in expense payers`);
+      }
+      editPayerUserIds.add(p.userId);
+      if (!memberSet.has(p.userId)) {
+        throw new ForbiddenError(`Payer ${p.userId} is not a member of ledger ${expense.ledger_id}`);
+      }
+    }
+
+    for (const part of participants) {
+      if (!memberSet.has(part.userId)) {
+        throw new ForbiddenError(`Participant ${part.userId} is not a member of ledger ${expense.ledger_id}`);
+      }
+      if (!part.included && editPayerUserIds.has(part.userId)) {
+        throw new ValidationError(`Excluded member ${part.userId} cannot be a payer`);
+      }
+    }
+  }
+
+  const newSplits = calculateSplits(totalPaise, splitType, participants);
+  const now = new Date();
+
+  await db.transaction(async (trx) => {
+    await trx('expenses')
+      .where({ id: expenseId })
+      .update({
+        title: body.title !== undefined ? body.title : expense.title,
+        category: body.category !== undefined ? body.category : expense.category,
+        total_paise: totalPaise,
+        split_type: splitType,
+        expense_date: body.expenseDate ? new Date(body.expenseDate) : expense.expense_date,
+        note: body.note !== undefined ? body.note : expense.note,
+        updated_at: now,
+      });
+
+    await trx('expense_payers').where({ expense_id: expenseId }).delete();
+    await trx('expense_payers').insert(
+      payers.map((p: any) => ({
+        expense_id: expenseId,
+        user_id: p.userId,
+        paid_paise: p.paidPaise,
+      }))
+    );
+
+    await trx('expense_splits').where({ expense_id: expenseId }).delete();
+    await trx('expense_splits').insert(
+      newSplits.map((s: any) => {
+        const part = participants.find((p: any) => p.userId === s.userId);
+        return {
+          expense_id: expenseId,
+          user_id: s.userId,
+          owed_paise: s.owedPaise,
+          split_value: part?.splitValue ?? 1,
+          included: s.included !== false ? 1 : 0,
+        };
+      })
+    );
+
+    await trx('activity_log').insert({
+      ledger_id: expense.ledger_id,
+      actor_user_id: callerId,
+      action: 'EXPENSE_EDITED',
+      entity_type: 'expense',
+      entity_id: expenseId,
+      payload: JSON.stringify({
+        before: { title: expense.title, totalPaise: Number(expense.total_paise) },
+        after: { title: body.title || expense.title, totalPaise },
+      }),
+      created_at: now,
+    });
+  });
+
+  // Re-check trip budget thresholds if ledger is a trip
+  const ledger = await db('ledgers').where({ id: expense.ledger_id }).first();
+  if (ledger && ledger.type === 'TRIP') {
+    await checkTripBudgetThresholds(expense.ledger_id).catch(() => {});
+  }
+
+  return {
+    id: expenseId,
+    ledgerId: expense.ledger_id,
+    title: body.title !== undefined ? body.title : expense.title,
+    totalPaise,
+    category: body.category !== undefined ? body.category : expense.category,
+    splitType,
+    expenseDate: body.expenseDate || expense.expense_date,
+    note: body.note !== undefined ? body.note : expense.note,
+    payers,
+    participants,
+    splits: newSplits,
+    updatedAt: now.toISOString(),
+  };
+}
+
+// Helper: Delete Expense logic
+async function executeDeleteExpense(
+  expenseId: string,
+  callerId: string,
+  expectedLedgerId?: string
+) {
+  const expense = await db('expenses').where({ id: expenseId }).first();
+  if (!expense) {
+    throw new NotFoundError(`Expense ${expenseId} not found`);
+  }
+
+  if (expectedLedgerId && expense.ledger_id !== expectedLedgerId) {
+    throw new NotFoundError(`Expense ${expenseId} not found in ledger ${expectedLedgerId}`);
+  }
+
+  const membership = await db('ledger_members')
+    .where({ ledger_id: expense.ledger_id, user_id: callerId })
+    .whereNull('left_at')
+    .first();
+  if (!membership) {
+    throw new ForbiddenError(`User is not an active member of ledger ${expense.ledger_id}`);
+  }
+
+  const isCreator = expense.created_by === callerId;
+  const isAdmin = membership.role === 'ADMIN' || membership.role === 'CREATOR';
+  if (!isCreator && !isAdmin) {
+    throw new ForbiddenError('Only the expense creator or a ledger admin can delete this expense');
+  }
+
+  const now = new Date();
+  await db.transaction(async (trx) => {
+    await trx('expenses')
+      .where({ id: expenseId })
+      .update({
+        deleted_at: now,
+        deleted_by: callerId,
+      });
+
+    await trx('activity_log').insert({
+      ledger_id: expense.ledger_id,
+      actor_user_id: callerId,
+      action: 'EXPENSE_DELETED',
+      entity_type: 'expense',
+      entity_id: expenseId,
+      payload: JSON.stringify({
+        title: expense.title,
+        totalPaise: Number(expense.total_paise),
+      }),
+      created_at: now,
+    });
+  });
+
+  const ledger = await db('ledgers').where({ id: expense.ledger_id }).first();
+  if (ledger && ledger.type === 'TRIP') {
+    await checkTripBudgetThresholds(expense.ledger_id).catch(() => {});
+  }
+
+  return { success: true, message: 'Expense deleted successfully' };
+}
+
+// Edit Expense (both /expenses/:id and /ledgers/:id/expenses/:expenseId)
 ledgersRouter.patch('/expenses/:id', async (req, res, next) => {
   try {
     const callerId = req.user?.id;
     if (!callerId) {
       throw new UnauthenticatedError('Authentication required');
     }
-
-    const expenseId = req.params.id;
-    const expense = await db('expenses').where({ id: expenseId }).first();
-    if (!expense) {
-      throw new NotFoundError(`Expense ${expenseId} not found`);
-    }
-
-    await assertLedgerMember(expense.ledger_id, callerId);
-
-    if (expense.deleted_at) {
-      throw new ValidationError('Cannot edit a deleted expense');
-    }
-
-    const body = updateExpenseSchema.parse(req.body);
-
-    const oldPayers = await db('expense_payers').where({ expense_id: expenseId });
-    const oldSplits = await db('expense_splits').where({ expense_id: expenseId });
-
-    const totalPaise = body.totalPaise !== undefined ? body.totalPaise : Number(expense.total_paise);
-    const splitType = body.splitType !== undefined ? body.splitType : expense.split_type;
-    const payers = body.payers !== undefined ? body.payers : oldPayers.map((p) => ({ userId: p.user_id, paidPaise: Number(p.paid_paise) }));
-    const participants = body.participants !== undefined
-      ? body.participants
-      : oldSplits.map((s) => ({ userId: s.user_id, included: Boolean(s.included), splitValue: s.split_value }));
-
-    if (body.totalPaise !== undefined || body.payers !== undefined || body.participants !== undefined || body.splitType !== undefined) {
-      const sumPaid = payers.reduce((sum: number, p: any) => sum + p.paidPaise, 0);
-      if (sumPaid !== totalPaise) {
-        throw new ValidationError(`Sum of payer amounts (${sumPaid} paise) does not equal expense total (${totalPaise} paise)`);
-      }
-
-      const memberIds = await getLedgerMemberIds(expense.ledger_id);
-      const memberSet = new Set(memberIds);
-
-      const editPayerUserIds = new Set<string>();
-      for (const p of payers) {
-        if (editPayerUserIds.has(p.userId)) {
-          throw new ValidationError(`Duplicate payer ${p.userId} in expense payers`);
-        }
-        editPayerUserIds.add(p.userId);
-        if (!memberSet.has(p.userId)) {
-          throw new ForbiddenError(`Payer ${p.userId} is not a member of ledger ${expense.ledger_id}`);
-        }
-      }
-
-      for (const part of participants) {
-        if (!memberSet.has(part.userId)) {
-          throw new ForbiddenError(`Participant ${part.userId} is not a member of ledger ${expense.ledger_id}`);
-        }
-        if (!part.included && editPayerUserIds.has(part.userId)) {
-          throw new ValidationError(`Excluded member ${part.userId} cannot be a payer`);
-        }
-      }
-    }
-
-    const newSplits = calculateSplits(totalPaise, splitType, participants);
-    const now = new Date();
-
-    await db.transaction(async (trx) => {
-      await trx('expenses')
-        .where({ id: expenseId })
-        .update({
-          title: body.title !== undefined ? body.title : expense.title,
-          category: body.category !== undefined ? body.category : expense.category,
-          total_paise: totalPaise,
-          split_type: splitType,
-          expense_date: body.expenseDate ? new Date(body.expenseDate) : expense.expense_date,
-          note: body.note !== undefined ? body.note : expense.note,
-          updated_at: now,
-        });
-
-      await trx('expense_payers').where({ expense_id: expenseId }).delete();
-      await trx('expense_payers').insert(
-        payers.map((p: any) => ({
-          expense_id: expenseId,
-          user_id: p.userId,
-          paid_paise: p.paidPaise,
-        }))
-      );
-
-      await trx('expense_splits').where({ expense_id: expenseId }).delete();
-      await trx('expense_splits').insert(
-        newSplits.map((s: any) => {
-          const part = participants.find((p: any) => p.userId === s.userId);
-          return {
-            expense_id: expenseId,
-            user_id: s.userId,
-            owed_paise: s.owedPaise,
-            split_value: part?.splitValue ?? 1,
-            included: s.included !== false ? 1 : 0,
-          };
-        })
-      );
-
-
-      await trx('activity_log').insert({
-        ledger_id: expense.ledger_id,
-        actor_user_id: callerId,
-        action: 'EXPENSE_EDITED',
-        entity_type: 'expense',
-        entity_id: expenseId,
-        payload: JSON.stringify({
-          before: { title: expense.title, totalPaise: Number(expense.total_paise) },
-          after: { title: body.title || expense.title, totalPaise },
-        }),
-        created_at: now,
-      });
-    });
-
-    res.json({
-      data: {
-        id: expenseId,
-        ledgerId: expense.ledger_id,
-        title: body.title !== undefined ? body.title : expense.title,
-        totalPaise,
-        category: body.category !== undefined ? body.category : expense.category,
-        splitType,
-        expenseDate: body.expenseDate || expense.expense_date,
-        note: body.note !== undefined ? body.note : expense.note,
-        payers,
-        participants,
-        splits: newSplits,
-        updatedAt: now.toISOString(),
-      },
-    });
+    const result = await executeEditExpense(req.params.id, callerId, req.body);
+    res.json({ data: result });
   } catch (err) {
     next(err);
   }
 });
 
-// Delete Expense (Soft delete)
+ledgersRouter.patch('/ledgers/:id/expenses/:expenseId', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const result = await executeEditExpense(req.params.expenseId, callerId, req.body, req.params.id);
+    res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Delete Expense (both /expenses/:id and /ledgers/:id/expenses/:expenseId)
 ledgersRouter.delete('/expenses/:id', async (req, res, next) => {
   try {
     const callerId = req.user?.id;
     if (!callerId) {
       throw new UnauthenticatedError('Authentication required');
     }
+    const result = await executeDeleteExpense(req.params.id, callerId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
 
-    const expenseId = req.params.id;
-    const expense = await db('expenses').where({ id: expenseId }).first();
-    if (!expense) {
-      throw new NotFoundError(`Expense ${expenseId} not found`);
+ledgersRouter.delete('/ledgers/:id/expenses/:expenseId', async (req, res, next) => {
+  try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
     }
-
-    await assertLedgerMember(expense.ledger_id, callerId);
-
-    const now = new Date();
-    await db.transaction(async (trx) => {
-      await trx('expenses')
-        .where({ id: expenseId })
-        .update({
-          deleted_at: now,
-          deleted_by: callerId,
-        });
-
-      await trx('activity_log').insert({
-        ledger_id: expense.ledger_id,
-        actor_user_id: callerId,
-        action: 'EXPENSE_DELETED',
-        entity_type: 'expense',
-        entity_id: expenseId,
-        payload: JSON.stringify({
-          title: expense.title,
-          totalPaise: Number(expense.total_paise),
-        }),
-        created_at: now,
-      });
-    });
-
-    res.json({
-      success: true,
-      message: 'Expense deleted successfully',
-    });
+    const result = await executeDeleteExpense(req.params.expenseId, callerId, req.params.id);
+    res.json(result);
   } catch (err) {
     next(err);
   }
@@ -701,7 +788,7 @@ ledgersRouter.post('/expenses/:id/dispute', async (req, res, next) => {
 
     // Notify creator
     if (expense.created_by !== callerId) {
-      notificationsStore.create({
+      await notificationsStore.create({
         userId: expense.created_by,
         type: 'EXPENSE_DISPUTED',
         payload: {
@@ -710,7 +797,7 @@ ledgersRouter.post('/expenses/:id/dispute', async (req, res, next) => {
           disputedBy: callerId,
           title: expense.title,
         },
-      });
+      }).catch((err) => console.error('[LedgersRoute] Failed to notify creator of dispute:', err));
     }
 
     res.status(201).json({

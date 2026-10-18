@@ -108,23 +108,11 @@ export async function createGroup(params: {
           groupName: groupRecord.name,
           creatorUserId,
         };
-        notificationsStore.create({
+        await notificationsStore.create({
           userId: uid,
           type: 'ADDED_TO_GROUP' as any,
           payload: notifPayload,
         });
-
-        // Also persist notification to MySQL
-        db('notifications').insert({
-          id: `notif_${ulid()}`,
-          user_id: uid,
-          type: 'ADDED_TO_GROUP',
-          payload: JSON.stringify(notifPayload),
-          action_state: null,
-          action_result: null,
-          read_at: null,
-          created_at: new Date(),
-        }).catch(() => {});
       }
     }
   }
@@ -512,7 +500,7 @@ export async function addMember(groupId: string, actorUserId: string, newUserId:
 
   const user = inMemoryUsers.get(newUserId);
   if (user && !user.isPlaceholder) {
-    notificationsStore.create({
+    await notificationsStore.create({
       userId: newUserId,
       type: 'ADDED_TO_GROUP',
       payload: {
@@ -581,8 +569,7 @@ export async function removeMember(
   await persistLedgerToDb(ledger);
   await db('ledger_members')
     .where({ ledger_id: groupId, user_id: targetUserId })
-    .update({ left_at: new Date() })
-    .catch((err) => console.error('[GroupsStore] Error marking left_at in MySQL:', err));
+    .update({ left_at: new Date() });
 
   activityStore.log({
     ledgerId: groupId,
@@ -636,8 +623,7 @@ export async function deleteGroup(groupId: string, actorUserId: string): Promise
   // Soft delete in MySQL
   await db('ledgers')
     .where({ id: groupId })
-    .update({ status: 'DELETED', updated_at: new Date() })
-    .catch((err) => console.error('[GroupsStore] Error deleting group from MySQL:', err));
+    .update({ status: 'DELETED', updated_at: new Date() });
 
   return { success: true };
 }

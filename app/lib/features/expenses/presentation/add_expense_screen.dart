@@ -905,6 +905,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                                   payers: payers,
                                   splits: splits,
                                   friendId: targetFriend?.id ?? (selectedFriends.length == 1 ? selectedFriends.first.id : null),
+                                  ledgerId: resolvedLedgerId,
                                 );
                           } else {
                             await ref.read(expensesNotifierProvider.notifier).createExpense(
@@ -919,15 +920,21 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
                                 );
                           }
 
-                          if (matchedGroup != null) {
-                            ref.invalidate(groupDetailProvider(matchedGroup.id));
-                            ref.invalidate(groupDashboardProvider(matchedGroup.id));
+                          if (matchedGroup != null || resolvedLedgerId.startsWith('grp_')) {
+                            final gId = matchedGroup?.id ?? resolvedLedgerId;
+                            ref.invalidate(groupDetailProvider(gId));
+                            ref.invalidate(groupDashboardProvider(gId));
                             ref.invalidate(groupsNotifierProvider);
                           }
-                          if (matchedTrip != null) {
-                            ref.invalidate(tripDetailProvider(matchedTrip.id));
-                            ref.invalidate(tripDashboardProvider(matchedTrip.id));
+                          if (matchedTrip != null || resolvedLedgerId.startsWith('trp_')) {
+                            final tId = matchedTrip?.id ?? resolvedLedgerId;
+                            ref.invalidate(tripDetailProvider(tId));
+                            ref.invalidate(tripDashboardProvider(tId));
                             ref.invalidate(tripsNotifierProvider);
+                            try {
+                              ref.read(tripsRepositoryProvider).getTripById(tId);
+                              ref.read(expensesRepositoryProvider).syncExpensesForLedger(tId);
+                            } catch (_) {}
                           }
                           ref.invalidate(friendsNotifierProvider);
 

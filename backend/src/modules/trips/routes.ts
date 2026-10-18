@@ -10,6 +10,7 @@ import {
   getTripDashboard,
   getTripGraph,
 } from './store.js';
+import { UnauthenticatedError } from '../../lib/errors.js';
 
 export const tripsRouter = Router();
 
@@ -35,12 +36,15 @@ const updateBudgetSchema = z.object({
 });
 
 // POST /v1/trips
-tripsRouter.post('/trips', (req, res, next) => {
+tripsRouter.post('/trips', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const body = createTripSchema.parse(req.body);
 
-    const trip = createTrip({
+    const trip = await createTrip({
       name: body.name,
       budgetPaise: body.budgetPaise,
       startDate: body.startDate,
@@ -60,10 +64,13 @@ tripsRouter.post('/trips', (req, res, next) => {
 });
 
 // GET /v1/trips
-tripsRouter.get('/trips', (req, res, next) => {
+tripsRouter.get('/trips', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
-    const result = listUserTrips(callerId);
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const result = await listUserTrips(callerId);
 
     res.json({
       data: result,
@@ -74,10 +81,13 @@ tripsRouter.get('/trips', (req, res, next) => {
 });
 
 // GET /v1/trips/:id
-tripsRouter.get('/trips/:id', (req, res, next) => {
+tripsRouter.get('/trips/:id', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
-    const details = getTripDetails(req.params.id, callerId);
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const details = await getTripDetails(req.params.id, callerId);
 
     res.json({
       data: details,
@@ -88,12 +98,15 @@ tripsRouter.get('/trips/:id', (req, res, next) => {
 });
 
 // PATCH /v1/trips/:id
-tripsRouter.patch('/trips/:id', (req, res, next) => {
+tripsRouter.patch('/trips/:id', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const body = updateTripSchema.parse(req.body);
 
-    const updated = updateTrip(req.params.id, callerId, body);
+    const updated = await updateTrip(req.params.id, callerId, body);
     res.json({
       data: updated,
     });
@@ -103,12 +116,15 @@ tripsRouter.patch('/trips/:id', (req, res, next) => {
 });
 
 // PATCH /v1/trips/:id/budget
-tripsRouter.patch('/trips/:id/budget', (req, res, next) => {
+tripsRouter.patch('/trips/:id/budget', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const body = updateBudgetSchema.parse(req.body);
 
-    const updated = updateTripBudget(req.params.id, callerId, body.budgetPaise);
+    const updated = await updateTripBudget(req.params.id, callerId, body.budgetPaise);
     res.json({
       data: updated,
     });
@@ -118,10 +134,13 @@ tripsRouter.patch('/trips/:id/budget', (req, res, next) => {
 });
 
 // POST /v1/trips/:id/complete
-tripsRouter.post('/trips/:id/complete', (req, res, next) => {
+tripsRouter.post('/trips/:id/complete', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
-    const updated = completeTrip(req.params.id, callerId);
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const updated = await completeTrip(req.params.id, callerId);
 
     res.json({
       data: updated,
@@ -132,10 +151,13 @@ tripsRouter.post('/trips/:id/complete', (req, res, next) => {
 });
 
 // GET /v1/trips/:id/dashboard
-tripsRouter.get('/trips/:id/dashboard', (req, res, next) => {
+tripsRouter.get('/trips/:id/dashboard', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
-    const dashboard = getTripDashboard(req.params.id, callerId);
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const dashboard = await getTripDashboard(req.params.id, callerId);
 
     res.json({
       data: dashboard,
@@ -146,11 +168,14 @@ tripsRouter.get('/trips/:id/dashboard', (req, res, next) => {
 });
 
 // GET /v1/trips/:id/graph
-tripsRouter.get('/trips/:id/graph', (req, res, next) => {
+tripsRouter.get('/trips/:id/graph', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const mode = req.query.mode === 'actual' ? 'actual' : 'simplified';
-    const graph = getTripGraph(req.params.id, callerId, mode);
+    const graph = await getTripGraph(req.params.id, callerId, mode);
 
     res.json({
       data: graph,

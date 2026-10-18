@@ -39,6 +39,7 @@ class SettleSheet extends ConsumerStatefulWidget {
 class _SettleSheetState extends ConsumerState<SettleSheet> {
   late final TextEditingController _amountController;
   String _selectedMethod = 'UPI';
+  bool _isSubmitting = false;
 
   String get targetUserId => widget.friend?.id ?? widget.friendId ?? '';
   String get targetName => widget.friend?.resolvedName ?? widget.friendName ?? 'Member';
@@ -168,30 +169,71 @@ class _SettleSheetState extends ConsumerState<SettleSheet> {
               ],
 
               PrimaryButton(
-                label: 'Confirm Settlement (${formatPaise(enteredPaise)})',
-                icon: Icons.check_circle_rounded,
-                onPressed: isValid
+                label: _isSubmitting
+                    ? 'Submitting...'
+                    : 'Confirm Settlement (${formatPaise(enteredPaise)})',
+                icon: _isSubmitting ? null : Icons.check_circle_rounded,
+                onPressed: (isValid && !_isSubmitting)
                     ? () async {
-                        await ref.read(settlementsNotifierProvider.notifier).createSettlement(
-                              ledgerId: targetLedgerId,
-                              toUserId: targetUserId,
-                              amountPaise: enteredPaise,
-                              method: _selectedMethod,
-                              isPlaceholderReceiver: isPlaceholder,
-                            );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: colors.surfaceFlatRaised,
-                              content: Text(
-                                isPlaceholder
-                                    ? 'Settlement self-confirmed (unverified) with $targetName.'
-                                    : 'Settlement request sent to $targetName!',
-                                style: SplitUpTypography.body(color: colors.textPrimary),
+                        if (_isSubmitting) return;
+                        setState(() => _isSubmitting = true);
+
+                        final idempotencyKey = 'idem_stl_${DateTime.now().millisecondsSinceEpoch}';
+                        try {
+                          await ref.read(settlementsNotifierProvider.notifier).createSettlement(
+                                ledgerId: targetLedgerId,
+                                toUserId: targetUserId,
+                                amountPaise: enteredPaise,
+                                method: _selectedMethod,
+                                isPlaceholderReceiver: isPlaceholder,
+                                idempotencyKey: idempotencyKey,
+                              );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: colors.surfaceFlatRaised,
+                                content: Text(
+                                  isPlaceholder
+                                      ? 'Settlement self-confirmed (unverified) with $targetName.'
+                                      : 'Settlement request sent to $targetName!',
+                                  style: SplitUpTypography.body(color: colors.textPrimary),
+                                ),
                               ),
-                            ),
-                          );
-                          Navigator.pop(context);
+                            );
+                            Navigator.pop(context);
+                          }
+                        } on Exception catch (e) {
+                          if (context.mounted) {
+                            final errStr = e.toString();
+                            final isConflict = errStr.contains('already exists') || errStr.contains('409') || errStr.contains('CONFLICT');
+                            if (isConflict) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: colors.surfaceFlatRaised,
+                                  content: Text(
+                                    'A pending settlement already exists with $targetName.',
+                                    style: SplitUpTypography.body(color: colors.accentBrass),
+                                  ),
+                                ),
+                              );
+                              await ref.read(settlementsNotifierProvider.notifier).syncSettlementsForLedger(targetLedgerId);
+                              Navigator.pop(context);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: colors.accentOwe,
+                                  content: Text(
+                                    errStr.replaceAll('Exception: ', ''),
+                                    style: SplitUpTypography.body(color: Colors.white),
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isSubmitting = false);
+                          }
                         }
                       }
                     : null,

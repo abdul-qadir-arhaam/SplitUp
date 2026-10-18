@@ -32,7 +32,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     return;
   }
 
-  if (xUserId) {
+  // Stage 4b: Do NOT trust x-user-id header in production/staging environments.
+  // In non-test environments, x-user-id is completely ignored and Bearer auth is required.
+  // In test environment, only allow x-user-id when authHeader is absent for backwards compatibility with test suites.
+  if (process.env.NODE_ENV === 'test' && !authHeader && xUserId) {
     req.user = {
       id: xUserId,
       phone: '+919876543210',

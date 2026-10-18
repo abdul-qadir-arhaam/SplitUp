@@ -8,10 +8,10 @@ import {
   rejectSettlement,
   cancelSettlement,
   resubmitSettlement,
-  mapDbSettlementToModel,
+  listSettlementsForLedger,
 } from './store.js';
-import { inMemoryLedgers } from '../ledgers/routes.js';
-import { NotFoundError } from '../../lib/errors.js';
+import { NotFoundError, UnauthenticatedError } from '../../lib/errors.js';
+import { assertLedgerMember } from '../ledgers/routes.js';
 
 export const settlementsRouter = Router();
 
@@ -29,10 +29,13 @@ const resubmitSettlementSchema = z.object({
 // POST /v1/settlements
 settlementsRouter.post('/settlements', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const body = createSettlementSchema.parse(req.body);
 
-    const settlement = await createSettlement({
+    const result = await createSettlement({
       ledgerId: body.ledgerId,
       fromUserId: callerId,
       toUserId: body.toUserId,
@@ -42,9 +45,19 @@ settlementsRouter.post('/settlements', async (req, res, next) => {
     });
 
     res.status(201).json({
-      data: settlement,
+      data: result.settlement,
+      balances: result.balances,
     });
-  } catch (err) {
+  } catch (err: any) {
+    if (err.statusCode === 409 && err.existingSettlement) {
+      return res.status(409).json({
+        error: {
+          code: 'CONFLICT',
+          message: err.message,
+          existingSettlement: err.existingSettlement,
+        },
+      });
+    }
     next(err);
   }
 });
@@ -52,7 +65,13 @@ settlementsRouter.post('/settlements', async (req, res, next) => {
 // GET /v1/settlements/:id
 settlementsRouter.get('/settlements/:id', async (req, res, next) => {
   try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const settlement = await getSettlement(req.params.id);
+    await assertLedgerMember(settlement.ledgerId, callerId);
+
     res.json({
       data: settlement,
     });
@@ -64,10 +83,14 @@ settlementsRouter.get('/settlements/:id', async (req, res, next) => {
 // POST /v1/settlements/:id/confirm
 settlementsRouter.post('/settlements/:id/confirm', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
-    const settlement = await confirmSettlement(req.params.id, callerId);
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const result = await confirmSettlement(req.params.id, callerId);
     res.json({
-      data: settlement,
+      data: result.settlement,
+      balances: result.balances,
     });
   } catch (err) {
     next(err);
@@ -77,10 +100,14 @@ settlementsRouter.post('/settlements/:id/confirm', async (req, res, next) => {
 // POST /v1/settlements/:id/reject
 settlementsRouter.post('/settlements/:id/reject', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
-    const settlement = await rejectSettlement(req.params.id, callerId);
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const result = await rejectSettlement(req.params.id, callerId);
     res.json({
-      data: settlement,
+      data: result.settlement,
+      balances: result.balances,
     });
   } catch (err) {
     next(err);
@@ -90,10 +117,14 @@ settlementsRouter.post('/settlements/:id/reject', async (req, res, next) => {
 // POST /v1/settlements/:id/cancel
 settlementsRouter.post('/settlements/:id/cancel', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
-    const settlement = await cancelSettlement(req.params.id, callerId);
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
+    const result = await cancelSettlement(req.params.id, callerId);
     res.json({
-      data: settlement,
+      data: result.settlement,
+      balances: result.balances,
     });
   } catch (err) {
     next(err);
@@ -103,15 +134,19 @@ settlementsRouter.post('/settlements/:id/cancel', async (req, res, next) => {
 // POST /v1/settlements/:id/resubmit
 settlementsRouter.post('/settlements/:id/resubmit', async (req, res, next) => {
   try {
-    const callerId = req.user?.id || 'usr_arhaam';
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const body = resubmitSettlementSchema.parse(req.body || {});
-    const settlement = await resubmitSettlement({
+    const result = await resubmitSettlement({
       id: req.params.id,
       actorUserId: callerId,
       newAmountPaise: body.amountPaise,
     });
     res.json({
-      data: settlement,
+      data: result.settlement,
+      balances: result.balances,
     });
   } catch (err) {
     next(err);
@@ -121,28 +156,20 @@ settlementsRouter.post('/settlements/:id/resubmit', async (req, res, next) => {
 // GET /v1/ledgers/:id/settlements
 settlementsRouter.get('/ledgers/:id/settlements', async (req, res, next) => {
   try {
+    const callerId = req.user?.id;
+    if (!callerId) {
+      throw new UnauthenticatedError('Authentication required');
+    }
     const ledgerId = req.params.id;
-    const dbRows = await db('settlements')
-      .where({ ledger_id: ledgerId })
-      .orderBy('created_at', 'desc');
-
-    if (dbRows.length > 0) {
-      return res.json({
-        data: dbRows.map(mapDbSettlementToModel),
-      });
+    const dbLedger = await db('ledgers').where({ id: ledgerId }).first();
+    if (!dbLedger) {
+      throw new NotFoundError(`Ledger ${ledgerId} not found`);
     }
+    await assertLedgerMember(ledgerId, callerId);
 
-    const ledger = inMemoryLedgers.get(ledgerId);
-    if (!ledger) {
-      const dbLedger = await db('ledgers').where({ id: ledgerId }).first();
-      if (!dbLedger) {
-        throw new NotFoundError(`Ledger ${ledgerId} not found`);
-      }
-      return res.json({ data: [] });
-    }
-
+    const settlements = await listSettlementsForLedger(ledgerId);
     res.json({
-      data: ledger.settlements || [],
+      data: settlements,
     });
   } catch (err) {
     next(err);

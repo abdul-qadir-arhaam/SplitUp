@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,10 +6,12 @@ import '../../../core/money/paise.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/typography.dart';
 import '../../../core/widgets/widgets.dart';
+import '../../../core/auth/auth_provider.dart';
 import '../data/trips_repository.dart';
 import '../domain/trip_model.dart';
 import '../../notifications/data/notifications_repository.dart';
 import '../../expenses/presentation/add_expense_screen.dart';
+import '../../expenses/presentation/expense_detail_sheet.dart';
 import '../../expenses/data/expenses_repository.dart';
 import '../../expenses/domain/expense_model.dart';
 import '../../settlements/presentation/settle_sheet.dart';
@@ -23,21 +26,50 @@ class TripDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   final _budgetController = TextEditingController();
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncTripData();
+    });
+
+    // Rule R9: 15-second poll while trip page is open
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) {
+        _syncTripData();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     _budgetController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncTripData();
+    }
+  }
+
+  Future<void> _syncTripData() async {
+    try {
+      ref.invalidate(tripDetailProvider(widget.tripId));
+      ref.invalidate(tripDashboardProvider(widget.tripId));
+      await ref.read(expensesNotifierProvider.notifier).syncExpensesForLedger(widget.tripId);
+    } catch (_) {}
   }
 
   Color _getMeterColor(double spentPercent, SplitUpColors colors) {
@@ -188,6 +220,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
   }
 
   void _showMembersSheet(TripModel trip) {
+    final currentUserId = (ref.read(authNotifierProvider).user?.id?.isNotEmpty ?? false) ? ref.read(authNotifierProvider).user!.id : 'usr_arhaam';
     final members = trip.members.map((m) {
       return MemberDisplayInfo(
         userId: m.userId,
@@ -197,7 +230,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
         role: m.role,
         netPaise: m.netPaise,
         isAppUser: m.isAppUser,
-        isMe: m.userId == 'usr_arhaam',
+        isMe: m.userId == currentUserId,
       );
     }).toList();
 
@@ -255,10 +288,110 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
 
     return asyncTrip.when(
       loading: () => const SplitUpLoadingView(message: 'Loading trip details...'),
-      error: (e, _) => Scaffold(
-        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-        body: Center(child: Text('Error: $e')),
-      ),
+      error: (e, _) {
+        final cachedTrips = ref.watch(tripsNotifierProvider).maybeWhen(
+              data: (list) => list,
+              orElse: () => <TripModel>[],
+            );
+        final cachedTrip = cachedTrips.where((t) => t.id == widget.tripId).firstOrNull;
+
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: Icon(Icons.arrow_back_ios_new_rounded, color: colors.textPrimary, size: 20),
+              onPressed: () => context.pop(),
+            ),
+            title: Text(cachedTrip?.name ?? 'Trip', style: SplitUpTypography.title(color: colors.textPrimary)),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: 'Retry',
+                onPressed: () => ref.invalidate(tripDetailProvider(widget.tripId)),
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                color: colors.accentOwe.withValues(alpha: 0.15),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 18, color: colors.accentOwe),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        cachedTrip != null
+                            ? 'Offline mode: displaying cached trip data.'
+                            : 'Could not load trip details.',
+                        style: SplitUpTypography.caption(color: colors.textPrimary),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => ref.invalidate(tripDetailProvider(widget.tripId)),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: cachedTrip != null
+                    ? ListView(
+                        padding: const EdgeInsets.all(20),
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceFlat,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: colors.divider),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(cachedTrip.name, style: SplitUpTypography.title(color: colors.textPrimary)),
+                                const SizedBox(height: 8),
+                                Text('Budget: ${formatPaise(cachedTrip.budgetPaise)}',
+                                    style: SplitUpTypography.body(color: colors.textSecondary)),
+                                const SizedBox(height: 4),
+                                Text('Total Spent: ${formatPaise(cachedTrip.totalSpentPaise)}',
+                                    style: SplitUpTypography.body(color: colors.textSecondary)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text('Members (${cachedTrip.membersCount})',
+                              style: SplitUpTypography.title(color: colors.textPrimary)),
+                          const SizedBox(height: 12),
+                          ...cachedTrip.members.map((m) => ListTile(
+                                dense: true,
+                                title: Text(m.name, style: TextStyle(color: colors.textPrimary)),
+                                subtitle: Text(m.role, style: TextStyle(color: colors.textMuted)),
+                                trailing: MoneyText(m.netPaise, variant: MoneyVariant.body),
+                              )),
+                        ],
+                      )
+                    : Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('Error: $e', style: TextStyle(color: colors.accentOwe)),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () => ref.invalidate(tripDetailProvider(widget.tripId)),
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
       data: (trip) {
         final meter = trip.budgetMeter ??
             TripsRepository.computeBudgetMeter(
@@ -386,12 +519,13 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
             backgroundColor: colors.accentReceive,
             foregroundColor: Colors.white,
             onPressed: () {
+              final currentUserId = (ref.read(authNotifierProvider).user?.id?.isNotEmpty ?? false) ? ref.read(authNotifierProvider).user!.id : 'usr_arhaam';
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (ctx) => AddExpenseScreen(
                     initialLedgerId: trip.id,
                     initialMembers: trip.members.map((m) {
-                      final isMe = m.userId == 'usr_arhaam';
+                      final isMe = m.userId == currentUserId;
                       return {
                         'id': m.userId,
                         'name': isMe ? 'You' : m.name,
@@ -784,43 +918,47 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
         const SizedBox(height: 10),
 
         ...allExpenses.map((exp) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: colors.surfaceFlat,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: colors.divider),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceFlatRaised,
-                    borderRadius: BorderRadius.circular(12),
+          return InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => ExpenseDetailSheet.show(context, exp),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colors.surfaceFlat,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.divider),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceFlatRaised,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      exp.category == 'food'
+                          ? Icons.restaurant_rounded
+                          : (exp.category == 'travel' ? Icons.directions_car_rounded : Icons.receipt_long_rounded),
+                      size: 20,
+                      color: colors.accentBrass,
+                    ),
                   ),
-                  child: Icon(
-                    exp.category == 'food'
-                        ? Icons.restaurant_rounded
-                        : (exp.category == 'travel' ? Icons.directions_car_rounded : Icons.receipt_long_rounded),
-                    size: 20,
-                    color: colors.accentBrass,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(exp.title, style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
+                        const SizedBox(height: 2),
+                        Text('Paid by ${exp.payers.first.userId}', style: SplitUpTypography.caption(color: colors.textMuted)),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(exp.title, style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15)),
-                      const SizedBox(height: 2),
-                      Text('Paid by ${exp.payers.first.userId}', style: SplitUpTypography.caption(color: colors.textMuted)),
-                    ],
-                  ),
-                ),
-                MoneyText(exp.totalPaise, variant: MoneyVariant.body, colored: false),
-              ],
+                  MoneyText(exp.totalPaise, variant: MoneyVariant.body, colored: false),
+                ],
+              ),
             ),
           );
         }),
@@ -918,9 +1056,10 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
               (m) => m.userId == link.toUserId,
               orElse: () => TripMember(userId: link.toUserId, name: link.toUserId, phoneE164: '', role: 'MEMBER', netPaise: 0, isAppUser: true),
             );
-            final fromName = link.fromUserId == 'usr_arhaam' ? 'You' : fromMember.name;
-            final toName = link.toUserId == 'usr_arhaam' ? 'You' : toMember.name;
-            final isUserPaying = link.fromUserId == 'usr_arhaam';
+            final currentUserId = (ref.watch(authNotifierProvider).user?.id?.isNotEmpty ?? false) ? ref.watch(authNotifierProvider).user!.id : 'usr_arhaam';
+            final fromName = link.fromUserId == currentUserId ? 'You' : fromMember.name;
+            final toName = link.toUserId == currentUserId ? 'You' : toMember.name;
+            final isUserPaying = link.fromUserId == currentUserId;
 
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
@@ -941,7 +1080,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen>
                         Text(
                           isUserPaying
                               ? 'Pay $toName'
-                              : (link.toUserId == 'usr_arhaam'
+                              : (link.toUserId == currentUserId
                                   ? '$fromName owes you'
                                   : '$fromName owes $toName'),
                           style: SplitUpTypography.title(color: colors.textPrimary).copyWith(fontSize: 15),

@@ -235,6 +235,36 @@ class ExpensesRepository {
     throw const ApiException('Server did not return created expense data. Please try again.');
   }
 
+  Future<ExpenseModel> getExpenseById(String expenseId, {String? ledgerId}) async {
+    await _ensureLoaded();
+    final local = _expenses.where((e) => e.id == expenseId).firstOrNull;
+    if (local != null) return local;
+
+    // Fetch from server: GET /v1/expenses/:id
+    try {
+      final res = await ApiClient().get('/v1/expenses/$expenseId');
+      if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+        final exp = ExpenseModel.fromJson(res['data'] as Map<String, dynamic>);
+        final idx = _expenses.indexWhere((e) => e.id == exp.id);
+        if (idx != -1) {
+          _expenses[idx] = exp;
+        } else {
+          _expenses.add(exp);
+        }
+        await _saveToStorage();
+        return exp;
+      }
+    } catch (_) {}
+
+    if (ledgerId != null) {
+      final list = await syncExpensesForLedger(ledgerId);
+      final found = list.where((e) => e.id == expenseId).firstOrNull;
+      if (found != null) return found;
+    }
+
+    throw Exception('Expense not found');
+  }
+
   Future<void> editExpense(
     String expenseId, {
     required String title,
@@ -244,14 +274,27 @@ class ExpensesRepository {
     required List<ExpensePayer> payers,
     required List<ExpenseSplit> splits,
     String? friendId,
+    String? ledgerId,
   }) async {
     await _ensureLoaded();
-    final index = _expenses.indexWhere((e) => e.id == expenseId);
-    if (index == -1) throw Exception('Expense not found');
+    var index = _expenses.indexWhere((e) => e.id == expenseId);
+    if (index == -1 && ledgerId != null) {
+      await syncExpensesForLedger(ledgerId);
+      index = _expenses.indexWhere((e) => e.id == expenseId);
+    }
+    if (index == -1) {
+      try {
+        final fetched = await getExpenseById(expenseId, ledgerId: ledgerId);
+        index = _expenses.indexWhere((e) => e.id == fetched.id);
+      } catch (_) {}
+    }
 
     final currentUserId = await _getCurrentUserId();
+    final path = (ledgerId != null && ledgerId.isNotEmpty)
+        ? '/v1/ledgers/$ledgerId/expenses/$expenseId'
+        : '/v1/expenses/$expenseId';
 
-    await ApiClient().patch('/v1/expenses/$expenseId', {
+    final res = await ApiClient().patch(path, {
       'title': title,
       'totalPaise': totalPaise,
       'category': category.toLowerCase(),
@@ -264,15 +307,32 @@ class ExpensesRepository {
       }).toList(),
     });
 
-    final old = _expenses[index];
-    _expenses[index] = old.copyWith(
-      title: title,
-      totalPaise: totalPaise,
-      category: category,
-      splitType: splitType,
-      payers: payers,
-      splits: splits,
-    );
+    ExpenseModel updatedExpense;
+    if (res != null && res is Map<String, dynamic> && res.containsKey('data')) {
+      updatedExpense = ExpenseModel.fromJson(res['data'] as Map<String, dynamic>);
+    } else {
+      final old = index != -1 ? _expenses[index] : null;
+      updatedExpense = ExpenseModel(
+        id: expenseId,
+        ledgerId: ledgerId ?? (old?.ledgerId ?? ''),
+        title: title,
+        totalPaise: totalPaise,
+        category: category,
+        splitType: splitType,
+        expenseDate: old?.expenseDate ?? DateTime.now().toIso8601String().split('T')[0],
+        payers: payers,
+        splits: splits,
+        createdBy: old?.createdBy ?? currentUserId,
+        createdAt: old?.createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
+
+    if (index != -1) {
+      _expenses[index] = updatedExpense;
+    } else {
+      _expenses.insert(0, updatedExpense);
+    }
     await _saveToStorage();
 
     _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true).then((_) {
@@ -291,20 +351,28 @@ class ExpensesRepository {
     );
   }
 
-  Future<void> deleteExpense(String expenseId, {String? friendId}) async {
+  Future<void> deleteExpense(String expenseId, {String? friendId, String? ledgerId}) async {
     await _ensureLoaded();
-    final index = _expenses.indexWhere((e) => e.id == expenseId);
-    if (index == -1) throw Exception('Expense not found');
+    var index = _expenses.indexWhere((e) => e.id == expenseId);
+    if (index == -1 && ledgerId != null) {
+      await syncExpensesForLedger(ledgerId);
+      index = _expenses.indexWhere((e) => e.id == expenseId);
+    }
 
     final currentUserId = await _getCurrentUserId();
+    final path = (ledgerId != null && ledgerId.isNotEmpty)
+        ? '/v1/ledgers/$ledgerId/expenses/$expenseId'
+        : '/v1/expenses/$expenseId';
 
-    await ApiClient().delete('/v1/expenses/$expenseId');
+    await ApiClient().delete(path);
 
-    final old = _expenses[index];
-    _expenses[index] = old.copyWith(
-      deletedAt: DateTime.now(),
-      deletedBy: currentUserId,
-    );
+    if (index != -1) {
+      final old = _expenses[index];
+      _expenses[index] = old.copyWith(
+        deletedAt: DateTime.now(),
+        deletedBy: currentUserId,
+      );
+    }
     await _saveToStorage();
 
     _ref.read(friendsRepositoryProvider).fetchFriends(forceRefresh: true).then((_) {
@@ -318,7 +386,7 @@ class ExpensesRepository {
         action: 'EXPENSE_DELETED',
         actorUserId: currentUserId,
         createdAt: DateTime.now(),
-        payload: {'expenseId': expenseId, 'title': old.title},
+        payload: {'expenseId': expenseId},
       ),
     );
   }
@@ -425,6 +493,7 @@ class ExpensesNotifier extends AsyncNotifier<List<ExpenseModel>> {
     required List<ExpensePayer> payers,
     required List<ExpenseSplit> splits,
     String? friendId,
+    String? ledgerId,
   }) async {
     final repo = ref.read(expensesRepositoryProvider);
     await repo.editExpense(
@@ -436,13 +505,14 @@ class ExpensesNotifier extends AsyncNotifier<List<ExpenseModel>> {
       payers: payers,
       splits: splits,
       friendId: friendId,
+      ledgerId: ledgerId,
     );
     ref.invalidateSelf();
   }
 
-  Future<void> deleteExpense(String expenseId, {String? friendId}) async {
+  Future<void> deleteExpense(String expenseId, {String? friendId, String? ledgerId}) async {
     final repo = ref.read(expensesRepositoryProvider);
-    await repo.deleteExpense(expenseId, friendId: friendId);
+    await repo.deleteExpense(expenseId, friendId: friendId, ledgerId: ledgerId);
     ref.invalidateSelf();
   }
 

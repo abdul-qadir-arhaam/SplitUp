@@ -53,7 +53,7 @@ Run in this order. Foreign keys are listed after the tables they reference.
 -- 3.1 users
 -- =========================================================
 CREATE TABLE users (
-  id             CHAR(26)     NOT NULL,
+  id             VARCHAR(64)     NOT NULL,
   firebase_uid   VARCHAR(128) NULL,                -- NULL for placeholders and deleted users
   phone_e164     VARCHAR(16)  NULL,                -- e.g. +919876543210; NULL only when status = DELETED
   name           VARCHAR(100) NOT NULL,            -- profile name (placeholders: name given by the adder)
@@ -61,7 +61,7 @@ CREATE TABLE users (
   photo_url      VARCHAR(500) NULL,
   is_placeholder TINYINT(1)   NOT NULL DEFAULT 0,  -- 1 = not yet registered on the app
   status         VARCHAR(10)  NOT NULL DEFAULT 'ACTIVE',  -- ACTIVE | DELETED
-  created_by     CHAR(26)     NULL,                -- who first created this placeholder (NULL for real users)
+  created_by     VARCHAR(64)     NULL,                -- who first created this placeholder (NULL for real users)
   created_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   deleted_at     DATETIME(3)  NULL,
@@ -81,9 +81,9 @@ ALTER TABLE users
 -- 3.2 friendships  (two rows per friendship, one per viewer)
 -- =========================================================
 CREATE TABLE friendships (
-  owner_user_id        CHAR(26)     NOT NULL,      -- the viewer
-  friend_user_id       CHAR(26)     NOT NULL,
-  individual_ledger_id CHAR(26)     NOT NULL,      -- shared by both rows of the pair
+  owner_user_id        VARCHAR(64)     NOT NULL,      -- the viewer
+  friend_user_id       VARCHAR(64)     NOT NULL,
+  individual_ledger_id VARCHAR(64)     NOT NULL,      -- shared by both rows of the pair
   nickname             VARCHAR(100) NULL,          -- PRIVATE: never exposed to friend_user_id
   contact_name         VARCHAR(100) NULL,          -- name saved in the owner's phone contacts (synced from device)
   created_at           DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -98,8 +98,8 @@ CREATE TABLE friendships (
 -- 3.3 user_blocks
 -- =========================================================
 CREATE TABLE user_blocks (
-  blocker_user_id CHAR(26)    NOT NULL,
-  blocked_user_id CHAR(26)    NOT NULL,
+  blocker_user_id VARCHAR(64)    NOT NULL,
+  blocked_user_id VARCHAR(64)    NOT NULL,
   created_at      DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (blocker_user_id, blocked_user_id),
   KEY idx_blocks_blocked (blocked_user_id),
@@ -110,7 +110,7 @@ CREATE TABLE user_blocks (
 -- 3.4 ledgers  (INDIVIDUAL | GROUP | TRIP)
 -- =========================================================
 CREATE TABLE ledgers (
-  id             CHAR(26)     NOT NULL,
+  id             VARCHAR(64)     NOT NULL,
   type           VARCHAR(12)  NOT NULL,            -- INDIVIDUAL | GROUP | TRIP
   name           VARCHAR(100) NULL,                -- NULL for INDIVIDUAL
   photo_url      VARCHAR(500) NULL,
@@ -118,9 +118,9 @@ CREATE TABLE ledgers (
   start_date     DATE         NULL,                -- TRIP only (optional)
   end_date       DATE         NULL,                -- TRIP only (optional)
   status         VARCHAR(12)  NOT NULL DEFAULT 'ACTIVE',   -- ACTIVE | COMPLETED | ARCHIVED
-  pair_low_user_id  CHAR(26)  NULL,                -- INDIVIDUAL only: smaller user id of the pair
-  pair_high_user_id CHAR(26)  NULL,                -- INDIVIDUAL only: larger user id of the pair
-  created_by     CHAR(26)     NOT NULL,
+  pair_low_user_id  VARCHAR(64)  NULL,                -- INDIVIDUAL only: smaller user id of the pair
+  pair_high_user_id VARCHAR(64)  NULL,                -- INDIVIDUAL only: larger user id of the pair
+  created_by     VARCHAR(64)     NOT NULL,
   created_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   completed_at   DATETIME(3)  NULL,
@@ -162,10 +162,10 @@ ALTER TABLE user_blocks
 -- 3.5 ledger_members
 -- =========================================================
 CREATE TABLE ledger_members (
-  ledger_id  CHAR(26)    NOT NULL,
-  user_id    CHAR(26)    NOT NULL,
+  ledger_id  VARCHAR(64)    NOT NULL,
+  user_id    VARCHAR(64)    NOT NULL,
   role       VARCHAR(10) NOT NULL DEFAULT 'MEMBER',   -- ADMIN | MEMBER  (trip creator = ADMIN)
-  added_by   CHAR(26)    NULL,                        -- who added this member (used for "confirm on behalf" of placeholders)
+  added_by   VARCHAR(64)    NULL,                        -- who added this member (used for "confirm on behalf" of placeholders)
   joined_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   left_at    DATETIME(3) NULL,                        -- set when removed or left; row kept for history
   PRIMARY KEY (ledger_id, user_id),
@@ -180,19 +180,19 @@ CREATE TABLE ledger_members (
 -- 3.6 expenses
 -- =========================================================
 CREATE TABLE expenses (
-  id           CHAR(26)     NOT NULL,
-  ledger_id    CHAR(26)     NOT NULL,
+  id           VARCHAR(64)     NOT NULL,
+  ledger_id    VARCHAR(64)     NOT NULL,
   title        VARCHAR(120) NOT NULL,
   total_paise  BIGINT       NOT NULL,
   category     VARCHAR(20)  NOT NULL DEFAULT 'other',
   split_type   VARCHAR(10)  NOT NULL,              -- EQUAL | EXACT | PERCENT | SHARES
   expense_date DATE         NOT NULL,
   note         VARCHAR(500) NULL,
-  created_by   CHAR(26)     NOT NULL,
+  created_by   VARCHAR(64)     NOT NULL,
   created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   deleted_at   DATETIME(3)  NULL,                  -- soft delete
-  deleted_by   CHAR(26)     NULL,
+  deleted_by   VARCHAR(64)     NULL,
   PRIMARY KEY (id),
   KEY idx_expenses_ledger_date (ledger_id, deleted_at, expense_date, id),
   KEY idx_expenses_created_by (created_by),
@@ -209,8 +209,8 @@ CREATE TABLE expenses (
 -- 3.7 expense_payers  (who paid, may be several)
 -- =========================================================
 CREATE TABLE expense_payers (
-  expense_id CHAR(26) NOT NULL,
-  user_id    CHAR(26) NOT NULL,
+  expense_id VARCHAR(64) NOT NULL,
+  user_id    VARCHAR(64) NOT NULL,
   paid_paise BIGINT   NOT NULL,
   PRIMARY KEY (expense_id, user_id),
   KEY idx_payers_user (user_id),
@@ -223,8 +223,8 @@ CREATE TABLE expense_payers (
 -- 3.8 expense_splits  (who shared it, and each person's share)
 -- =========================================================
 CREATE TABLE expense_splits (
-  expense_id  CHAR(26)    NOT NULL,
-  user_id     CHAR(26)    NOT NULL,
+  expense_id  VARCHAR(64)    NOT NULL,
+  user_id     VARCHAR(64)    NOT NULL,
   included    TINYINT(1)  NOT NULL DEFAULT 1,      -- 0 = "Not there" (owed_paise must be 0)
   owed_paise  BIGINT      NOT NULL DEFAULT 0,      -- final share after rounding (authoritative)
   split_value INT         NULL,                    -- input used: exact amount ignored; percent in basis points
@@ -241,9 +241,9 @@ CREATE TABLE expense_splits (
 -- 3.9 disputes
 -- =========================================================
 CREATE TABLE disputes (
-  id          CHAR(26)    NOT NULL,
-  expense_id  CHAR(26)    NOT NULL,
-  raised_by   CHAR(26)    NOT NULL,
+  id          VARCHAR(64)    NOT NULL,
+  expense_id  VARCHAR(64)    NOT NULL,
+  raised_by   VARCHAR(64)    NOT NULL,
   created_at  DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   UNIQUE KEY uq_disputes_once (expense_id, raised_by),
@@ -255,14 +255,14 @@ CREATE TABLE disputes (
 -- 3.10 offsets  (links one GROUP settlement and one INDIVIDUAL settlement)
 -- =========================================================
 CREATE TABLE offsets (
-  id                    CHAR(26)    NOT NULL,
-  group_ledger_id       CHAR(26)    NOT NULL,
-  individual_ledger_id  CHAR(26)    NOT NULL,
-  from_user_id          CHAR(26)    NOT NULL,   -- the person who owes in the GROUP and initiates
-  to_user_id            CHAR(26)    NOT NULL,   -- the receiver in the GROUP (confirms)
+  id                    VARCHAR(64)    NOT NULL,
+  group_ledger_id       VARCHAR(64)    NOT NULL,
+  individual_ledger_id  VARCHAR(64)    NOT NULL,
+  from_user_id          VARCHAR(64)    NOT NULL,   -- the person who owes in the GROUP and initiates
+  to_user_id            VARCHAR(64)    NOT NULL,   -- the receiver in the GROUP (confirms)
   amount_paise          BIGINT      NOT NULL,
   status                VARCHAR(10) NOT NULL DEFAULT 'PENDING',
-  created_by            CHAR(26)    NOT NULL,
+  created_by            VARCHAR(64)    NOT NULL,
   created_at            DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   responded_at          DATETIME(3) NULL,
   PRIMARY KEY (id),
@@ -282,17 +282,17 @@ CREATE TABLE offsets (
 -- 3.11 settlements
 -- =========================================================
 CREATE TABLE settlements (
-  id                  CHAR(26)    NOT NULL,
-  ledger_id           CHAR(26)    NOT NULL,
-  from_user_id        CHAR(26)    NOT NULL,       -- the SENDER of money (creates the request)
-  to_user_id          CHAR(26)    NOT NULL,       -- the RECEIVER (confirms or rejects)
+  id                  VARCHAR(64)    NOT NULL,
+  ledger_id           VARCHAR(64)    NOT NULL,
+  from_user_id        VARCHAR(64)    NOT NULL,       -- the SENDER of money (creates the request)
+  to_user_id          VARCHAR(64)    NOT NULL,       -- the RECEIVER (confirms or rejects)
   amount_paise        BIGINT      NOT NULL,
   method              VARCHAR(10) NOT NULL DEFAULT 'CASH',   -- CASH | UPI | OFFSET | OTHER
   status              VARCHAR(10) NOT NULL DEFAULT 'PENDING',-- PENDING | CONFIRMED | REJECTED | OUTDATED | CANCELLED
-  offset_id           CHAR(26)    NULL,           -- set for both entries of an offset
-  replaced_by_id      CHAR(26)    NULL,           -- set on the old record when resubmitted
-  created_by          CHAR(26)    NOT NULL,       -- normally = from_user_id
-  responded_by        CHAR(26)    NULL,           -- who confirmed/rejected (receiver, or the person acting on behalf)
+  offset_id           VARCHAR(64)    NULL,           -- set for both entries of an offset
+  replaced_by_id      VARCHAR(64)    NULL,           -- set on the old record when resubmitted
+  created_by          VARCHAR(64)    NOT NULL,       -- normally = from_user_id
+  responded_by        VARCHAR(64)    NULL,           -- who confirmed/rejected (receiver, or the person acting on behalf)
   confirmed_on_behalf TINYINT(1)  NOT NULL DEFAULT 0,  -- 1 = self-confirmed (unverified) for a placeholder receiver
   reminder_count      TINYINT     NOT NULL DEFAULT 0,
   last_reminded_at    DATETIME(3) NULL,
@@ -322,9 +322,9 @@ CREATE TABLE settlements (
 -- =========================================================
 CREATE TABLE settlement_events (
   id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  settlement_id  CHAR(26)    NOT NULL,
+  settlement_id  VARCHAR(64)    NOT NULL,
   status         VARCHAR(10) NOT NULL,
-  actor_user_id  CHAR(26)    NOT NULL,
+  actor_user_id  VARCHAR(64)    NOT NULL,
   created_at     DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
   KEY idx_sevents_settlement (settlement_id, id),
@@ -337,13 +337,13 @@ CREATE TABLE settlement_events (
 -- =========================================================
 CREATE TABLE activity_log (
   id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  ledger_id      CHAR(26)     NOT NULL,
-  actor_user_id  CHAR(26)     NOT NULL,
+  ledger_id      VARCHAR(64)     NOT NULL,
+  actor_user_id  VARCHAR(64)     NOT NULL,
   action         VARCHAR(40)  NOT NULL,   -- EXPENSE_CREATED, EXPENSE_EDITED, EXPENSE_DELETED, EXPENSE_DISPUTED,
                                           -- BUDGET_CHANGED, MEMBER_ADDED, MEMBER_REMOVED, MEMBER_LEFT,
                                           -- LEDGER_RENAMED, LEDGER_COMPLETED, SETTLEMENT_<STATUS>, ...
   entity_type    VARCHAR(20)  NOT NULL,   -- expense | settlement | ledger | member
-  entity_id      CHAR(26)     NULL,
+  entity_id      VARCHAR(64)     NULL,
   payload        JSON         NULL,       -- before/after values, e.g. {"from_paise":120000,"to_paise":100000}
   created_at     DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
@@ -357,7 +357,7 @@ CREATE TABLE activity_log (
 -- 3.14 trip_budget_alerts  (send each threshold only once per trip)
 -- =========================================================
 CREATE TABLE trip_budget_alerts (
-  ledger_id  CHAR(26)    NOT NULL,
+  ledger_id  VARCHAR(64)    NOT NULL,
   threshold  SMALLINT    NOT NULL,            -- 80 or 100
   sent_at    DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (ledger_id, threshold),
@@ -369,8 +369,8 @@ CREATE TABLE trip_budget_alerts (
 -- 3.15 notifications  (in-app feed; FCM push is sent in addition)
 -- =========================================================
 CREATE TABLE notifications (
-  id            CHAR(26)    NOT NULL,
-  user_id       CHAR(26)    NOT NULL,          -- recipient
+  id            VARCHAR(64)    NOT NULL,
+  user_id       VARCHAR(64)    NOT NULL,          -- recipient
   type          VARCHAR(40) NOT NULL,          -- FRIEND_ADDED, FRIEND_JOINED, ADDED_TO_GROUP, ADDED_TO_TRIP,
                                                -- SETTLEMENT_REQUESTED, SETTLEMENT_CONFIRMED, SETTLEMENT_REJECTED,
                                                -- SETTLEMENT_OUTDATED, OFFSET_REQUESTED, OFFSET_RESULT,
@@ -391,8 +391,8 @@ CREATE TABLE notifications (
 -- 3.16 device_tokens  (FCM)
 -- =========================================================
 CREATE TABLE device_tokens (
-  id           CHAR(26)     NOT NULL,
-  user_id      CHAR(26)     NOT NULL,
+  id           VARCHAR(64)     NOT NULL,
+  user_id      VARCHAR(64)     NOT NULL,
   fcm_token    VARCHAR(512) NOT NULL,
   platform     VARCHAR(10)  NOT NULL DEFAULT 'android',
   created_at   DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -407,11 +407,11 @@ CREATE TABLE device_tokens (
 -- 3.17 idempotency_keys
 -- =========================================================
 CREATE TABLE idempotency_keys (
-  user_id         CHAR(26)     NOT NULL,
+  user_id         VARCHAR(64)     NOT NULL,
   key_value       VARCHAR(64)  NOT NULL,       -- client-generated UUID
   request_hash    CHAR(64)     NOT NULL,       -- SHA-256 of method + path + body; same key with different body = error
   resource_type   VARCHAR(20)  NULL,
-  resource_id     CHAR(26)     NULL,
+  resource_id     VARCHAR(64)     NULL,
   response_status SMALLINT     NULL,
   response_body   JSON         NULL,
   created_at      DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
