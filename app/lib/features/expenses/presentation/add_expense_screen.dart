@@ -89,7 +89,7 @@ class _AddExpenseScreenState extends ConsumerState<AddExpenseScreen> {
         _syncPayerController(_payerUserId, exp.payers.first.paidPaise);
       }
     } else {
-      _amountController = TextEditingController(text: '1200');
+      _amountController = TextEditingController(text: '');
       _titleController = TextEditingController(text: '');
       final myUserId = ref.read(authNotifierProvider).user?.id ?? 'usr_arhaam';
       _payerUserId = myUserId;

@@ -75,6 +75,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Enter amount 1200
+      await tester.enterText(find.byType(TextField).first, '1200');
+      await tester.pumpAndSettle();
+
       // Check "Split payers" button is visible
       expect(find.text('Split payers'), findsOneWidget);
       expect(find.byIcon(Icons.tune_rounded), findsOneWidget);
@@ -112,6 +116,10 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
+
+      // Enter amount 1200
+      await tester.enterText(find.byType(TextField).first, '1200');
       await tester.pumpAndSettle();
 
       // Tap "Split payers"
@@ -153,6 +161,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Enter amount 1200
+      await tester.enterText(find.byType(TextField).first, '1200');
+      await tester.pumpAndSettle();
+
       // Tap "Split payers"
       await tester.tap(find.text('Split payers'));
       await tester.pumpAndSettle();
@@ -189,6 +201,10 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
+
+      // Enter amount 1200
+      await tester.enterText(find.byType(TextField).first, '1200');
       await tester.pumpAndSettle();
 
       // Tap "Split payers"
